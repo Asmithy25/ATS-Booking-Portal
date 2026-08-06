@@ -1,9 +1,10 @@
 import { Router } from "express";
 import type { CookieOptions } from "express";
-import { signPayload, verifyPayload, STAFF_ACCOUNTS, SESSION_COOKIE, ADMIN_EMAIL, verifyPassword } from "../middleware/auth";
+import { signPayload, verifyPayload, STAFF_ACCOUNTS, SESSION_COOKIE, CLIENT_SESSION_COOKIE, ADMIN_EMAIL, verifyPassword, requireClientAuth } from "../middleware/auth";
 import { db } from "@workspace/db";
-import { staffAccountsTable } from "@workspace/db";
+import { staffAccountsTable, clientAccountsTable, bookingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { hashPassword } from "../middleware/auth";
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.post("/login", async (req, res) => {
       return;
     }
     issueSession(res, key, hardcoded.name, keepSignedIn);
-    res.json({ success: true, staffName: hardcoded.name });
+    res.json({ success: true, staffName: hardcoded.name, role: "founder", permissions: {} });
     return;
   }
 
@@ -41,7 +42,7 @@ router.post("/login", async (req, res) => {
   }
 
   issueSession(res, key, rows[0].name, keepSignedIn);
-  res.json({ success: true, staffName: rows[0].name });
+  res.json({ success: true, staffName: rows[0].name, role: rows[0].role, permissions: rows[0].permissions });
 });
 
 router.post("/logout", (_req, res) => {
@@ -80,13 +81,93 @@ router.get("/me", async (req, res) => {
     return;
   }
 
+  const staff = isHardcoded
+    ? { role: "founder", permissions: {} as Record<string, boolean> }
+    : (await db.select({ role: staffAccountsTable.role, permissions: staffAccountsTable.permissions }).from(staffAccountsTable).where(eq(staffAccountsTable.email, session.email)).limit(1))[0];
+
   res.json({
     authenticated: true,
     staffName: session.name,
     email: session.email,
     isAdmin: session.email === ADMIN_EMAIL,
+    role: staff?.role ?? "therapist",
+    permissions: staff?.permissions ?? {},
   });
 });
+
+router.post("/client/signup", async (req, res) => {
+  const { email, password, name, phone } = req.body as Record<string, string>;
+  const normalizedEmail = (email ?? "").toLowerCase().trim();
+  if (!normalizedEmail || !password || !name?.trim() || !phone?.trim()) {
+    res.status(400).json({ error: "Name, email, phone, and password are required." });
+    return;
+  }
+  if (password.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters." });
+    return;
+  }
+  const existing = await db.select({ id: clientAccountsTable.id }).from(clientAccountsTable).where(eq(clientAccountsTable.email, normalizedEmail)).limit(1);
+  if (existing.length) {
+    res.status(409).json({ error: "An account with that email already exists." });
+    return;
+  }
+  const [client] = await db.insert(clientAccountsTable).values({
+    email: normalizedEmail,
+    passwordHash: hashPassword(password),
+    name: name.trim().slice(0, 120),
+    phone: phone.trim().slice(0, 40),
+  }).returning({ id: clientAccountsTable.id, email: clientAccountsTable.email, name: clientAccountsTable.name });
+  issueClientSession(res, { id: String(client.id), email: client.email, name: client.name }, true);
+  res.status(201).json({ authenticated: true, client: { id: client.id, email: client.email, name: client.name } });
+});
+
+router.post("/client/login", async (req, res) => {
+  const { email, password, keepSignedIn } = req.body as { email?: string; password?: string; keepSignedIn?: boolean };
+  const normalizedEmail = (email ?? "").toLowerCase().trim();
+  const [client] = await db.select().from(clientAccountsTable).where(eq(clientAccountsTable.email, normalizedEmail)).limit(1);
+  if (!client || !password || !verifyPassword(password, client.passwordHash)) {
+    res.status(401).json({ error: "Invalid email or password." });
+    return;
+  }
+  issueClientSession(res, { id: String(client.id), email: client.email, name: client.name }, Boolean(keepSignedIn));
+  res.json({ authenticated: true, client: { id: client.id, email: client.email, name: client.name } });
+});
+
+router.post("/client/logout", (_req, res) => {
+  res.clearCookie(CLIENT_SESSION_COOKIE, { path: "/" });
+  res.json({ message: "Logged out." });
+});
+
+router.get("/client/me", requireClientAuth, async (req, res) => {
+  const id = Number((req as import("../middleware/auth").RequestWithClientSession).clientSession?.id);
+  const [client] = await db.select({
+    id: clientAccountsTable.id,
+    email: clientAccountsTable.email,
+    name: clientAccountsTable.name,
+    phone: clientAccountsTable.phone,
+    createdAt: clientAccountsTable.createdAt,
+  }).from(clientAccountsTable).where(eq(clientAccountsTable.id, id)).limit(1);
+  if (!client) {
+    res.status(401).json({ error: "Account not found." });
+    return;
+  }
+  res.json({ authenticated: true, client: { ...client, createdAt: client.createdAt.toISOString() } });
+});
+
+function issueClientSession(
+  res: import("express").Response,
+  client: { id: string; email: string; name: string },
+  keepSignedIn: boolean,
+) {
+  const cookieOptions: CookieOptions = {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  };
+  if (keepSignedIn) cookieOptions.maxAge = 30 * 24 * 60 * 60 * 1000;
+  res.cookie(CLIENT_SESSION_COOKIE, signPayload(client), cookieOptions);
+}
 
 function issueSession(res: import('express').Response, email: string, name: string, keepSignedIn: boolean) {
   const signed = signPayload({ email, name });

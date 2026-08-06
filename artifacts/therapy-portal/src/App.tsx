@@ -12,6 +12,13 @@ const Bookings = lazy(() => import('@/pages/staff/dashboard/bookings'));
 const Clients = lazy(() => import('@/pages/staff/dashboard/clients'));
 const Settings = lazy(() => import('@/pages/staff/dashboard/settings'));
 const Employees = lazy(() => import('@/pages/staff/dashboard/employees'));
+const Analytics = lazy(() => import('@/pages/staff/dashboard/analytics'));
+const Activity = lazy(() => import('@/pages/staff/dashboard/activity'));
+const Announcements = lazy(() => import('@/pages/staff/dashboard/announcements'));
+const Support = lazy(() => import('@/pages/staff/dashboard/support'));
+const MessageTemplates = lazy(() => import('@/pages/staff/dashboard/message-templates'));
+const ClientAuth = lazy(() => import('@/pages/client/auth'));
+const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const NotFound = lazy(() => import('@/pages/not-found'));
 
 const queryClient = new QueryClient();
@@ -23,6 +30,11 @@ function StaffRouter() {
         <Route path="/staff/dashboard" component={Bookings} />
         <Route path="/staff/bookings" component={Bookings} />
         <Route path="/staff/clients" component={Clients} />
+          <Route path="/staff/analytics" component={Analytics} />
+          <Route path="/staff/activity" component={Activity} />
+          <Route path="/staff/announcements" component={Announcements} />
+          <Route path="/staff/support" component={Support} />
+          <Route path="/staff/messages" component={MessageTemplates} />
         <Route path="/staff/settings" component={Settings} />
         <Route path="/staff/employees" component={Employees} />
         <Route component={NotFound} />
@@ -38,6 +50,8 @@ function Router() {
       <Route path="/booking/:code" component={BookingManage} />
       <Route path="/staff" component={Login} />
       <Route path="/staff/login" component={Login} />
+      <Route path="/portal/login" component={ClientAuth} />
+      <Route path="/portal" component={ClientPortal} />
       <Route path="/staff/*" component={StaffRouter} />
       <Route component={NotFound} />
     </Switch>

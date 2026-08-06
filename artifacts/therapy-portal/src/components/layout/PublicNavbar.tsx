@@ -34,6 +34,9 @@ export function PublicNavbar() {
           <Link href="/staff/login" data-testid="link-staff-portal" className="hidden md:inline-flex text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             Staff Portal
           </Link>
+          <Link href="/portal/login" data-testid="link-client-portal" className="hidden md:inline-flex text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+            Client Portal
+          </Link>
           <Button data-testid="button-get-started" onClick={() => handleScrollTo('book')} className="rounded-full px-6 shadow-sm">
             Get Started
           </Button>
@@ -46,6 +49,7 @@ export function PublicNavbar() {
         <button data-testid="button-mobile-about" onClick={() => { handleScrollTo('about'); setMenuOpen(false); }} className="block w-full text-left rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted">About the practice</button>
         <button data-testid="button-mobile-book" onClick={() => { handleScrollTo('book'); setMenuOpen(false); }} className="block w-full text-left rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted">Book a session</button>
         <Link href="/staff/login" data-testid="link-mobile-staff" onClick={() => setMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted">Staff portal</Link>
+        <Link href="/portal/login" data-testid="link-mobile-client" onClick={() => setMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted">Client portal</Link>
       </div>}
     </header>
   );

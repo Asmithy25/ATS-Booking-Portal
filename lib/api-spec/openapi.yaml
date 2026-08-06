@@ -563,16 +563,23 @@ components:
 
     LoginResult:
       type: object
-      required: [success, staffName]
+      required: [success, staffName, role, permissions]
       properties:
         success:
           type: boolean
         staffName:
           type: string
+        role:
+          type: string
+          enum: [founder, manager, therapist, customer_service_representative]
+        permissions:
+          type: object
+          additionalProperties:
+            type: boolean
 
     SessionInfo:
       type: object
-      required: [authenticated, staffName, email, isAdmin]
+      required: [authenticated, staffName, email, isAdmin, role, permissions]
       properties:
         authenticated:
           type: boolean
@@ -584,6 +591,13 @@ components:
         isAdmin:
           type: boolean
           description: True only for the primary admin account (ayden@)
+        role:
+          type: string
+          enum: [founder, manager, therapist, customer_service_representative]
+        permissions:
+          type: object
+          additionalProperties:
+            type: boolean
 
     Booking:
       type: object
@@ -608,7 +622,7 @@ components:
           description: HH:MM format (24h)
         status:
           type: string
-          enum: [pending, claimed, completed, cancelled]
+          enum: [pending, claimed, completed, cancelled, no_show]
         claimedBy:
           type: ["string", "null"]
           description: Staff name who claimed the booking
@@ -650,7 +664,7 @@ components:
       properties:
         status:
           type: string
-          enum: [pending, claimed, completed, cancelled]
+          enum: [pending, claimed, completed, cancelled, no_show]
         claimedBy:
           type: ["string", "null"]
         sessionNotes:
@@ -664,7 +678,7 @@ components:
 
     BookingStats:
       type: object
-      required: [total, pending, claimed, completed, cancelled, returningClients]
+      required: [total, pending, claimed, completed, cancelled, noShow, returningClients]
       properties:
         total:
           type: integer
@@ -675,6 +689,8 @@ components:
         completed:
           type: integer
         cancelled:
+          type: integer
+        noShow:
           type: integer
         returningClients:
           type: integer
@@ -816,7 +832,7 @@ components:
 
     StaffAccount:
       type: object
-      required: [id, email, name, officeHours, createdBy, createdAt]
+      required: [id, email, name, role, permissions, bio, photoUrl, isVisible, officeHours, createdBy, createdAt]
       properties:
         id:
           type: integer
@@ -825,6 +841,19 @@ components:
           format: email
         name:
           type: string
+        role:
+          type: string
+          enum: [manager, therapist, customer_service_representative]
+        permissions:
+          type: object
+          additionalProperties:
+            type: boolean
+        bio:
+          type: string
+        photoUrl:
+          type: string
+        isVisible:
+          type: boolean
         officeHours:
           $ref: "#/components/schemas/OfficeHours"
         createdBy:
@@ -846,6 +875,13 @@ components:
         password:
           type: string
           minLength: 8
+        role:
+          type: string
+          enum: [manager, therapist, customer_service_representative]
+        permissions:
+          type: object
+          additionalProperties:
+            type: boolean
 
     StaffAccountUpdate:
       type: object
@@ -858,6 +894,19 @@ components:
           minLength: 1
         officeHours:
           $ref: "#/components/schemas/OfficeHours"
+        role:
+          type: string
+          enum: [manager, therapist, customer_service_representative]
+        permissions:
+          type: object
+          additionalProperties:
+            type: boolean
+        bio:
+          type: string
+        photoUrl:
+          type: string
+        isVisible:
+          type: boolean
 
     ResetPasswordInput:
       type: object

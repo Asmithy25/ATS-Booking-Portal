@@ -2,7 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { bookingsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requirePermission } from "../middleware/auth";
+import { recordAudit } from "../lib/audit";
 import crypto from "crypto";
 
 const router = Router();
@@ -27,7 +28,7 @@ function serializeBooking(b: typeof bookingsTable.$inferSelect & { isReturningCl
 }
 
 // GET /bookings - list all (staff only)
-router.get("/", requireAuth, async (req, res) => {
+router.get("/", requirePermission("viewClients"), async (req, res) => {
   try {
     const all = await db
       .select()
@@ -113,7 +114,7 @@ router.post("/", async (req, res) => {
 });
 
 // GET /bookings/stats - stats (staff only) — MUST be before /:id
-router.get("/stats", requireAuth, async (req, res) => {
+router.get("/stats", requirePermission("viewAnalytics"), async (req, res) => {
   try {
     const all = await db.select().from(bookingsTable);
     const total = all.length;
@@ -121,6 +122,7 @@ router.get("/stats", requireAuth, async (req, res) => {
     const claimed = all.filter((b) => b.status === "claimed").length;
     const completed = all.filter((b) => b.status === "completed").length;
     const cancelled = all.filter((b) => b.status === "cancelled").length;
+    const noShow = all.filter((b) => b.status === "no_show").length;
 
     const phoneCounts: Record<string, number> = {};
     for (const b of all) {
@@ -130,7 +132,7 @@ router.get("/stats", requireAuth, async (req, res) => {
       (c) => c > 1,
     ).length;
 
-    res.json({ total, pending, claimed, completed, cancelled, returningClients });
+    res.json({ total, pending, claimed, completed, cancelled, noShow, returningClients });
   } catch (err) {
     req.log.error({ err }, "Failed to get stats");
     res.status(500).json({ error: "Internal server error." });
@@ -242,7 +244,7 @@ router.patch("/confirm/:code", async (req, res) => {
 });
 
 // POST /bookings/staff - staff-initiated booking (auth required)
-router.post("/staff", requireAuth, async (req, res) => {
+router.post("/staff", requirePermission("editAppointments"), async (req, res) => {
   const {
     clientName,
     phone,
@@ -317,7 +319,7 @@ router.post("/staff", requireAuth, async (req, res) => {
 });
 
 // GET /bookings/:id - single booking (staff only)
-router.get("/:id", requireAuth, async (req, res) => {
+router.get("/:id", requirePermission("viewClients"), async (req, res) => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id." });
@@ -353,7 +355,7 @@ router.get("/:id", requireAuth, async (req, res) => {
 });
 
 // PATCH /bookings/:id - update (staff only)
-router.patch("/:id", requireAuth, async (req, res) => {
+router.patch("/:id", requirePermission("editAppointments"), async (req, res) => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id." });
@@ -369,7 +371,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       preferredTime?: string;
     };
 
-  const allowedStatuses = ["pending", "claimed", "completed", "cancelled"];
+  const allowedStatuses = ["pending", "claimed", "completed", "cancelled", "no_show"];
   if (status && !allowedStatuses.includes(status)) {
     res.status(400).json({ error: "Invalid status." });
     return;
@@ -394,6 +396,14 @@ router.patch("/:id", requireAuth, async (req, res) => {
       return;
     }
 
+    await recordAudit(
+      req,
+      status ? `booking_status_${status}` : preferredDate || preferredTime ? "rescheduled_booking" : "updated_booking",
+      "booking",
+      String(updated.id),
+      sessionNotes !== undefined ? "Updated session notes" : undefined,
+    );
+
     const allForPhone = await db
       .select()
       .from(bookingsTable)
@@ -414,7 +424,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
 });
 
 // DELETE /bookings/:id - delete (staff only)
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", requirePermission("editAppointments"), async (req, res) => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id." });
@@ -429,6 +439,8 @@ router.delete("/:id", requireAuth, async (req, res) => {
       res.status(404).json({ error: "Booking not found." });
       return;
     }
+
+    await recordAudit(req, "deleted_booking", "booking", String(deleted.id));
     res.json({ message: "Booking deleted." });
   } catch (err) {
     req.log.error({ err }, "Failed to delete booking");

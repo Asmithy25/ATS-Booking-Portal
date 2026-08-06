@@ -1,1 +1,2 @@
 - [Archive recreation](archive-recreation.md) — For exact website rebuilds, restore the uploaded source and assets first; preserve original routes, copy, and API contracts before improvements.
+- [OpenAPI codegen compatibility](openapi-codegen-compatibility.md) — This workspace runs Zod 3; normalize newer Orval Zod 4 helper output after generation.

@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db, settingsTable, staffAccountsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
+import { recordAudit } from "../lib/audit";
 import type { OfficeHours, HolidayHour, ClosedDate } from "@workspace/db";
 import type { RequestWithSession } from "../middleware/auth";
 
@@ -191,7 +192,7 @@ router.put("/my-hours", requireAuth, async (req, res) => {
 });
 
 // PUT /settings - staff only
-router.put("/", requireAuth, async (req, res) => {
+router.put("/", requirePermission("manageSettings"), async (req, res) => {
   const body = req.body as Partial<{
     acceptingClients: boolean;
     sessionRequestsOpen: boolean;
@@ -270,6 +271,8 @@ router.put("/", requireAuth, async (req, res) => {
       .set(updates)
       .where(eq(settingsTable.id, current.id))
       .returning();
+
+    await recordAudit(req, "updated_site_settings", "settings", String(updated.id));
 
     res.json({
       acceptingClients: updated.acceptingClients,

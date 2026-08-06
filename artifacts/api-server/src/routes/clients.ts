@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { db, bookingsTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requirePermission } from "../middleware/auth";
 
 const router = Router();
 
 // GET /clients/search?q=... - search by name, phone, or confirmation code
-router.get("/search", requireAuth, async (req, res) => {
+router.get("/search", requirePermission("viewClients"), async (req, res) => {
   const query = String(req.query.q ?? "").trim().toLowerCase();
   if (query.length < 2) {
     res.status(400).json({ error: "Enter at least 2 characters to search." });
@@ -50,7 +50,7 @@ router.get("/search", requireAuth, async (req, res) => {
 });
 
 // GET /clients/:phone - client history (staff only)
-router.get("/:phone", requireAuth, async (req, res) => {
+router.get("/:phone", requirePermission("viewClients"), async (req, res) => {
   const phone = String(req.params.phone);
 
   try {

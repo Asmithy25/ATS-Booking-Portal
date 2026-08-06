@@ -7,6 +7,7 @@ import { hashPassword } from "../middleware/auth";
 import type { OfficeHours } from "@workspace/db";
 import type { StaffSession } from "../middleware/auth";
 import type { Request } from "express";
+import { recordAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -35,6 +36,11 @@ router.get("/", requireAdminAuth, async (_req, res) => {
       id: staffAccountsTable.id,
       email: staffAccountsTable.email,
       name: staffAccountsTable.name,
+      role: staffAccountsTable.role,
+      permissions: staffAccountsTable.permissions,
+      bio: staffAccountsTable.bio,
+      photoUrl: staffAccountsTable.photoUrl,
+      isVisible: staffAccountsTable.isVisible,
       officeHours: staffAccountsTable.officeHours,
       createdBy: staffAccountsTable.createdBy,
       createdAt: staffAccountsTable.createdAt,
@@ -50,7 +56,7 @@ router.get("/", requireAdminAuth, async (_req, res) => {
 // PATCH /employees/:id — update a staff member's name, email, or hours (admin only)
 router.patch("/:id", requireAdminAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const body = req.body as Partial<{ name: string; email: string; officeHours: OfficeHours }>;
+  const body = req.body as Partial<{ name: string; email: string; officeHours: OfficeHours; role: string; permissions: Record<string, boolean>; bio: string; photoUrl: string; isVisible: boolean }>;
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: "Invalid id." });
     return;
@@ -92,6 +98,15 @@ router.patch("/:id", requireAdminAuth, async (req, res) => {
     }
     updates.officeHours = body.officeHours;
   }
+  if (body.role !== undefined && !["manager", "therapist", "customer_service_representative"].includes(body.role)) {
+    res.status(400).json({ error: "Invalid staff role." });
+    return;
+  }
+  if (body.role !== undefined) updates.role = body.role;
+  if (body.permissions !== undefined) updates.permissions = body.permissions;
+  if (body.bio !== undefined) updates.bio = body.bio.slice(0, 1000);
+  if (body.photoUrl !== undefined) updates.photoUrl = body.photoUrl.slice(0, 2048);
+  if (body.isVisible !== undefined) updates.isVisible = body.isVisible;
   if (!Object.keys(updates).length) {
     res.status(400).json({ error: "No changes provided." });
     return;
@@ -104,6 +119,11 @@ router.patch("/:id", requireAdminAuth, async (req, res) => {
       id: staffAccountsTable.id,
       email: staffAccountsTable.email,
       name: staffAccountsTable.name,
+      role: staffAccountsTable.role,
+      permissions: staffAccountsTable.permissions,
+      bio: staffAccountsTable.bio,
+      photoUrl: staffAccountsTable.photoUrl,
+      isVisible: staffAccountsTable.isVisible,
       officeHours: staffAccountsTable.officeHours,
       createdBy: staffAccountsTable.createdBy,
       createdAt: staffAccountsTable.createdAt,
@@ -112,6 +132,7 @@ router.patch("/:id", requireAdminAuth, async (req, res) => {
     res.status(404).json({ error: "Account not found." });
     return;
   }
+  await recordAudit(req, "updated_staff_account", "staff_account", String(updated.id));
   res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
 });
 
@@ -135,15 +156,18 @@ router.post("/:id/reset-password", requireAdminAuth, async (req, res) => {
     res.status(404).json({ error: "Account not found." });
     return;
   }
+  await recordAudit(req, "reset_staff_password", "staff_account", String(updated.id));
   res.json({ message: `Password reset for ${updated.name}.` });
 });
 
 // POST /employees — create a new staff account (admin only)
 router.post("/", requireAdminAuth, async (req, res) => {
-  const { email, name, password } = req.body as {
+  const { email, name, password, role, permissions } = req.body as {
     email: string;
     name: string;
     password: string;
+    role?: string;
+    permissions?: Record<string, boolean>;
   };
 
   if (!email || !name || !password) {
@@ -180,16 +204,22 @@ router.post("/", requireAdminAuth, async (req, res) => {
 
   const [created] = await db
     .insert(staffAccountsTable)
-    .values({ email: key, name, passwordHash, createdBy: creator })
+    .values({ email: key, name, passwordHash, role: role && ["manager", "therapist", "customer_service_representative"].includes(role) ? role : "therapist", permissions: permissions ?? {}, createdBy: creator })
     .returning({
       id: staffAccountsTable.id,
       email: staffAccountsTable.email,
       name: staffAccountsTable.name,
+      role: staffAccountsTable.role,
+      permissions: staffAccountsTable.permissions,
+      bio: staffAccountsTable.bio,
+      photoUrl: staffAccountsTable.photoUrl,
+      isVisible: staffAccountsTable.isVisible,
       officeHours: staffAccountsTable.officeHours,
       createdBy: staffAccountsTable.createdBy,
       createdAt: staffAccountsTable.createdAt,
     });
 
+  await recordAudit(req, "created_staff_account", "staff_account", String(created.id));
   res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
 });
 
@@ -211,6 +241,7 @@ router.delete("/:id", requireAdminAuth, async (req, res) => {
     return;
   }
 
+  await recordAudit(req, "deleted_staff_account", "staff_account", String(deleted.id));
   res.json({ message: "Account deleted." });
 });
 

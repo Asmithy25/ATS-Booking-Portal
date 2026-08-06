@@ -5,6 +5,7 @@ import { staffAccountsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const SESSION_COOKIE = "ats_session";
+const CLIENT_SESSION_COOKIE = "ats_client_session";
 const SECRET = process.env.SESSION_SECRET ?? "dev-fallback-secret-change-in-prod";
 const ADMIN_EMAIL = "ayden@aydenstherapyservices.com";
 
@@ -84,6 +85,8 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 export type StaffSession = { email: string; name: string };
 export type RequestWithSession = Request & { staffSession?: StaffSession };
+export type ClientSession = { id: string; email: string; name: string };
+export type RequestWithClientSession = Request & { clientSession?: ClientSession };
 
 // ─── Shared: parse + verify cookie ──────────────────────────────────────────
 
@@ -153,4 +156,76 @@ export function requireAdminAuth(req: Request, res: Response, next: NextFunction
   next();
 }
 
-export { STAFF_ACCOUNTS, SESSION_COOKIE, ADMIN_EMAIL };
+export async function getStaffAccess(req: Request): Promise<{
+  email: string;
+  name: string;
+  role: string;
+  permissions: Record<string, boolean>;
+} | null> {
+  const session = extractSession(req);
+  if (!session?.email) return null;
+  if (session.email === ADMIN_EMAIL) {
+    return { email: session.email, name: session.name, role: "founder", permissions: {} };
+  }
+  const [staff] = await db
+    .select({
+      email: staffAccountsTable.email,
+      name: staffAccountsTable.name,
+      role: staffAccountsTable.role,
+      permissions: staffAccountsTable.permissions,
+    })
+    .from(staffAccountsTable)
+    .where(eq(staffAccountsTable.email, session.email))
+    .limit(1);
+  return staff ?? null;
+}
+
+export function hasPermission(
+  access: { role: string; permissions: Record<string, boolean> },
+  permission: string,
+): boolean {
+  if (access.role === "founder") return true;
+  if (access.permissions?.[permission] === true) return true;
+  const roleDefaults: Record<string, string[]> = {
+    manager: ["viewClients", "editAppointments", "sendEmails", "manageSettings", "postAnnouncements", "viewAnalytics", "viewAuditLogs"],
+    therapist: ["viewClients", "editAppointments", "viewAnalytics"],
+    customer_service_representative: ["viewClients", "editAppointments", "sendEmails"],
+  };
+  return roleDefaults[access.role]?.includes(permission) ?? false;
+}
+
+export function requirePermission(permission: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const access = await getStaffAccess(req);
+    if (!access) {
+      res.status(401).json({ error: "Unauthorized." });
+      return;
+    }
+    if (!hasPermission(access, permission)) {
+      res.status(403).json({ error: "You do not have permission to perform this action." });
+      return;
+    }
+    (req as RequestWithSession).staffSession = { email: access.email, name: access.name };
+    next();
+  };
+}
+
+export function extractClientSession(req: Request): ClientSession | null {
+  const raw = req.cookies?.[CLIENT_SESSION_COOKIE] as string | undefined;
+  if (!raw) return null;
+  const session = verifyPayload(raw);
+  if (!session?.id || !session.email || !session.name) return null;
+  return { id: session.id, email: session.email, name: session.name };
+}
+
+export function requireClientAuth(req: Request, res: Response, next: NextFunction): void {
+  const session = extractClientSession(req);
+  if (!session) {
+    res.status(401).json({ error: "Client account authentication required." });
+    return;
+  }
+  (req as RequestWithClientSession).clientSession = session;
+  next();
+}
+
+export { STAFF_ACCOUNTS, SESSION_COOKIE, CLIENT_SESSION_COOKIE, ADMIN_EMAIL };

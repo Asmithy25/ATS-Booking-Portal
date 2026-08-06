@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import type { OfficeHours } from "./settings";
 
 export const staffAccountsTable = pgTable("staff_accounts", {
@@ -6,6 +6,11 @@ export const staffAccountsTable = pgTable("staff_accounts", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("therapist"),
+  permissions: jsonb("permissions").notNull().$type<Record<string, boolean>>().default({}),
+  bio: text("bio").notNull().default(""),
+  photoUrl: text("photo_url").notNull().default(""),
+  isVisible: boolean("is_visible").notNull().default(true),
   officeHours: jsonb("office_hours").notNull().$type<OfficeHours>().default({
     mon: { open: "12:00", close: "23:00", closed: false },
     tue: { open: "12:00", close: "23:00", closed: false },

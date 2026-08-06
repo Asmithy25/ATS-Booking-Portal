@@ -1,0 +1,9 @@
+import { useActivity } from '@workspace/api-client-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { History } from 'lucide-react';
+
+export default function Activity() {
+  const { data = [], isLoading, error } = useActivity();
+  return <div className="space-y-7"><div><p className="text-sm text-muted-foreground">Accountability</p><h1 className="text-3xl font-semibold">Activity history</h1><p className="mt-2 text-muted-foreground">Important changes across the practice, newest first.</p></div><Card className="rounded-2xl"><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" /> Recent activity</CardTitle></CardHeader><CardContent>{isLoading ? <div className="space-y-3">{[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-14 rounded-xl" />)}</div> : error ? <p className="text-sm text-destructive">Activity history is unavailable for your account.</p> : data.length ? <div className="divide-y">{data.map((item) => <div key={item.id} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{item.actorName} <span className="font-normal text-muted-foreground">{item.action.replaceAll('_', ' ')}</span></p><p className="text-xs text-muted-foreground">{item.entityType}{item.entityId ? ` · #${item.entityId}` : ''}{item.details ? ` · ${item.details}` : ''}</p></div><time className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</time></div>)}</div> : <p className="py-6 text-sm text-muted-foreground">No activity has been recorded yet.</p>}</CardContent></Card></div>;
+}

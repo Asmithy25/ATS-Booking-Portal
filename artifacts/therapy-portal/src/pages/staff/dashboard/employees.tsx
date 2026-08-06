@@ -63,7 +63,13 @@ export default function Employees() {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<StaffAccount | null>(null);
-  const [staffDraft, setStaffDraft] = useState<{ name: string; email: string; officeHours: StaffHours } | null>(null);
+  const [staffDraft, setStaffDraft] = useState<{
+    name: string;
+    email: string;
+    role: 'manager' | 'therapist' | 'customer_service_representative';
+    permissions: Record<string, boolean>;
+    officeHours: StaffHours;
+  } | null>(null);
   const [resetPassword, setResetPassword] = useState('');
 
   const createEmployee = useCreateEmployee({
@@ -126,6 +132,8 @@ export default function Employees() {
     setStaffDraft({
       name: employee.name,
       email: employee.email,
+      role: employee.role,
+      permissions: employee.permissions ?? {},
       officeHours: structuredClone(employee.officeHours),
     });
     setResetPassword('');
@@ -201,6 +209,48 @@ export default function Employees() {
                     value={staffDraft.email}
                     onChange={(e) => setStaffDraft((draft) => draft ? { ...draft, email: e.target.value } : draft)}
                   />
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-4">
+                <div className="mb-4">
+                  <h3 className="font-semibold">Role & Permissions</h3>
+                  <p className="text-sm text-muted-foreground">Role defaults provide a starting point. Individual permissions can be adjusted below.</p>
+                </div>
+                <div className="mb-4 space-y-1.5">
+                  <Label htmlFor="manage-role">Staff role</Label>
+                  <select
+                    id="manage-role"
+                    value={staffDraft.role}
+                    onChange={(e) => setStaffDraft((draft) => draft ? { ...draft, role: e.target.value as typeof draft.role } : draft)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="manager">Manager</option>
+                    <option value="therapist">Therapist</option>
+                    <option value="customer_service_representative">Customer Service Representative</option>
+                  </select>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['viewClients', 'View clients'],
+                    ['editAppointments', 'Edit appointments'],
+                    ['sendEmails', 'Send messages'],
+                    ['manageSettings', 'Manage settings'],
+                    ['viewAnalytics', 'View analytics'],
+                    ['viewAuditLogs', 'View activity history'],
+                    ['postAnnouncements', 'Post announcements'],
+                  ].map(([key, label]) => (
+                    <label key={key} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                      <span>{label}</span>
+                      <SwitchComponent
+                        checked={staffDraft.permissions[key] === true}
+                        onCheckedChange={(checked) => setStaffDraft((draft) => draft ? {
+                          ...draft,
+                          permissions: { ...draft.permissions, [key]: checked },
+                        } : draft)}
+                      />
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -380,6 +430,7 @@ export default function Employees() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead className="hidden md:table-cell">Role</TableHead>
                   <TableHead className="hidden md:table-cell">Created By</TableHead>
                   <TableHead className="hidden md:table-cell">Added</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -390,6 +441,7 @@ export default function Employees() {
                   <TableRow key={emp.id}>
                     <TableCell className="font-medium">{emp.name}</TableCell>
                     <TableCell className="text-muted-foreground">{emp.email}</TableCell>
+                    <TableCell className="hidden md:table-cell capitalize">{emp.role.replaceAll('_', ' ')}</TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                       {emp.createdBy}
                     </TableCell>
@@ -430,8 +482,8 @@ export default function Employees() {
         <div>
           <p className="font-semibold mb-1">Access note</p>
           <p>
-            Staff accounts can view and manage bookings, clients, and settings.
-             Only your admin account can add, manage, reset, or remove staff members.
+            Only your founder account can add, manage, reset, or remove staff members.
+            Role permissions control which operational tools each team member can use.
           </p>
         </div>
       </div>

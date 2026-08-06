@@ -135,14 +135,14 @@ export default function Bookings() {
       const haystack = `${b.clientName} ${b.phone} ${b.confirmationCode}`.toLowerCase();
       return matchesStatus && matchesDate && (!normalizedSearch || haystack.includes(normalizedSearch));
     })
-    .sort((a, b) => `${a.preferredDate}T${a.preferredTime}`.localeCompare(`${b.preferredDate}T${b.preferredTime}`));
+    .sort((a, b) => `${b.preferredDate}T${b.preferredTime}`.localeCompare(`${a.preferredDate}T${a.preferredTime}`));
 
   const setDateFilter = (preset: 'all' | 'today' | 'upcoming') => {
     setDatePreset(preset);
     setSelectedDate('');
   };
 
-  const handleStatusUpdate = (id: number, status: 'claimed' | 'completed' | 'cancelled') => {
+  const handleStatusUpdate = (id: number, status: 'claimed' | 'completed' | 'cancelled' | 'no_show') => {
     updateBooking.mutate({ id, data: { status, ...(status === 'claimed' ? { claimedBy: staffName } : {}) } });
   };
 
@@ -206,6 +206,7 @@ export default function Bookings() {
     claimed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-500',
     completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500',
     cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500',
+    no_show: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-500',
   };
 
   if (loadingBookings || loadingStats) {
@@ -390,6 +391,7 @@ export default function Bookings() {
           { label: 'Claimed', value: stats?.claimed ?? 0 },
           { label: 'Completed', value: stats?.completed ?? 0 },
           { label: 'Cancelled', value: stats?.cancelled ?? 0 },
+          { label: 'No-show', value: stats?.noShow ?? 0 },
         ].map(({ label, value }) => (
           <Card key={label} className="rounded-2xl shadow-sm">
             <CardHeader className="py-4"><CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle></CardHeader>
@@ -413,6 +415,7 @@ export default function Bookings() {
               <TabsTrigger value="claimed">Claimed</TabsTrigger>
               <TabsTrigger value="completed">Completed</TabsTrigger>
               <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+               <TabsTrigger value="no_show">No-show</TabsTrigger>
             </TabsList>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 lg:ml-auto">
                 <div className="relative flex-1 sm:min-w-64">
@@ -554,6 +557,9 @@ export default function Bookings() {
                                 </Button>
                                 <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleStatusUpdate(b.id, 'cancelled')}>
                                   <XCircle className="w-4 h-4" />
+                                </Button>
+                                <Button size="sm" variant="outline" className="text-purple-700 hover:text-purple-800" onClick={() => handleStatusUpdate(b.id, 'no_show')}>
+                                  No-show
                                 </Button>
                               </>
                             )}
