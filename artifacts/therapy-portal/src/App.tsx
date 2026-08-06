@@ -19,6 +19,7 @@ const Activity = lazy(() => import('@/pages/staff/dashboard/activity'));
 const Announcements = lazy(() => import('@/pages/staff/dashboard/announcements'));
 const Support = lazy(() => import('@/pages/staff/dashboard/support'));
 const TeamWorkspace = lazy(() => import('@/pages/staff/dashboard/team-workspace'));
+const TeamChat = lazy(() => import('@/pages/staff/dashboard/team-chat'));
 const MessageTemplates = lazy(() => import('@/pages/staff/dashboard/message-templates'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
@@ -43,6 +44,7 @@ function StaffRouter() {
           <Route path="/staff/announcements" component={Announcements} />
           <Route path="/staff/support" component={Support} />
            <Route path="/staff/team" component={TeamWorkspace} />
+          <Route path="/staff/team-chat" component={TeamChat} />
           <Route path="/staff/messages" component={MessageTemplates} />
         <Route path="/staff/settings" component={Settings} />
         <Route path="/staff/employees" component={Employees} />

@@ -284,6 +284,30 @@ router.post("/support/:id/reply", requireAuth, async (req, res): Promise<void> =
   res.status(201).json(updated);
 });
 
+router.patch("/support/:id/status", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "viewClients")) {
+    res.status(403).json({ error: "Client support access required." });
+    return;
+  }
+  const threadId = Number(req.params.id);
+  const status = String((req.body as { status?: string }).status ?? "");
+  if (!Number.isInteger(threadId) || !["open", "closed"].includes(status)) {
+    res.status(400).json({ error: "A valid support status is required." });
+    return;
+  }
+  const [updated] = await db.update(supportThreadsTable)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(supportThreadsTable.id, threadId))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Support thread not found." });
+    return;
+  }
+  await recordAudit(req, `${status === "closed" ? "closed" : "reopened"}_support_thread`, "support_thread", String(threadId));
+  res.json(updated);
+});
+
 router.post("/support", requireClientAuth, async (req, res): Promise<void> => {
   const clientId = Number((req as RequestWithClientSession).clientSession?.id);
   const client = await db.select({ name: clientAccountsTable.name }).from(clientAccountsTable).where(eq(clientAccountsTable.id, clientId)).limit(1);
@@ -295,6 +319,52 @@ router.post("/support", requireClientAuth, async (req, res): Promise<void> => {
   const [thread] = await db.insert(supportThreadsTable).values({ clientAccountId: clientId, subject: subject.trim() }).returning();
   await db.insert(supportMessagesTable).values({ threadId: thread.id, senderType: "client", senderName: client[0].name, body: body.trim() });
   res.status(201).json(thread);
+});
+
+router.patch("/support/:id/status/client", requireClientAuth, async (req, res): Promise<void> => {
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+  const threadId = Number(req.params.id);
+  const status = String((req.body as { status?: string }).status ?? "");
+  if (!Number.isInteger(threadId) || !["open", "closed"].includes(status)) {
+    res.status(400).json({ error: "A valid support status is required." });
+    return;
+  }
+  const [updated] = await db.update(supportThreadsTable)
+    .set({ status, updatedAt: new Date() })
+    .where(and(eq(supportThreadsTable.id, threadId), eq(supportThreadsTable.clientAccountId, clientId)))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Support thread not found." });
+    return;
+  }
+  res.json(updated);
+});
+
+router.post("/support/:id/reply/client", requireClientAuth, async (req, res): Promise<void> => {
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+  const threadId = Number(req.params.id);
+  const body = String((req.body as { body?: string }).body ?? "").trim();
+  if (!Number.isInteger(threadId) || !body) {
+    res.status(400).json({ error: "A message is required." });
+    return;
+  }
+  const [thread] = await db.select().from(supportThreadsTable)
+    .where(and(eq(supportThreadsTable.id, threadId), eq(supportThreadsTable.clientAccountId, clientId)))
+    .limit(1);
+  if (!thread) {
+    res.status(404).json({ error: "Support thread not found." });
+    return;
+  }
+  const [client] = await db.select({ name: clientAccountsTable.name })
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.id, clientId))
+    .limit(1);
+  await db.insert(supportMessagesTable).values({ threadId, senderType: "client", senderName: client?.name ?? "Client", body });
+  const [updated] = await db.update(supportThreadsTable)
+    .set({ status: "open", updatedAt: new Date() })
+    .where(eq(supportThreadsTable.id, threadId))
+    .returning();
+  res.status(201).json(updated);
 });
 
 router.get("/client/bookings", requireClientAuth, async (req, res): Promise<void> => {

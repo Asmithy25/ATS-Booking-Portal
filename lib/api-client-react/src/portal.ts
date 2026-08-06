@@ -171,6 +171,27 @@ export function useReplyToSupport(options?: { mutation?: UseMutationOptions<Supp
     ...options?.mutation,
   });
 }
+export function useUpdateStaffSupportStatus(options?: { mutation?: UseMutationOptions<SupportThread, ErrorType<unknown>, { id: number; status: "open" | "closed" }> }) {
+  return useMutation({
+    mutationFn: ({ id, status }: { id: number; status: "open" | "closed" }) =>
+      customFetch<SupportThread>(`/api/portal/support/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    ...options?.mutation,
+  });
+}
+export function useReplyToClientSupport(options?: { mutation?: UseMutationOptions<SupportThread, ErrorType<unknown>, { id: number; body: string }> }) {
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: string }) =>
+      customFetch<SupportThread>(`/api/portal/support/${id}/reply/client`, { method: "POST", body: JSON.stringify({ body }) }),
+    ...options?.mutation,
+  });
+}
+export function useUpdateClientSupportStatus(options?: { mutation?: UseMutationOptions<SupportThread, ErrorType<unknown>, { id: number; status: "open" | "closed" }> }) {
+  return useMutation({
+    mutationFn: ({ id, status }: { id: number; status: "open" | "closed" }) =>
+      customFetch<SupportThread>(`/api/portal/support/${id}/status/client`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    ...options?.mutation,
+  });
+}
 
 export function useUpdateClientProfile(options?: { mutation?: UseMutationOptions<Client, ErrorType<unknown>, { name: string; phone: string }> }) {
   return useMutation({

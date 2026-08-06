@@ -95,7 +95,8 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/clients', <Users className="h-4 w-4" />, 'Clients')}
           {navItem('/staff/analytics', <BarChart3 className="h-4 w-4" />, 'Analytics')}
           {navItem('/staff/support', <MessageCircle className="h-4 w-4" />, 'Support inbox')}
-          {navItem('/staff/team', <UsersRound className="h-4 w-4" />, 'Team workspace')}
+           {navItem('/staff/team-chat', <MessageCircle className="h-4 w-4" />, 'Team chat')}
+           {navItem('/staff/team', <UsersRound className="h-4 w-4" />, 'Team workspace')}
           {navItem('/staff/messages', <Mail className="h-4 w-4" />, 'Message templates')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/announcements', <Megaphone className="h-4 w-4" />, 'Announcements')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Activity history')}

@@ -15,17 +15,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ClipboardCheck, Inbox, MessageCircle, NotebookPen, Send, UsersRound } from 'lucide-react';
+import { ClipboardCheck, Inbox, NotebookPen, Send, UsersRound } from 'lucide-react';
 
-const TABS: Array<{ value: CollaborationItem['kind']; label: string; icon: typeof MessageCircle }> = [
-  { value: 'chat', label: 'Team chat', icon: MessageCircle },
+const TABS: Array<{ value: Exclude<CollaborationItem['kind'], 'chat'>; label: string; icon: typeof Inbox }> = [
   { value: 'inbox', label: 'Staff inbox', icon: Inbox },
   { value: 'task', label: 'Tasks', icon: ClipboardCheck },
   { value: 'shift_note', label: 'Shift notes', icon: NotebookPen },
 ];
 
 export default function TeamWorkspace() {
-  const [activeKind, setActiveKind] = useState<CollaborationItem['kind']>('chat');
+  const [activeKind, setActiveKind] = useState<Exclude<CollaborationItem['kind'], 'chat'>>('inbox');
   const [body, setBody] = useState('');
   const [title, setTitle] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
@@ -60,7 +59,7 @@ export default function TeamWorkspace() {
 
   const activeTab = useMemo(() => TABS.find((tab) => tab.value === activeKind) ?? TABS[0], [activeKind]);
   const ActiveIcon = activeTab.icon;
-  const submitLabel = activeKind === 'task' ? 'Assign task' : activeKind === 'shift_note' ? 'Save shift note' : 'Post update';
+   const submitLabel = activeKind === 'task' ? 'Assign task' : 'Save workspace item';
 
   return (
     <div className="space-y-7">
@@ -103,7 +102,7 @@ export default function TeamWorkspace() {
                 </div>
               </>
             )}
-            <div className="space-y-2"><Label>{activeKind === 'chat' ? 'Message' : activeKind === 'inbox' ? 'Inbox item' : 'Details'}</Label><Textarea className="min-h-32" value={body} onChange={(event) => setBody(event.target.value)} placeholder={activeKind === 'shift_note' ? 'What should the next shift know?' : 'Write a clear, useful update…'} /></div>
+             <div className="space-y-2"><Label>{activeKind === 'inbox' ? 'Inbox item' : 'Details'}</Label><Textarea className="min-h-32" value={body} onChange={(event) => setBody(event.target.value)} placeholder={activeKind === 'shift_note' ? 'What should the next shift know?' : 'Write a clear, useful update…'} /></div>
             <Button className="rounded-xl" disabled={!body.trim() || create.isPending} onClick={() => create.mutate({ kind: activeKind, title: title || undefined, body, assignedTo: assignedTo || undefined, dueDate: dueDate || undefined })}>
               <Send className="h-4 w-4" /> {submitLabel}
             </Button>
