@@ -23,4 +23,6 @@ export interface BookingUpdate {
   preferredDate?: string;
   /** HH:MM format (24h) — reschedule the booking time */
   preferredTime?: string;
+  /** Short-lived token returned after staff confirm an out-of-hours action */
+  businessHoursConfirmationToken?: string;
 }

@@ -8,4 +8,9 @@
 
 export interface ErrorResponse {
   error: string;
+  /** Machine-readable error code for client-specific handling */
+  code?: string;
+  requiresConfirmation?: boolean;
+  /** Short-lived signed token required for a confirmed staff action */
+  confirmationToken?: string;
 }

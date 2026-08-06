@@ -1,7 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { db, bookingsTable, settingsTable } from "@workspace/db";
 
-type SlotResult = { ok: true } | { ok: false; error: string };
+export type SlotResult =
+  | { ok: true }
+  | { ok: false; error: string; code?: "BUSINESS_HOURS" };
 
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const ACTIVE_STATUSES = new Set(["pending", "claimed", "completed"]);
@@ -10,6 +12,10 @@ const SESSION_MINUTES = 60;
 function toMinutes(value: string) {
   const [hours, minutes] = value.split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+function toClosingMinutes(value: string) {
+  return value === "00:00" ? 24 * 60 : toMinutes(value);
 }
 
 function isValidDate(value: string) {
@@ -34,7 +40,11 @@ function isPastDate(value: string) {
 export async function validateBookingSlot(
   preferredDate: string,
   preferredTime: string,
-  options: { excludeBookingId?: number; skipAvailability?: boolean } = {},
+  options: {
+    excludeBookingId?: number;
+    skipAvailability?: boolean;
+    bypassBusinessHours?: boolean;
+  } = {},
 ): Promise<SlotResult> {
   if (!isValidDate(preferredDate) || !isValidTime(preferredTime)) {
     return { ok: false, error: "Choose a valid appointment date and time." };
@@ -70,8 +80,16 @@ export async function validateBookingSlot(
     if (!hours || ("closed" in hours && hours.closed)) {
       return { ok: false, error: "The practice is closed on that date." };
     }
-    if (toMinutes(preferredTime) < toMinutes(hours.open) || toMinutes(preferredTime) + SESSION_MINUTES > toMinutes(hours.close)) {
-      return { ok: false, error: `Appointments must fit within hours of ${hours.open}–${hours.close}.` };
+    if (
+      !options.bypassBusinessHours &&
+      (toMinutes(preferredTime) < toMinutes(hours.open) ||
+        toMinutes(preferredTime) + SESSION_MINUTES > toClosingMinutes(hours.close))
+    ) {
+      return {
+        ok: false,
+        code: "BUSINESS_HOURS",
+        error: `Appointments must fit within hours of ${hours.open}–${hours.close}.`,
+      };
     }
   }
 

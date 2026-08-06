@@ -43,6 +43,7 @@ export interface StaffBookingInput {
   status?: "pending" | "claimed" | "completed" | "waitlisted";
   priority?: number;
   sessionNotes?: string;
+  businessHoursConfirmationToken?: string;
 }
 
 export function useCreateStaffBooking<TError = ErrorType<unknown>, TContext = unknown>(options?: {

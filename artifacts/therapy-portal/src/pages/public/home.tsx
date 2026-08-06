@@ -38,6 +38,19 @@ const bookingSchema = z.object({
 
 type BookingFormValues = z.infer<typeof bookingSchema>;
 
+function formatOfficeTime(value: string) {
+  const [hourString, minuteString = '00'] = value.split(':');
+  const hour = Number(hourString);
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minuteString} ${suffix}`;
+}
+
+function formatHoursRange(hours?: { open: string; close: string; closed: boolean }) {
+  if (!hours || hours.closed) return 'Closed';
+  return `${formatOfficeTime(hours.open)} - ${formatOfficeTime(hours.close)}`;
+}
+
 export default function Home() {
   const { data: settings, isLoading: loadingSettings } = useGetSettings();
   const { toast } = useToast();
@@ -128,10 +141,11 @@ export default function Home() {
          const [hours, minutes] = time.split(':').map(Number);
          return hours * 60 + minutes;
        };
+       const toClosingMinutes = (time: string) => time === '00:00' ? 24 * 60 : toMinutes(time);
        const validTime = holiday
-         ? toMinutes(values.preferredTime) >= toMinutes(holiday.open) && toMinutes(values.preferredTime) + 60 <= toMinutes(holiday.close)
+         ? toMinutes(values.preferredTime) >= toMinutes(holiday.open) && toMinutes(values.preferredTime) + 60 <= toClosingMinutes(holiday.close)
          : daySettings
-           ? toMinutes(values.preferredTime) >= toMinutes(daySettings.open) && toMinutes(values.preferredTime) + 60 <= toMinutes(daySettings.close)
+           ? toMinutes(values.preferredTime) >= toMinutes(daySettings.open) && toMinutes(values.preferredTime) + 60 <= toClosingMinutes(daySettings.close)
            : false;
 
       if (!validTime) {
@@ -357,7 +371,20 @@ export default function Home() {
                   <div className="flex items-start gap-4 pt-8 border-t border-primary-foreground/20">
                     <Clock className="w-6 h-6 mt-1 opacity-80" />
                     <div className="w-full">
-                       <p className="font-bold mb-4">Therapist Hours:</p>
+                       <p className="font-bold mb-4">Main Office Hours:</p>
+                       <div className="space-y-1.5 text-sm opacity-90">
+                         {[
+                           { label: 'M-F', hours: settings?.officeHours?.mon },
+                           { label: 'Sat', hours: settings?.officeHours?.sat },
+                           { label: 'Sun', hours: settings?.officeHours?.sun },
+                         ].map(({ label, hours }) => (
+                           <div key={label} className="flex justify-between gap-3">
+                             <span>{label}</span>
+                             <span className="text-right">{formatHoursRange(hours)}</span>
+                           </div>
+                         ))}
+                       </div>
+                       <p className="mt-6 border-t border-primary-foreground/20 pt-6 font-bold mb-4">Therapist Hours:</p>
                        <div className="space-y-5 text-sm opacity-90">
                          {(settings?.therapistHours ?? []).map((therapist) => (
                            <div key={therapist.name} className="space-y-2">
@@ -369,7 +396,7 @@ export default function Home() {
                                  return (
                                    <div key={day} className="flex justify-between w-full gap-3">
                                      <span className="capitalize w-12">{day.substring(0,3)}</span>
-                                     <span className="text-right">{h.closed ? 'Closed' : `${h.open} - ${h.close}`}</span>
+                                     <span className="text-right">{formatHoursRange(h)}</span>
                                    </div>
                                  );
                                })}
@@ -554,7 +581,7 @@ export default function Home() {
                       {selectedHours
                         ? selectedHours.closed
                           ? 'The practice is closed on this date.'
-                          : `Choose any start time from ${selectedHours.open} to ${selectedHours.close}, leaving one hour for your phone session.`
+                          : `Choose any start time from ${formatOfficeTime(selectedHours.open)} to ${formatOfficeTime(selectedHours.close)}, leaving one hour for your phone session.`
                         : 'Choose a date to see available business hours. Sessions are 60 minutes and must fit within the practice hours.'}
                     </div>
           </div>

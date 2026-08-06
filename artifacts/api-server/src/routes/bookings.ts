@@ -6,8 +6,60 @@ import { requirePermission } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 import { validateBookingSlot } from "../lib/scheduling";
 import { generateConfirmationCode } from "../lib/booking-utils";
+import { signPayload, verifyPayload } from "../middleware/auth";
 
 const router = Router();
+
+type BusinessHoursChallenge = {
+  kind: "booking_business_hours";
+  action: "create" | "update";
+  staffEmail: string;
+  bookingId?: string;
+  preferredDate: string;
+  preferredTime: string;
+  expiresAt: number;
+};
+
+function issueBusinessHoursChallenge(
+  challenge: Omit<BusinessHoursChallenge, "kind" | "expiresAt">,
+) {
+  return signPayload({
+    ...challenge,
+    kind: "booking_business_hours",
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  });
+}
+
+function acceptsBusinessHoursChallenge(
+  token: string | undefined,
+  expected: Omit<BusinessHoursChallenge, "kind" | "expiresAt">,
+) {
+  if (!token) return false;
+  const payload = verifyPayload(token);
+  if (
+    payload?.kind !== "booking_business_hours" ||
+    payload.action !== expected.action ||
+    payload.staffEmail !== expected.staffEmail ||
+    payload.preferredDate !== expected.preferredDate ||
+    payload.preferredTime !== expected.preferredTime ||
+    (expected.bookingId !== undefined && payload.bookingId !== expected.bookingId)
+  ) {
+    return false;
+  }
+  return Number(payload.expiresAt) > Date.now();
+}
+
+function businessHoursConfirmation(
+  slot: { error: string },
+  challenge: Omit<BusinessHoursChallenge, "kind" | "expiresAt">,
+) {
+  return {
+    error: slot.error,
+    code: "BUSINESS_HOURS_CONFIRMATION_REQUIRED",
+    requiresConfirmation: true,
+    confirmationToken: issueBusinessHoursChallenge(challenge),
+  };
+}
 
 function serializeBooking(b: typeof bookingsTable.$inferSelect & { isReturningClient?: boolean; previousSessionCount?: number }) {
   return {
@@ -263,6 +315,7 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
     status = "claimed",
     priority = 1,
     sessionNotes,
+    businessHoursConfirmationToken,
   } = req.body as {
     clientName: string;
     phone: string;
@@ -272,6 +325,7 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
     status?: string;
     priority?: number;
     sessionNotes?: string;
+    businessHoursConfirmationToken?: string;
   };
 
   if (!clientName || !phone || !reason || !preferredDate || !preferredTime) {
@@ -294,12 +348,34 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
   }
 
   try {
+    const staffSession = (req as import("../middleware/auth").RequestWithSession).staffSession;
+    const bypassBusinessHours =
+      status !== "waitlisted" &&
+      acceptsBusinessHoursChallenge(businessHoursConfirmationToken, {
+        action: "create",
+        staffEmail: staffSession?.email ?? "",
+        preferredDate,
+        preferredTime,
+      });
     const slot = await validateBookingSlot(
       preferredDate,
       preferredTime,
-      status === "waitlisted" ? { skipAvailability: true } : undefined,
+      status === "waitlisted"
+        ? { skipAvailability: true }
+        : { bypassBusinessHours },
     );
     if (!slot.ok) {
+      if (slot.code === "BUSINESS_HOURS" && staffSession) {
+        res.status(409).json(
+          businessHoursConfirmation(slot, {
+            action: "create",
+            staffEmail: staffSession.email,
+            preferredDate,
+            preferredTime,
+          }),
+        );
+        return;
+      }
       res.status(409).json({ error: slot.error });
       return;
     }
@@ -333,6 +409,16 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
         sessionNotes: sessionNotes ?? null,
       })
       .returning();
+
+    if (bypassBusinessHours) {
+      await recordAudit(
+        req,
+        "created_booking_outside_business_hours",
+        "booking",
+        String(created.id),
+        `Staff confirmation required for ${preferredDate} at ${preferredTime}.`,
+      );
+    }
 
     const prior = await db.select().from(bookingsTable).where(eq(bookingsTable.phone, phone));
     const priorCount = prior.length - 1;
@@ -392,7 +478,15 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
     return;
   }
 
-  const { status, priority, claimedBy, sessionNotes, preferredDate, preferredTime } =
+  const {
+    status,
+    priority,
+    claimedBy,
+    sessionNotes,
+    preferredDate,
+    preferredTime,
+    businessHoursConfirmationToken,
+  } =
     req.body as {
       status?: string;
       priority?: number;
@@ -400,6 +494,7 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
       sessionNotes?: string;
       preferredDate?: string;
       preferredTime?: string;
+      businessHoursConfirmationToken?: string;
     };
 
   const allowedStatuses = ["pending", "claimed", "completed", "cancelled", "no_show", "waitlisted"];
@@ -427,16 +522,46 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
       return;
     }
 
+    const staffSession = (req as import("../middleware/auth").RequestWithSession).staffSession;
+    const requestedDate = preferredDate ?? current.preferredDate;
+    const requestedTime = preferredTime ?? current.preferredTime;
+    const bypassBusinessHours = acceptsBusinessHoursChallenge(
+      businessHoursConfirmationToken,
+      {
+        action: "update",
+        staffEmail: staffSession?.email ?? "",
+        bookingId: String(id),
+        preferredDate: requestedDate,
+        preferredTime: requestedTime,
+      },
+    );
+
     if (preferredDate || preferredTime) {
       const slot = await validateBookingSlot(
-        preferredDate ?? current.preferredDate,
-        preferredTime ?? current.preferredTime,
+        requestedDate,
+        requestedTime,
         {
           excludeBookingId: id,
-          skipAvailability: status === "waitlisted" || current.status === "waitlisted",
+          // A waitlisted request may be held without a valid slot, but promoting
+          // it into an appointment must pass the same availability checks as
+          // every other staff reschedule.
+          skipAvailability: status === "waitlisted",
+          bypassBusinessHours,
         },
       );
       if (!slot.ok) {
+        if (slot.code === "BUSINESS_HOURS" && staffSession) {
+          res.status(409).json(
+            businessHoursConfirmation(slot, {
+              action: "update",
+              staffEmail: staffSession.email,
+              bookingId: String(id),
+              preferredDate: requestedDate,
+              preferredTime: requestedTime,
+            }),
+          );
+          return;
+        }
         res.status(409).json({ error: slot.error });
         return;
       }
@@ -463,10 +588,20 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
 
     await recordAudit(
       req,
-      status ? `booking_status_${status}` : preferredDate || preferredTime ? "rescheduled_booking" : "updated_booking",
+      bypassBusinessHours
+        ? "rescheduled_booking_outside_business_hours"
+        : status
+          ? `booking_status_${status}`
+          : preferredDate || preferredTime
+            ? "rescheduled_booking"
+            : "updated_booking",
       "booking",
       String(updated.id),
-      sessionNotes !== undefined ? "Updated session notes" : undefined,
+      bypassBusinessHours
+        ? `Staff confirmation required for ${requestedDate} at ${requestedTime}.`
+        : sessionNotes !== undefined
+          ? "Updated session notes"
+          : undefined,
     );
 
     const allForPhone = await db

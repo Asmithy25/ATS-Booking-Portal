@@ -170,7 +170,8 @@ export const UpdateBookingBody = zod.object({
   "claimedBy": zod.string().nullish(),
   "sessionNotes": zod.string().nullish(),
   "preferredDate": zod.string().optional().describe('YYYY-MM-DD format — reschedule the booking date'),
-  "preferredTime": zod.string().optional().describe('HH:MM format (24h) — reschedule the booking time')
+  "preferredTime": zod.string().optional().describe('HH:MM format (24h) — reschedule the booking time'),
+  "businessHoursConfirmationToken": zod.string().optional().describe('Short-lived token returned after staff confirm an out-of-hours action')
 })
 
 export const updateBookingResponsePriorityMin = 0;

@@ -10,6 +10,7 @@ import {
   getGetBookingStatsQueryKey,
   useGetAuthMe,
   useCreateStaffBooking,
+  type StaffBookingInput,
   type Booking,
 } from '@workspace/api-client-react';
 
@@ -34,7 +35,7 @@ import { CelebrationConfetti } from '@/components/celebration-confetti';
 import {
   Loader2, Trash2, CheckCircle2, XCircle, UserPlus, Clock, ArrowRight,
   StickyNote, ChevronDown, ChevronUp, CalendarDays, Hash, Plus, Copy, CheckCheck,
-  Search, SlidersHorizontal,
+  Search, SlidersHorizontal, AlertTriangle,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -48,6 +49,25 @@ const EMPTY_FORM = {
   status: 'claimed' as 'pending' | 'claimed' | 'completed' | 'waitlisted',
   priority: 1,
   sessionNotes: '',
+};
+
+type BookingUpdatePayload = {
+  status?: 'pending' | 'claimed' | 'completed' | 'cancelled' | 'no_show' | 'waitlisted';
+  priority?: number;
+  claimedBy?: string | null;
+  sessionNotes?: string | null;
+  preferredDate?: string;
+  preferredTime?: string;
+  businessHoursConfirmationToken?: string;
+};
+
+type BypassConfirmation = {
+  token: string;
+  action: 'create' | 'update';
+  date: string;
+  time: string;
+  bookingId?: number;
+  updateData?: BookingUpdatePayload;
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -71,6 +91,7 @@ export default function Bookings() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [celebrationKey, setCelebrationKey] = useState(0);
+  const [bypassConfirmation, setBypassConfirmation] = useState<BypassConfirmation | null>(null);
 
   const { data: authData } = useGetAuthMe();
   const staffName = authData?.staffName || 'Staff';
@@ -97,7 +118,17 @@ export default function Bookings() {
         setCelebrationKey((key) => key + 1);
       },
       onError: (err) => {
-        const msg = (err as { data?: { error?: string } })?.data?.error ?? 'Failed to create booking.';
+        const data = (err as { data?: { error?: string; code?: string; confirmationToken?: string } })?.data;
+        if (data?.code === 'BUSINESS_HOURS_CONFIRMATION_REQUIRED' && data.confirmationToken) {
+          setBypassConfirmation({
+            token: data.confirmationToken,
+            action: 'create',
+            date: form.preferredDate,
+            time: form.preferredTime,
+          });
+          return;
+        }
+        const msg = data?.error ?? 'Failed to create booking.';
         toast({ variant: 'destructive', title: 'Error', description: msg });
       },
     },
@@ -105,13 +136,34 @@ export default function Bookings() {
 
   const updateBooking = useUpdateBooking({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetBookingStatsQueryKey() });
+        setRescheduleMode(prev => ({ ...prev, [data.id]: false }));
+        if (promotionBooking?.id === data.id) {
+          setPromotionBooking(null);
+          setPromotionDraft({ date: '', time: '' });
+        }
         toast({ title: 'Booking updated successfully' });
       },
-      onError: (err) => {
-        const msg = (err as { data?: { error?: string } })?.data?.error;
+      onError: (err, variables) => {
+        const data = (err as { data?: { error?: string; code?: string; confirmationToken?: string } })?.data;
+        if (data?.code === 'BUSINESS_HOURS_CONFIRMATION_REQUIRED' && data.confirmationToken) {
+          const requestedDate = variables.data.preferredDate;
+          const requestedTime = variables.data.preferredTime;
+          if (requestedDate && requestedTime) {
+            setBypassConfirmation({
+              token: data.confirmationToken,
+              action: 'update',
+              date: requestedDate,
+              time: requestedTime,
+              bookingId: variables.id,
+              updateData: variables.data,
+            });
+            return;
+          }
+        }
+        const msg = data?.error;
         toast({ variant: 'destructive', title: 'Update failed', description: msg });
       },
     },
@@ -199,15 +251,16 @@ export default function Bookings() {
       toast({ variant: 'destructive', title: 'Select both a date and time.' });
       return;
     }
-    updateBooking.mutate(
-      { id, data: { preferredDate: draft.date, preferredTime: draft.time } },
-      { onSuccess: () => setRescheduleMode(prev => ({ ...prev, [id]: false })) }
-    );
+    updateBooking.mutate({ id, data: { preferredDate: draft.date, preferredTime: draft.time } });
   };
 
   const openReschedule = (id: number, date: string, time: string) => {
     setRescheduleDraft(prev => ({ ...prev, [id]: { date, time } }));
     setRescheduleMode(prev => ({ ...prev, [id]: true }));
+  };
+
+  const submitStaffBooking = (data: StaffBookingInput) => {
+    createStaffBooking.mutate(data);
   };
 
   const handleCreateBooking = (e: React.FormEvent) => {
@@ -216,7 +269,7 @@ export default function Bookings() {
       toast({ variant: 'destructive', title: 'All fields except notes are required.' });
       return;
     }
-    createStaffBooking.mutate({
+    submitStaffBooking({
       clientName: form.clientName.trim(),
       phone: form.phone.trim(),
       reason: form.reason.trim(),
@@ -225,6 +278,37 @@ export default function Bookings() {
       status: form.status,
       priority: form.status === 'waitlisted' ? form.priority : undefined,
       sessionNotes: form.sessionNotes.trim() || undefined,
+    });
+  };
+
+  const confirmBusinessHoursBypass = () => {
+    if (!bypassConfirmation) return;
+    const confirmation = bypassConfirmation;
+    setBypassConfirmation(null);
+    if (confirmation.action === 'create') {
+      submitStaffBooking({
+        clientName: form.clientName.trim(),
+        phone: form.phone.trim(),
+        reason: form.reason.trim(),
+        preferredDate: confirmation.date,
+        preferredTime: confirmation.time,
+        status: form.status,
+        priority: form.status === 'waitlisted' ? form.priority : undefined,
+        sessionNotes: form.sessionNotes.trim() || undefined,
+        businessHoursConfirmationToken: confirmation.token,
+      });
+      return;
+    }
+    if (!confirmation.bookingId || !confirmation.updateData) {
+      toast({ variant: 'destructive', title: 'Booking changed', description: 'Refresh the page and try the reschedule again.' });
+      return;
+    }
+    updateBooking.mutate({
+      id: confirmation.bookingId,
+      data: {
+        ...confirmation.updateData,
+        businessHoursConfirmationToken: confirmation.token,
+      },
     });
   };
 
@@ -361,6 +445,34 @@ export default function Bookings() {
       </div>
 
        <CelebrationConfetti trigger={celebrationKey} />
+
+      <Dialog open={Boolean(bypassConfirmation)} onOpenChange={(open) => { if (!open) setBypassConfirmation(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Confirm out-of-hours appointment
+            </DialogTitle>
+            <DialogDescription>
+              This time is outside the practice&apos;s business hours. Are you sure you would like to bypass business hours?
+              The appointment will still be checked for closures, vacation mode, buffers, and conflicting appointments.
+            </DialogDescription>
+          </DialogHeader>
+          {bypassConfirmation && (
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm">
+              <p className="font-medium">{bypassConfirmation.date}</p>
+              <p className="text-muted-foreground">{bypassConfirmation.time} · 60-minute phone consultation</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setBypassConfirmation(null)}>No, keep within hours</Button>
+            <Button type="button" onClick={confirmBusinessHoursBypass} disabled={createStaffBooking.isPending || updateBooking.isPending}>
+              { (createStaffBooking.isPending || updateBooking.isPending) && <Loader2 className="h-4 w-4 animate-spin" /> }
+              Yes, bypass business hours
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
          {[

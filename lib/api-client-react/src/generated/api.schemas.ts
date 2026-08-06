@@ -11,6 +11,11 @@ export interface HealthStatus {
 
 export interface ErrorResponse {
   error: string;
+  /** Machine-readable error code for client-specific handling */
+  code?: string;
+  requiresConfirmation?: boolean;
+  /** Short-lived signed token required for a confirmed staff action */
+  confirmationToken?: string;
 }
 
 export interface MessageResponse {
@@ -154,6 +159,8 @@ export interface BookingUpdate {
   preferredDate?: string;
   /** HH:MM format (24h) — reschedule the booking time */
   preferredTime?: string;
+  /** Short-lived token returned after staff confirm an out-of-hours action */
+  businessHoursConfirmationToken?: string;
 }
 
 export interface BookingStats {

@@ -12,12 +12,12 @@ const DEFAULT_SETTINGS = {
   acceptingClients: true,
   sessionRequestsOpen: true,
   officeHours: {
-    mon: { open: "12:00", close: "23:00", closed: false },
-    tue: { open: "12:00", close: "23:00", closed: false },
-    wed: { open: "12:00", close: "23:00", closed: false },
-    thu: { open: "12:00", close: "23:00", closed: false },
-    fri: { open: "12:00", close: "23:00", closed: false },
-    sat: { open: "13:00", close: "20:00", closed: false },
+    mon: { open: "13:00", close: "20:00", closed: false },
+    tue: { open: "13:00", close: "20:00", closed: false },
+    wed: { open: "13:00", close: "20:00", closed: false },
+    thu: { open: "13:00", close: "20:00", closed: false },
+    fri: { open: "13:00", close: "20:00", closed: false },
+    sat: { open: "13:00", close: "00:00", closed: false },
     sun: { open: "13:00", close: "20:00", closed: false },
   } as OfficeHours,
   holidayHours: [
