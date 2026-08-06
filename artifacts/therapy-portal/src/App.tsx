@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
+import { useGetSettings } from '@workspace/api-client-react';
+import { getThemeStyle } from '@/lib/theme';
 
 import Home from '@/pages/public/home';
 const BookingManage = lazy(() => import('@/pages/public/booking-manage'));
@@ -23,6 +25,11 @@ const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const NotFound = lazy(() => import('@/pages/not-found'));
 
 const queryClient = new QueryClient();
+
+function ThemeSettingsBridge({ children }: { children: React.ReactNode }) {
+  const { data: settings } = useGetSettings();
+  return <div style={getThemeStyle(settings)} className="min-h-screen">{children}</div>;
+}
 
 function StaffRouter() {
   return (
@@ -64,17 +71,19 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Suspense
-            fallback={
-              <div className="min-h-screen flex items-center justify-center bg-background text-primary">
-                <div className="h-8 w-8 rounded-full border-2 border-primary/25 border-t-primary animate-spin" />
-              </div>
-            }
-          >
-            <Router />
-          </Suspense>
-        </WouterRouter>
+        <ThemeSettingsBridge>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Suspense
+              fallback={
+                <div className="min-h-screen flex items-center justify-center bg-background text-primary">
+                  <div className="h-8 w-8 rounded-full border-2 border-primary/25 border-t-primary animate-spin" />
+                </div>
+              }
+            >
+              <Router />
+            </Suspense>
+          </WouterRouter>
+        </ThemeSettingsBridge>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

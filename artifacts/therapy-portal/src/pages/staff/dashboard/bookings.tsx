@@ -30,6 +30,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { CelebrationConfetti } from '@/components/celebration-confetti';
 import {
   Loader2, Trash2, CheckCircle2, XCircle, UserPlus, Clock, ArrowRight,
   StickyNote, ChevronDown, ChevronUp, CalendarDays, Hash, Plus, Copy, CheckCheck,
@@ -69,6 +70,7 @@ export default function Bookings() {
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [celebrationKey, setCelebrationKey] = useState(0);
 
   const { data: authData } = useGetAuthMe();
   const staffName = authData?.staffName || 'Staff';
@@ -92,6 +94,7 @@ export default function Bookings() {
         queryClient.invalidateQueries({ queryKey: getGetBookingStatsQueryKey() });
         setCreatedCode(data.confirmationCode);
         setForm(EMPTY_FORM);
+        setCelebrationKey((key) => key + 1);
       },
       onError: (err) => {
         const msg = (err as { data?: { error?: string } })?.data?.error ?? 'Failed to create booking.';
@@ -357,14 +360,16 @@ export default function Bookings() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[
+       <CelebrationConfetti trigger={celebrationKey} />
+
+       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+         {[
           ['Today', todayBookings.length, 'appointments'],
           ['Pending', stats?.pending ?? 0, 'needs attention'],
           ['New clients', newClientsThisMonth, 'this month'],
           ['Goal progress', `${Math.min(100, Math.round(((stats?.completed ?? 0) / 20) * 100))}%`, '20 completed sessions'],
         ].map(([label, value, detail], index) => (
-          <Card key={label} className="rounded-2xl transition-all duration-500 hover:-translate-y-0.5 hover:shadow-md" style={{ animationDelay: `${index * 90}ms` }}>
+           <Card key={label} className="ats-stat-card rounded-2xl transition-all duration-500 hover:-translate-y-0.5 hover:shadow-md" style={{ animationDelay: `${index * 90}ms` }}>
             <CardContent className="p-4">
               <p className="text-xs font-medium text-muted-foreground">{label}</p>
               <p className="mt-2 animate-in fade-in slide-in-from-bottom-2 text-2xl font-semibold duration-700">{value}</p>

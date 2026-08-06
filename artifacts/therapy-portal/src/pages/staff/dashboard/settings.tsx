@@ -346,8 +346,8 @@ export default function Settings() {
           {/* Public Branding and Copy */}
           <Card>
             <CardHeader>
-              <CardTitle>Website Branding & Copy</CardTitle>
-              <CardDescription>Update the words and colors clients see on the public site.</CardDescription>
+               <CardTitle>Website Branding & Copy</CardTitle>
+               <CardDescription>Update the words, colors, and custom accent used throughout the portal.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {([
@@ -422,7 +422,7 @@ export default function Settings() {
                 )}
               />
               <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {([
+                 {([
                   ['primaryColor', 'Primary color'],
                   ['secondaryColor', 'Secondary color'],
                   ['accentColor', 'Accent color'],
@@ -433,7 +433,7 @@ export default function Settings() {
                     name={name}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{label}</FormLabel>
+                       <FormLabel>{name === 'accentColor' ? 'Custom accent color' : label}</FormLabel>
                         <div className="flex gap-2">
                           <FormControl><Input type="color" className="w-12 p-1" {...field} /></FormControl>
                           <Input value={field.value} onChange={field.onChange} className="font-mono uppercase" />
@@ -443,6 +443,31 @@ export default function Settings() {
                     )}
                   />
                 ))}
+                <div className="sm:col-span-3 rounded-2xl border bg-background p-4">
+                  <p className="text-sm font-medium">Accent presets</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Choose a starting point, then fine-tune it with the color picker above.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {[
+                      ['Terracotta', '#D9B7A2'],
+                      ['Sage', '#B8C5A1'],
+                      ['Golden', '#E6C27A'],
+                      ['Lavender', '#C9B9D9'],
+                      ['Sky', '#B7D2D9'],
+                    ].map(([label, color]) => (
+                      <Button
+                        key={label}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => form.setValue('accentColor', color)}
+                      >
+                        <span className="h-3 w-3 rounded-full border" style={{ backgroundColor: color }} />
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

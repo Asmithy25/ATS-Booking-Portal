@@ -307,8 +307,26 @@
 
 @keyframes ats-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .ats-rise { animation: ats-rise .55s ease-out both; }
+.ats-stat-card { animation: ats-stat-pop .65s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes ats-stat-pop {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .ats-delay-1 { animation-delay: .08s; }
 .ats-delay-2 { animation-delay: .16s; }
 .ats-delay-3 { animation-delay: .24s; }
 .ats-paper { background-image: radial-gradient(hsl(24 24% 28% / .05) .7px, transparent .7px); background-size: 7px 7px; }
+.ats-confetti-piece {
+  position: absolute;
+  top: -1rem;
+  width: .6rem;
+  height: 1rem;
+  border-radius: 2px;
+  animation: ats-confetti-fall 1.2s cubic-bezier(.2,.7,.3,1) forwards;
+}
+@keyframes ats-confetti-fall {
+  0% { opacity: 0; transform: translate3d(0, -1rem, 0) rotate(0deg); }
+  10% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(0, 105vh, 0) rotate(var(--confetti-rotation)); }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
