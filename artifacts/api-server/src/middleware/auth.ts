@@ -9,13 +9,10 @@ const SECRET = process.env.SESSION_SECRET ?? "dev-fallback-secret-change-in-prod
 const ADMIN_EMAIL = "ayden@aydenstherapyservices.com";
 
 /**
- * Admin credentials — password loaded from env so it never lives in source.
- * Set ADMIN_PASSWORD in Replit Secrets. The fallback is intentionally left
- * blank in non-dev environments to fail safely.
+ * Admin credentials — password loaded from Replit Secrets so it never lives
+ * in source or falls back to a known default.
  */
-const ADMIN_PASSWORD =
-  process.env.ADMIN_PASSWORD ??
-  (process.env.NODE_ENV !== "production" ? "Aydenstherapyservices122221" : "");
+const ADMIN_PASSWORD = process.env.AYDEN_ADMIN_PASSWORD ?? "";
 
 const STAFF_ACCOUNTS: Record<string, { password: string; name: string }> = {
   [ADMIN_EMAIL]: { password: ADMIN_PASSWORD, name: "Ayden" },
