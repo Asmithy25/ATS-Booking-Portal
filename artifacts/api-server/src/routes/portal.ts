@@ -259,7 +259,24 @@ router.get("/support/staff", requireAuth, async (req, res): Promise<void> => {
   const result = [];
   for (const thread of threads) {
     const messages = await db.select().from(supportMessagesTable).where(eq(supportMessagesTable.threadId, thread.id)).orderBy(supportMessagesTable.createdAt);
-    result.push({ ...thread, messages });
+    const [client] = await db.select({
+      name: clientAccountsTable.name,
+      phone: clientAccountsTable.phone,
+    }).from(clientAccountsTable).where(eq(clientAccountsTable.id, thread.clientAccountId)).limit(1);
+    const [booking] = client
+      ? await db.select({
+          preferredDate: bookingsTable.preferredDate,
+          preferredTime: bookingsTable.preferredTime,
+        }).from(bookingsTable).where(eq(bookingsTable.phone, client.phone)).orderBy(desc(bookingsTable.preferredDate), desc(bookingsTable.preferredTime)).limit(1)
+      : [];
+    result.push({
+      ...thread,
+      clientName: client?.name ?? "Client",
+      clientPhone: client?.phone ?? "",
+      preferredDate: booking?.preferredDate ?? null,
+      preferredTime: booking?.preferredTime ?? null,
+      messages,
+    });
   }
   res.json(result);
 });

@@ -33,7 +33,18 @@ export type WellnessResource = {
   isEmergency: boolean;
 };
 export type SupportMessage = { id: number; senderType: string; senderName: string; body: string; createdAt: string };
-export type SupportThread = { id: number; subject: string; status: string; createdAt: string; updatedAt: string; messages: SupportMessage[] };
+export type SupportThread = {
+  id: number;
+  subject: string;
+  status: string;
+  clientName?: string;
+  clientPhone?: string;
+  preferredDate?: string | null;
+  preferredTime?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportMessage[];
+};
 export type Analytics = {
   totalAppointments: number;
   clientCount: number;
