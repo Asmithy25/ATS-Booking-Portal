@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useGetSettings } from '@workspace/api-client-react';
 import { Loader2, Calendar, Clock, Phone, CheckCircle2, XCircle, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface BookingPublic {
@@ -53,6 +54,7 @@ export default function BookingManage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: settings } = useGetSettings();
 
   const [rescheduleMode, setRescheduleMode] = useState(false);
   const [newDate, setNewDate] = useState('');
@@ -79,6 +81,15 @@ export default function BookingManage() {
   useEffect(() => {
     if (!booking) return;
     setNow(new Date());
+    try {
+      localStorage.setItem(`ats-recognized-booking:${booking.confirmationCode}`, JSON.stringify({
+        recognized: true,
+        date: booking.preferredDate,
+        time: booking.preferredTime,
+      }));
+    } catch {
+      // Device recognition is optional and never affects booking access.
+    }
     try {
       const saved = JSON.parse(localStorage.getItem(reminderStorageKey) ?? 'null') as {
         code?: string;
@@ -184,6 +195,14 @@ export default function BookingManage() {
     : appointmentHasPassed
       ? 'This appointment time has passed.'
       : `Your session is ${formatDistanceToAppointment(appointmentTime, now)}.`;
+  const recognizedDevice = settings?.featureFlags?.recognizedBookingCountdown !== false && Boolean(booking && (() => {
+    try {
+      const value = JSON.parse(localStorage.getItem(`ats-recognized-booking:${booking.confirmationCode}`) ?? 'null') as { recognized?: boolean } | null;
+      return value?.recognized === true;
+    } catch {
+      return false;
+    }
+  })());
 
   const enableReminder = async () => {
     if (!booking || !appointmentTime || appointmentHasPassed || !isEditable) return;
@@ -296,7 +315,7 @@ export default function BookingManage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-primary mb-1">Appointment reminder</p>
-                    <p className="font-medium text-foreground">{reminderMessage}</p>
+                     <p className="font-medium text-foreground">{recognizedDevice ? reminderMessage : 'This browser will recognize this booking after it is loaded.'}</p>
                     <p className="text-sm text-muted-foreground mt-1">
                       {reminderEnabled ? 'Browser notification enabled for this booking.' : 'Keep this page open for the live reminder, or enable a browser notification.'}
                     </p>

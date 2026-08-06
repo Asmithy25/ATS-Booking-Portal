@@ -21,6 +21,8 @@ const Support = lazy(() => import('@/pages/staff/dashboard/support'));
 const TeamWorkspace = lazy(() => import('@/pages/staff/dashboard/team-workspace'));
 const TeamChat = lazy(() => import('@/pages/staff/dashboard/team-chat'));
 const MessageTemplates = lazy(() => import('@/pages/staff/dashboard/message-templates'));
+const ClientTemplates = lazy(() => import('@/pages/staff/dashboard/client-templates'));
+const Rollout = lazy(() => import('@/pages/staff/dashboard/rollout'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const NotFound = lazy(() => import('@/pages/not-found'));
@@ -46,6 +48,8 @@ function StaffRouter() {
            <Route path="/staff/team" component={TeamWorkspace} />
           <Route path="/staff/team-chat" component={TeamChat} />
           <Route path="/staff/messages" component={MessageTemplates} />
+          <Route path="/staff/client-templates" component={ClientTemplates} />
+          <Route path="/staff/rollout" component={Rollout} />
         <Route path="/staff/settings" component={Settings} />
         <Route path="/staff/employees" component={Employees} />
         <Route component={NotFound} />

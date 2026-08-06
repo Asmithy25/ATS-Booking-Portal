@@ -293,6 +293,7 @@ export const GetSettingsResponse = zod.object({
   "primaryColor": zod.string().optional(),
   "secondaryColor": zod.string().optional(),
   "accentColor": zod.string().optional(),
+  "featureFlags": zod.record(zod.string(), zod.boolean()).optional(),
   "therapistHours": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().optional(),
@@ -409,7 +410,8 @@ export const UpdateSettingsBody = zod.object({
   "heroDescription": zod.string().optional(),
   "primaryColor": zod.string().optional(),
   "secondaryColor": zod.string().optional(),
-  "accentColor": zod.string().optional()
+  "accentColor": zod.string().optional(),
+  "featureFlags": zod.record(zod.string(), zod.boolean()).optional()
 })
 
 export const updateSettingsResponseBufferMinutesMin = 0;
@@ -480,6 +482,7 @@ export const UpdateSettingsResponse = zod.object({
   "primaryColor": zod.string().optional(),
   "secondaryColor": zod.string().optional(),
   "accentColor": zod.string().optional(),
+  "featureFlags": zod.record(zod.string(), zod.boolean()).optional(),
   "therapistHours": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().optional(),

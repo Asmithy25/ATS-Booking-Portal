@@ -7,6 +7,7 @@
  */
 import type { ClosedDate } from './closedDate';
 import type { HolidayHour } from './holidayHour';
+import type { SettingsFeatureFlags } from './settingsFeatureFlags';
 import type { SettingsOfficeHours } from './settingsOfficeHours';
 import type { TherapistHours } from './therapistHours';
 
@@ -37,5 +38,6 @@ export interface Settings {
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;
+  featureFlags?: SettingsFeatureFlags;
   therapistHours: TherapistHours[];
 }

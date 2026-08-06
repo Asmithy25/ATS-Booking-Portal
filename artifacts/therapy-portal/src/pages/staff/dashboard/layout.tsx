@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey } from '@workspace/api-client-react';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -98,6 +98,8 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
            {navItem('/staff/team-chat', <MessageCircle className="h-4 w-4" />, 'Team chat')}
            {navItem('/staff/team', <UsersRound className="h-4 w-4" />, 'Team workspace')}
           {navItem('/staff/messages', <Mail className="h-4 w-4" />, 'Message templates')}
+           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/client-templates', <Copy className="h-4 w-4" />, 'Client Templates')}
+           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/rollout', <Megaphone className="h-4 w-4" />, 'Rollout')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/announcements', <Megaphone className="h-4 w-4" />, 'Announcements')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Activity history')}
           {navItem('/staff/settings', <SettingsIcon className="h-4 w-4" />, 'Settings')}

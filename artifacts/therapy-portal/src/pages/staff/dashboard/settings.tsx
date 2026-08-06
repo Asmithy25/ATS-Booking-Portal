@@ -82,6 +82,15 @@ const settingsSchema = z.object({
   vacationMode: z.boolean(),
   vacationStart: z.string(),
   vacationEnd: z.string(),
+  featureFlags: z.object({
+    clientBooking: z.boolean(),
+    clientNotifications: z.boolean(),
+    clientUpdatesOptIn: z.boolean(),
+    staffRollouts: z.boolean(),
+    recognizedBookingCountdown: z.boolean(),
+    clientPortalCountdown: z.boolean(),
+    clientTemplates: z.boolean(),
+  }),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -145,6 +154,15 @@ export default function Settings() {
       vacationMode: false,
       vacationStart: '',
       vacationEnd: '',
+      featureFlags: {
+        clientBooking: true,
+        clientNotifications: true,
+        clientUpdatesOptIn: true,
+        staffRollouts: true,
+        recognizedBookingCountdown: true,
+        clientPortalCountdown: true,
+        clientTemplates: true,
+      },
     }
   });
 
@@ -160,7 +178,18 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
-      form.reset(settings);
+      form.reset({
+        ...settings,
+        featureFlags: {
+          clientBooking: settings.featureFlags?.clientBooking !== false,
+          clientNotifications: settings.featureFlags?.clientNotifications !== false,
+          clientUpdatesOptIn: settings.featureFlags?.clientUpdatesOptIn !== false,
+          staffRollouts: settings.featureFlags?.staffRollouts !== false,
+          recognizedBookingCountdown: settings.featureFlags?.recognizedBookingCountdown !== false,
+          clientPortalCountdown: settings.featureFlags?.clientPortalCountdown !== false,
+          clientTemplates: settings.featureFlags?.clientTemplates !== false,
+        },
+      });
     }
   }, [settings, form]);
 
@@ -172,8 +201,11 @@ export default function Settings() {
 
   const onSubmit = (values: SettingsFormValues) => {
     const { officeHours: _officeHours, ...siteSettings } = values;
+    const submitSettings = session?.isAdmin
+      ? siteSettings
+      : (({ featureFlags: _featureFlags, ...staffSettings }) => staffSettings)(siteSettings);
     updateSettings.mutate(
-      { data: siteSettings },
+      { data: submitSettings },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
@@ -291,6 +323,36 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
+
+           {session?.isAdmin && <Card className="border-primary/20">
+             <CardHeader>
+               <CardTitle>Founder feature controls</CardTitle>
+               <CardDescription>Customize which portal capabilities are available across the public site, staff workspace, and client experience.</CardDescription>
+             </CardHeader>
+             <CardContent className="grid gap-3 sm:grid-cols-2">
+               {([
+                 ['clientBooking', 'Client self-booking', 'Allow signed-in clients to request sessions.'],
+                 ['clientNotifications', 'Client notification wall', 'Show targeted updates inside client portals.'],
+                 ['clientUpdatesOptIn', 'Client update opt-in', 'Allow clients to choose whether they receive rollouts.'],
+                 ['staffRollouts', 'Staff Rollout', 'Allow authorized staff to send targeted or opted-in updates.'],
+                 ['recognizedBookingCountdown', 'Public booking countdown', 'Show live countdowns for recognized booking devices.'],
+                 ['clientPortalCountdown', 'Client portal countdown', 'Show live countdowns for recognized client devices.'],
+                 ['clientTemplates', 'Client Templates', 'Keep the standalone client copy library available.'],
+               ] as const).map(([name, label, description]) => (
+                 <FormField
+                   key={name}
+                   control={form.control}
+                   name={`featureFlags.${name}`}
+                   render={({ field }) => (
+                     <FormItem className="flex items-start justify-between gap-4 rounded-2xl border bg-background p-4">
+                       <div className="space-y-1"><FormLabel>{label}</FormLabel><FormDescription>{description}</FormDescription></div>
+                       <FormControl><SwitchComponent checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                     </FormItem>
+                   )}
+                 />
+               ))}
+             </CardContent>
+           </Card>}
           </Form>
           
           {/* General Toggles */}

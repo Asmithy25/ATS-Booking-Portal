@@ -202,6 +202,8 @@ export type SettingsOfficeHours = {
   sun?: DayHours;
 };
 
+export type SettingsFeatureFlags = {[key: string]: boolean};
+
 export type TherapistHoursOfficeHours = {
   mon?: DayHours;
   tue?: DayHours;
@@ -245,6 +247,7 @@ export interface Settings {
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;
+  featureFlags?: SettingsFeatureFlags;
   therapistHours: TherapistHours[];
 }
 
@@ -356,6 +359,8 @@ export type SettingsUpdateOfficeHours = {
   sun?: DayHours;
 };
 
+export type SettingsUpdateFeatureFlags = {[key: string]: boolean};
+
 export interface SettingsUpdate {
   acceptingClients?: boolean;
   sessionRequestsOpen?: boolean;
@@ -382,6 +387,7 @@ export interface SettingsUpdate {
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;
+  featureFlags?: SettingsUpdateFeatureFlags;
 }
 
 export interface ClientHistory {

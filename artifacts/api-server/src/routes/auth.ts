@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { CookieOptions } from "express";
 import { signPayload, verifyPayload, STAFF_ACCOUNTS, SESSION_COOKIE, CLIENT_SESSION_COOKIE, ADMIN_EMAIL, verifyPassword, requireClientAuth } from "../middleware/auth";
 import { db } from "@workspace/db";
-import { staffAccountsTable, clientAccountsTable, bookingsTable } from "@workspace/db";
+import { staffAccountsTable, clientAccountsTable, bookingsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "../middleware/auth";
 
@@ -145,13 +145,37 @@ router.get("/client/me", requireClientAuth, async (req, res) => {
     email: clientAccountsTable.email,
     name: clientAccountsTable.name,
     phone: clientAccountsTable.phone,
+    updatesOptIn: clientAccountsTable.updatesOptIn,
     createdAt: clientAccountsTable.createdAt,
   }).from(clientAccountsTable).where(eq(clientAccountsTable.id, id)).limit(1);
   if (!client) {
     res.status(401).json({ error: "Account not found." });
     return;
   }
-  res.json({ authenticated: true, client: { ...client, createdAt: client.createdAt.toISOString() } });
+   res.json({ authenticated: true, client: { ...client, createdAt: client.createdAt.toISOString() } });
+});
+
+router.patch("/client/preferences", requireClientAuth, async (req, res): Promise<void> => {
+  const [settings] = await db.select({ featureFlags: settingsTable.featureFlags }).from(settingsTable).limit(1);
+  if ((settings?.featureFlags as Record<string, boolean> | undefined)?.clientUpdatesOptIn === false) {
+    res.status(403).json({ error: "Client update preferences are currently disabled." });
+    return;
+  }
+  const id = Number((req as import("../middleware/auth").RequestWithClientSession).clientSession?.id);
+  const updatesOptIn = (req.body as { updatesOptIn?: unknown }).updatesOptIn;
+  if (typeof updatesOptIn !== "boolean") {
+    res.status(400).json({ error: "A valid updates preference is required." });
+    return;
+  }
+  const [updated] = await db.update(clientAccountsTable)
+    .set({ updatesOptIn, updatedAt: new Date() })
+    .where(eq(clientAccountsTable.id, id))
+    .returning({ updatesOptIn: clientAccountsTable.updatesOptIn });
+  if (!updated) {
+    res.status(404).json({ error: "Client account not found." });
+    return;
+  }
+  res.json(updated);
 });
 
 function issueClientSession(

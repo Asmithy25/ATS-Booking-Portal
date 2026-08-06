@@ -7,6 +7,7 @@
  */
 import type { ClosedDate } from './closedDate';
 import type { HolidayHour } from './holidayHour';
+import type { SettingsUpdateFeatureFlags } from './settingsUpdateFeatureFlags';
 import type { SettingsUpdateOfficeHours } from './settingsUpdateOfficeHours';
 
 export interface SettingsUpdate {
@@ -35,4 +36,5 @@ export interface SettingsUpdate {
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;
+  featureFlags?: SettingsUpdateFeatureFlags;
 }

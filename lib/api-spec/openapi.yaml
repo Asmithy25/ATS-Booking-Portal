@@ -801,6 +801,10 @@ components:
           type: string
         accentColor:
           type: string
+        featureFlags:
+          type: object
+          additionalProperties:
+            type: boolean
         therapistHours:
           type: array
           items:
@@ -991,6 +995,10 @@ components:
           type: string
         accentColor:
           type: string
+        featureFlags:
+          type: object
+          additionalProperties:
+            type: boolean
 
     ClientHistory:
       type: object

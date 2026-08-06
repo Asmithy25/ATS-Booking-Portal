@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, settingsTable, staffAccountsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireAuth, requirePermission } from "../middleware/auth";
+import { getStaffAccess, hasPermission, requireAuth, requirePermission } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 import type { OfficeHours, HolidayHour, ClosedDate } from "@workspace/db";
 import type { RequestWithSession } from "../middleware/auth";
@@ -40,6 +40,15 @@ const DEFAULT_SETTINGS = {
   primaryColor: "#7B4A2F",
   secondaryColor: "#C38A4A",
   accentColor: "#D9B7A2",
+  featureFlags: {
+    clientBooking: true,
+    clientNotifications: true,
+    clientUpdatesOptIn: true,
+    staffRollouts: true,
+    recognizedBookingCountdown: true,
+    clientPortalCountdown: true,
+    clientTemplates: true,
+  },
 };
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -111,6 +120,7 @@ router.get("/", async (req, res) => {
       primaryColor: settings.primaryColor,
       secondaryColor: settings.secondaryColor,
       accentColor: settings.accentColor,
+      featureFlags: settings.featureFlags ?? DEFAULT_SETTINGS.featureFlags,
       therapistHours: [
         {
           name: "Ayden",
@@ -219,6 +229,7 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
     primaryColor: string;
     secondaryColor: string;
     accentColor: string;
+    featureFlags: typeof DEFAULT_SETTINGS.featureFlags;
   }>;
 
   try {
@@ -241,6 +252,7 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       primaryColor: string;
       secondaryColor: string;
       accentColor: string;
+      featureFlags: typeof DEFAULT_SETTINGS.featureFlags;
     }> = {};
 
     if (body.acceptingClients !== undefined) updates.acceptingClients = body.acceptingClients;
@@ -298,6 +310,19 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       }
       updates.accentColor = body.accentColor.toUpperCase();
     }
+    if (body.featureFlags !== undefined) {
+      const access = await getStaffAccess(req);
+      if (!access || access.role !== "founder") {
+        res.status(403).json({ error: "Only the founder can customize feature controls." });
+        return;
+      }
+      const flags = body.featureFlags;
+      if (!flags || Object.values(flags).some((value) => typeof value !== "boolean")) {
+        res.status(400).json({ error: "Feature controls must be boolean values." });
+        return;
+      }
+      updates.featureFlags = flags;
+    }
 
     const [updated] = await db
       .update(settingsTable)
@@ -325,6 +350,7 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       primaryColor: updated.primaryColor,
       secondaryColor: updated.secondaryColor,
       accentColor: updated.accentColor,
+      featureFlags: updated.featureFlags ?? DEFAULT_SETTINGS.featureFlags,
       therapistHours: [
         {
           name: "Ayden",

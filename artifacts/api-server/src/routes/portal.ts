@@ -11,6 +11,8 @@ import {
   supportThreadsTable,
   wellnessResourcesTable,
   settingsTable,
+  clientTemplatesTable,
+  clientNotificationsTable,
 } from "@workspace/db";
 import { db } from "@workspace/db";
 import { getStaffAccess, hasPermission, requireAuth, requireClientAuth, type RequestWithClientSession } from "../middleware/auth";
@@ -19,6 +21,48 @@ import { generateConfirmationCode } from "../lib/booking-utils";
 import { validateBookingSlot } from "../lib/scheduling";
 
 const router = Router();
+
+const DEFAULT_MESSAGE_TEMPLATES = [
+  { key: "booking_confirmation", label: "Booking confirmation", subject: "Your session request is received", body: "Hi {{clientName}},\n\nWe received your session request for {{date}} at {{time}}. We’ll follow up shortly with confirmation.\n\nAyden’s Therapy Services" },
+  { key: "appointment_reminder", label: "Appointment reminder", subject: "Reminder: your session is {{date}} at {{time}}", body: "Hi {{clientName}},\n\nThis is a gentle reminder that your phone session is scheduled for {{date}} at {{time}}.\n\nPlease keep your confirmation details nearby, and reach out if you need support." },
+  { key: "starting_soon", label: "Starting soon", subject: "Your session is starting soon", body: "Hi {{clientName}},\n\nYour session is starting soon at {{time}}. Find a quiet, comfortable place and keep your phone close.\n\nYou’ve got this." },
+  { key: "cancellation", label: "Cancellation", subject: "Update about your session request", body: "Hi {{clientName}},\n\nWe’re sorry, but we need to update your session request for {{date}} at {{time}}. Please reply here so we can help find another time." },
+  { key: "business_update", label: "Business update", subject: "An update from Ayden’s Therapy Services", body: "Hi {{clientName}},\n\nWe wanted to share an update from Ayden’s Therapy Services.\n\nPlease reply if you have any questions." },
+];
+
+const DEFAULT_CLIENT_TEMPLATES = [
+  { key: "grounding_checkin", label: "Grounding check-in", body: "Pause for a moment. Name five things you can see, four you can feel, three you can hear, two you can smell, and one you can taste." },
+  { key: "session_preparation", label: "Session preparation", body: "Before your session, consider what feels most important to bring into the conversation. You do not need to have the perfect words." },
+  { key: "care_followup", label: "Care follow-up", body: "Small steps count. Consider one gentle action for your body, one for your mind, and one point of connection today." },
+];
+
+async function ensureMessageTemplates() {
+  const existing = await db.select().from(messageTemplatesTable);
+  const existingKeys = new Set(existing.map((template) => template.key));
+  const missing = DEFAULT_MESSAGE_TEMPLATES.filter((template) => !existingKeys.has(template.key));
+  if (missing.length) {
+    await db.insert(messageTemplatesTable).values(missing.map((template) => ({ ...template, updatedBy: "Ayden" })));
+  }
+  return db.select().from(messageTemplatesTable).orderBy(messageTemplatesTable.key);
+}
+
+async function ensureClientTemplates() {
+  const existing = await db.select().from(clientTemplatesTable);
+  const existingKeys = new Set(existing.map((template) => template.key));
+  const missing = DEFAULT_CLIENT_TEMPLATES.filter((template) => !existingKeys.has(template.key));
+  if (missing.length) {
+    await db.insert(clientTemplatesTable).values(missing.map((template) => ({ ...template, updatedBy: "Ayden" })));
+  }
+  return db.select().from(clientTemplatesTable).orderBy(clientTemplatesTable.key);
+}
+
+async function featureEnabled(key: string) {
+  const [settings] = await db
+    .select({ featureFlags: settingsTable.featureFlags })
+    .from(settingsTable)
+    .limit(1);
+  return (settings?.featureFlags as Record<string, boolean> | undefined)?.[key] !== false;
+}
 
 router.get("/staff/access", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
@@ -122,7 +166,49 @@ router.get("/templates", requireAuth, async (req, res): Promise<void> => {
     res.status(403).json({ error: "Message access required." });
     return;
   }
-  res.json(await db.select().from(messageTemplatesTable).orderBy(messageTemplatesTable.key));
+  res.json(await ensureMessageTemplates());
+});
+
+router.get("/client-templates", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
+    res.status(403).json({ error: "Message access required." });
+    return;
+  }
+  if (!await featureEnabled("clientTemplates")) {
+    res.status(403).json({ error: "Client Templates are currently disabled." });
+    return;
+  }
+  res.json(await ensureClientTemplates());
+});
+
+router.patch("/client-templates/:key", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
+    res.status(403).json({ error: "Message access required." });
+    return;
+  }
+  if (!await featureEnabled("clientTemplates")) {
+    res.status(403).json({ error: "Client Templates are currently disabled." });
+    return;
+  }
+  const { body, label } = req.body as { body?: string; label?: string };
+  if (!body?.trim()) {
+    res.status(400).json({ error: "Template text is required." });
+    return;
+  }
+  const [updated] = await db.update(clientTemplatesTable).set({
+    body: body.trim().slice(0, 5000),
+    ...(label?.trim() ? { label: label.trim().slice(0, 120) } : {}),
+    updatedBy: access.name,
+    updatedAt: new Date(),
+  }).where(eq(clientTemplatesTable.key, String(req.params.key))).returning();
+  if (!updated) {
+    res.status(404).json({ error: "Client template not found." });
+    return;
+  }
+  await recordAudit(req, "updated_client_template", "client_template", String(updated.id));
+  res.json(updated);
 });
 
 router.get("/collaboration", requireAuth, async (req, res): Promise<void> => {
@@ -218,7 +304,7 @@ router.patch("/collaboration/:id", requireAuth, async (req, res): Promise<void> 
 
 router.patch("/templates/:key", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
-  if (!access || !hasPermission(access, "sendEmails")) {
+  if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
     res.status(403).json({ error: "Message access required." });
     return;
   }
@@ -238,6 +324,79 @@ router.patch("/templates/:key", requireAuth, async (req, res): Promise<void> => 
   res.json(updated);
 });
 
+router.get("/rollout/clients", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "sendEmails")) {
+    res.status(403).json({ error: "Rollout access required." });
+    return;
+  }
+  const clients = await db.select({
+    id: clientAccountsTable.id,
+    name: clientAccountsTable.name,
+    email: clientAccountsTable.email,
+    updatesOptIn: clientAccountsTable.updatesOptIn,
+  }).from(clientAccountsTable).orderBy(clientAccountsTable.name);
+  res.json(clients);
+});
+
+router.post("/rollout", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "sendEmails")) {
+    res.status(403).json({ error: "Rollout access required." });
+    return;
+  }
+  if (!await featureEnabled("staffRollouts")) {
+    res.status(403).json({ error: "Rollouts are currently disabled." });
+    return;
+  }
+  const { title, body, audience, clientId } = req.body as {
+    title?: string;
+    body?: string;
+    audience?: "client" | "opted_in";
+    clientId?: number;
+  };
+  if (!title?.trim() || !body?.trim() || !["client", "opted_in"].includes(audience ?? "")) {
+    res.status(400).json({ error: "Title, message, and rollout audience are required." });
+    return;
+  }
+
+  let recipients: Array<{ id: number }> = [];
+  if (audience === "client") {
+    const targetedClientId = clientId;
+    if (!Number.isInteger(targetedClientId)) {
+      res.status(400).json({ error: "Choose a client for a targeted rollout." });
+      return;
+    }
+    const [client] = await db.select({ id: clientAccountsTable.id })
+      .from(clientAccountsTable)
+      .where(eq(clientAccountsTable.id, targetedClientId as number))
+      .limit(1);
+    if (!client) {
+      res.status(404).json({ error: "Client account not found." });
+      return;
+    }
+    recipients = [client];
+  } else {
+    recipients = await db.select({ id: clientAccountsTable.id })
+      .from(clientAccountsTable)
+      .where(eq(clientAccountsTable.updatesOptIn, true));
+  }
+  if (!recipients.length) {
+    res.status(409).json({ error: "No clients are opted in for this rollout." });
+    return;
+  }
+  const created = await db.insert(clientNotificationsTable).values(
+    recipients.map((recipient) => ({
+      clientAccountId: recipient.id,
+      title: title.trim().slice(0, 160),
+      body: body.trim().slice(0, 5000),
+      pushedBy: access.name,
+    })),
+  ).returning();
+  await recordAudit(req, "sent_client_rollout", "client_notification", audience === "client" ? String(clientId) : "opted_in");
+  res.status(201).json({ sent: created.length });
+});
+
 router.get("/support", requireClientAuth, async (req, res) => {
   const clientId = Number((req as RequestWithClientSession).clientSession?.id);
   const threads = await db.select().from(supportThreadsTable).where(eq(supportThreadsTable.clientAccountId, clientId)).orderBy(desc(supportThreadsTable.updatedAt));
@@ -247,6 +406,44 @@ router.get("/support", requireClientAuth, async (req, res) => {
     result.push({ ...thread, messages });
   }
   res.json(result);
+});
+
+router.get("/client/notifications", requireClientAuth, async (req, res): Promise<void> => {
+  if (!await featureEnabled("clientNotifications")) {
+    res.json([]);
+    return;
+  }
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+  const notifications = await db.select().from(clientNotificationsTable)
+    .where(eq(clientNotificationsTable.clientAccountId, clientId))
+    .orderBy(desc(clientNotificationsTable.createdAt))
+    .limit(100);
+  res.json(notifications.map((notification) => ({
+    ...notification,
+    createdAt: notification.createdAt.toISOString(),
+  })));
+});
+
+router.patch("/client/notifications/:id/read", requireClientAuth, async (req, res): Promise<void> => {
+  if (!await featureEnabled("clientNotifications")) {
+    res.status(403).json({ error: "Client notifications are currently disabled." });
+    return;
+  }
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+  const notificationId = Number(req.params.id);
+  if (!Number.isInteger(notificationId)) {
+    res.status(400).json({ error: "A valid notification is required." });
+    return;
+  }
+  const [updated] = await db.update(clientNotificationsTable)
+    .set({ read: true })
+    .where(and(eq(clientNotificationsTable.id, notificationId), eq(clientNotificationsTable.clientAccountId, clientId)))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Notification not found." });
+    return;
+  }
+  res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
 });
 
 router.get("/support/staff", requireAuth, async (req, res): Promise<void> => {
@@ -388,6 +585,10 @@ router.post("/support/:id/reply/client", requireClientAuth, async (req, res): Pr
 });
 
 router.post("/client/bookings", requireClientAuth, async (req, res): Promise<void> => {
+  if (!await featureEnabled("clientBooking")) {
+    res.status(403).json({ error: "Client booking is currently disabled." });
+    return;
+  }
   const clientId = Number((req as RequestWithClientSession).clientSession?.id);
   const { reason, preferredDate, preferredTime } = req.body as {
     reason?: string;

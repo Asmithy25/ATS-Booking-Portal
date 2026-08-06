@@ -16,6 +16,16 @@ export type OfficeHours = {
   sun: DayHours;
 };
 
+export type FeatureFlags = {
+  clientBooking: boolean;
+  clientNotifications: boolean;
+  clientUpdatesOptIn: boolean;
+  staffRollouts: boolean;
+  recognizedBookingCountdown: boolean;
+  clientPortalCountdown: boolean;
+  clientTemplates: boolean;
+};
+
 export const settingsTable = pgTable("settings", {
   id: serial("id").primaryKey(),
   acceptingClients: boolean("accepting_clients").notNull().default(true),
@@ -35,6 +45,15 @@ export const settingsTable = pgTable("settings", {
   primaryColor: text("primary_color").notNull().default("#7B4A2F"),
   secondaryColor: text("secondary_color").notNull().default("#C38A4A"),
   accentColor: text("accent_color").notNull().default("#D9B7A2"),
+  featureFlags: jsonb("feature_flags").notNull().$type<FeatureFlags>().default({
+    clientBooking: true,
+    clientNotifications: true,
+    clientUpdatesOptIn: true,
+    staffRollouts: true,
+    recognizedBookingCountdown: true,
+    clientPortalCountdown: true,
+    clientTemplates: true,
+  }),
 });
 
 export type HolidayHour = {

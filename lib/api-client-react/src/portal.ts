@@ -1,7 +1,7 @@
 import { useMutation, useQuery, type UseMutationOptions, type UseQueryOptions } from "@tanstack/react-query";
 import { customFetch, type ErrorType } from "./custom-fetch";
 
-export type Client = { id: number; email: string; name: string; phone?: string; createdAt?: string };
+export type Client = { id: number; email: string; name: string; phone?: string; updatesOptIn?: boolean; createdAt?: string };
 export type ClientBooking = {
   id: number;
   confirmationCode: string;
@@ -75,6 +75,9 @@ export type MessageTemplate = {
   updatedBy: string;
   updatedAt: string;
 };
+export type ClientTemplate = { id: number; key: string; label: string; body: string; updatedBy: string; updatedAt: string };
+export type ClientNotification = { id: number; clientAccountId: number; title: string; body: string; pushedBy: string; read: boolean; createdAt: string };
+export type RolloutClient = { id: number; name: string; email: string; updatesOptIn: boolean };
 export type CollaborationItem = {
   id: number;
   kind: "chat" | "inbox" | "task" | "shift_note";
@@ -273,6 +276,67 @@ export function useUpdateMessageTemplate(options?: {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
+    ...options?.mutation,
+  });
+}
+
+export const getClientTemplatesQueryKey = () => ["/api/portal/client-templates"] as const;
+export function useClientTemplates(options?: QueryOptions<ClientTemplate[]>) {
+  return useQuery({
+    queryKey: getClientTemplatesQueryKey(),
+    queryFn: () => customFetch<ClientTemplate[]>("/api/portal/client-templates"),
+    ...options?.query,
+  });
+}
+export function useUpdateClientTemplate(options?: {
+  mutation?: UseMutationOptions<ClientTemplate, ErrorType<unknown>, { key: string; data: { body: string; label?: string } }>;
+}) {
+  return useMutation({
+    mutationFn: ({ key, data }: { key: string; data: { body: string; label?: string } }) =>
+      customFetch<ClientTemplate>(`/api/portal/client-templates/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(data) }),
+    ...options?.mutation,
+  });
+}
+
+export const getClientNotificationsQueryKey = () => ["/api/portal/client/notifications"] as const;
+export function useClientNotifications(options?: QueryOptions<ClientNotification[]>) {
+  return useQuery({
+    queryKey: getClientNotificationsQueryKey(),
+    queryFn: () => customFetch<ClientNotification[]>("/api/portal/client/notifications"),
+    ...options?.query,
+  });
+}
+export function useMarkClientNotificationRead(options?: {
+  mutation?: UseMutationOptions<ClientNotification, ErrorType<unknown>, number>;
+}) {
+  return useMutation({
+    mutationFn: (id: number) => customFetch<ClientNotification>(`/api/portal/client/notifications/${id}/read`, { method: "PATCH" }),
+    ...options?.mutation,
+  });
+}
+export function useUpdateClientPreferences(options?: {
+  mutation?: UseMutationOptions<{ updatesOptIn: boolean }, ErrorType<unknown>, { updatesOptIn: boolean }>;
+}) {
+  return useMutation({
+    mutationFn: (data: { updatesOptIn: boolean }) => customFetch<{ updatesOptIn: boolean }>("/api/auth/client/preferences", { method: "PATCH", body: JSON.stringify(data) }),
+    ...options?.mutation,
+  });
+}
+
+export const getRolloutClientsQueryKey = () => ["/api/portal/rollout/clients"] as const;
+export function useRolloutClients(options?: QueryOptions<RolloutClient[]>) {
+  return useQuery({
+    queryKey: getRolloutClientsQueryKey(),
+    queryFn: () => customFetch<RolloutClient[]>("/api/portal/rollout/clients"),
+    ...options?.query,
+  });
+}
+export function useSendRollout(options?: {
+  mutation?: UseMutationOptions<{ sent: number }, ErrorType<unknown>, { title: string; body: string; audience: "client" | "opted_in"; clientId?: number }>;
+}) {
+  return useMutation({
+    mutationFn: (data: { title: string; body: string; audience: "client" | "opted_in"; clientId?: number }) =>
+      customFetch<{ sent: number }>("/api/portal/rollout", { method: "POST", body: JSON.stringify(data) }),
     ...options?.mutation,
   });
 }
