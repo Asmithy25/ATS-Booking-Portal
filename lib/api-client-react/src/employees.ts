@@ -41,6 +41,7 @@ export interface StaffBookingInput {
   preferredDate: string;
   preferredTime: string;
   status?: "pending" | "claimed" | "completed" | "waitlisted";
+  priority?: number;
   sessionNotes?: string;
 }
 

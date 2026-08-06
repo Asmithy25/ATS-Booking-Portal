@@ -58,6 +58,11 @@ export const GetAuthMeResponse = zod.object({
 /**
  * @summary List all bookings (staff only)
  */
+export const listBookingsResponsePriorityMin = 0;
+export const listBookingsResponsePriorityMax = 3;
+
+
+
 export const ListBookingsResponseItem = zod.object({
   "id": zod.number().int(),
   "confirmationCode": zod.string().describe('Unique confirmation code for the client to manage their booking'),
@@ -67,6 +72,7 @@ export const ListBookingsResponseItem = zod.object({
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
   "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
+  "priority": zod.number().int().min(listBookingsResponsePriorityMin).max(listBookingsResponsePriorityMax).optional().describe('Waitlist priority, where 3 is urgent and 0 is low'),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),
@@ -93,6 +99,11 @@ export const CreateBookingBody = zod.object({
   "preferredTime": zod.string().describe('HH:MM format (24h)')
 })
 
+export const createBookingResponsePriorityMin = 0;
+export const createBookingResponsePriorityMax = 3;
+
+
+
 export const CreateBookingResponse = zod.object({
   "id": zod.number().int(),
   "confirmationCode": zod.string().describe('Unique confirmation code for the client to manage their booking'),
@@ -102,6 +113,7 @@ export const CreateBookingResponse = zod.object({
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
   "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
+  "priority": zod.number().int().min(createBookingResponsePriorityMin).max(createBookingResponsePriorityMax).optional().describe('Waitlist priority, where 3 is urgent and 0 is low'),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),
@@ -117,6 +129,11 @@ export const GetBookingParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const getBookingResponsePriorityMin = 0;
+export const getBookingResponsePriorityMax = 3;
+
+
+
 export const GetBookingResponse = zod.object({
   "id": zod.number().int(),
   "confirmationCode": zod.string().describe('Unique confirmation code for the client to manage their booking'),
@@ -126,6 +143,7 @@ export const GetBookingResponse = zod.object({
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
   "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
+  "priority": zod.number().int().min(getBookingResponsePriorityMin).max(getBookingResponsePriorityMax).optional().describe('Waitlist priority, where 3 is urgent and 0 is low'),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),
@@ -141,13 +159,24 @@ export const UpdateBookingParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+export const updateBookingBodyPriorityMin = 0;
+export const updateBookingBodyPriorityMax = 3;
+
+
+
 export const UpdateBookingBody = zod.object({
   "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']).optional(),
+  "priority": zod.number().int().min(updateBookingBodyPriorityMin).max(updateBookingBodyPriorityMax).optional().describe('Waitlist priority, where 3 is urgent and 0 is low'),
   "claimedBy": zod.string().nullish(),
   "sessionNotes": zod.string().nullish(),
   "preferredDate": zod.string().optional().describe('YYYY-MM-DD format — reschedule the booking date'),
   "preferredTime": zod.string().optional().describe('HH:MM format (24h) — reschedule the booking time')
 })
+
+export const updateBookingResponsePriorityMin = 0;
+export const updateBookingResponsePriorityMax = 3;
+
+
 
 export const UpdateBookingResponse = zod.object({
   "id": zod.number().int(),
@@ -158,6 +187,7 @@ export const UpdateBookingResponse = zod.object({
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
   "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
+  "priority": zod.number().int().min(updateBookingResponsePriorityMin).max(updateBookingResponsePriorityMax).optional().describe('Waitlist priority, where 3 is urgent and 0 is low'),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),
@@ -895,6 +925,11 @@ export const GetClientHistoryParams = zod.object({
   "phone": zod.coerce.string()
 })
 
+export const getClientHistoryResponseBookingsItemPriorityMin = 0;
+export const getClientHistoryResponseBookingsItemPriorityMax = 3;
+
+
+
 export const GetClientHistoryResponse = zod.object({
   "phone": zod.string(),
   "clientName": zod.string(),
@@ -908,6 +943,7 @@ export const GetClientHistoryResponse = zod.object({
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
   "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
+  "priority": zod.number().int().min(getClientHistoryResponseBookingsItemPriorityMin).max(getClientHistoryResponseBookingsItemPriorityMax).optional().describe('Waitlist priority, where 3 is urgent and 0 is low'),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),

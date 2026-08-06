@@ -12,6 +12,7 @@ export const bookingsTable = pgTable("bookings", {
   preferredDate: text("preferred_date").notNull(), // YYYY-MM-DD
   preferredTime: text("preferred_time").notNull(), // HH:MM
   status: text("status").notNull().default("pending"), // pending | claimed | completed | cancelled | no_show | waitlisted
+  priority: integer("priority").notNull().default(1), // 0 low | 1 normal | 2 high | 3 urgent
   claimedBy: text("claimed_by"),
   sessionNotes: text("session_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

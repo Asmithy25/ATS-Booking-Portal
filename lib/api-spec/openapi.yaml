@@ -623,6 +623,11 @@ components:
         status:
           type: string
           enum: [pending, claimed, completed, cancelled, no_show, waitlisted]
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: Waitlist priority, where 3 is urgent and 0 is low
         claimedBy:
           type: ["string", "null"]
           description: Staff name who claimed the booking
@@ -665,6 +670,11 @@ components:
         status:
           type: string
           enum: [pending, claimed, completed, cancelled, no_show, waitlisted]
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: Waitlist priority, where 3 is urgent and 0 is low
         claimedBy:
           type: ["string", "null"]
         sessionNotes:

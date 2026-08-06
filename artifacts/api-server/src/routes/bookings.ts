@@ -271,6 +271,7 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
     preferredDate,
     preferredTime,
     status = "claimed",
+    priority = 1,
     sessionNotes,
   } = req.body as {
     clientName: string;
@@ -279,6 +280,7 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
     preferredDate: string;
     preferredTime: string;
     status?: string;
+    priority?: number;
     sessionNotes?: string;
   };
 
@@ -292,14 +294,24 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
     res.status(400).json({ error: "status must be pending, claimed, completed, or waitlisted." });
     return;
   }
+  if (!Number.isInteger(priority) || priority < 0 || priority > 3) {
+    res.status(400).json({ error: "priority must be a whole number from 0 to 3." });
+    return;
+  }
+  if (status !== "waitlisted" && priority !== 1) {
+    res.status(400).json({ error: "Only waitlisted bookings may have a custom priority." });
+    return;
+  }
 
   try {
-    if (status !== "waitlisted") {
-      const slot = await validateBookingSlot(preferredDate, preferredTime);
-      if (!slot.ok) {
-        res.status(409).json({ error: slot.error });
-        return;
-      }
+    const slot = await validateBookingSlot(
+      preferredDate,
+      preferredTime,
+      status === "waitlisted" ? { skipAvailability: true } : undefined,
+    );
+    if (!slot.ok) {
+      res.status(409).json({ error: slot.error });
+      return;
     }
 
     // Generate unique confirmation code
@@ -326,6 +338,7 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
         preferredDate,
         preferredTime,
         status,
+        priority: status === "waitlisted" ? priority : 1,
         claimedBy,
         sessionNotes: sessionNotes ?? null,
       })
@@ -389,9 +402,10 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
     return;
   }
 
-  const { status, claimedBy, sessionNotes, preferredDate, preferredTime } =
+  const { status, priority, claimedBy, sessionNotes, preferredDate, preferredTime } =
     req.body as {
       status?: string;
+      priority?: number;
       claimedBy?: string;
       sessionNotes?: string;
       preferredDate?: string;
@@ -401,6 +415,10 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
   const allowedStatuses = ["pending", "claimed", "completed", "cancelled", "no_show", "waitlisted"];
   if (status && !allowedStatuses.includes(status)) {
     res.status(400).json({ error: "Invalid status." });
+    return;
+  }
+  if (priority !== undefined && (!Number.isInteger(priority) || priority < 0 || priority > 3)) {
+    res.status(400).json({ error: "priority must be a whole number from 0 to 3." });
     return;
   }
 
@@ -414,11 +432,19 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
       return;
     }
 
-    if ((preferredDate || preferredTime) && status !== "waitlisted" && current.status !== "waitlisted") {
+    if (current.status === "waitlisted" && status && status !== "waitlisted" && (!preferredDate || !preferredTime)) {
+      res.status(400).json({ error: "Choose a valid date and time when promoting a waitlisted request." });
+      return;
+    }
+
+    if (preferredDate || preferredTime) {
       const slot = await validateBookingSlot(
         preferredDate ?? current.preferredDate,
         preferredTime ?? current.preferredTime,
-        { excludeBookingId: id },
+        {
+          excludeBookingId: id,
+          skipAvailability: status === "waitlisted" || current.status === "waitlisted",
+        },
       );
       if (!slot.ok) {
         res.status(409).json({ error: slot.error });
@@ -428,6 +454,7 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
 
     const updates: Partial<typeof bookingsTable.$inferInsert> = {};
     if (status) updates.status = status;
+    if (priority !== undefined) updates.priority = status === "waitlisted" || current.status === "waitlisted" ? priority : 1;
     if (claimedBy !== undefined) updates.claimedBy = claimedBy;
     if (sessionNotes !== undefined) updates.sessionNotes = sessionNotes;
     if (preferredDate) updates.preferredDate = preferredDate;

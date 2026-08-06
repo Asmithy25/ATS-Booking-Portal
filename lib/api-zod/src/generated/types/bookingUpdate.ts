@@ -9,6 +9,12 @@ import type { BookingUpdateStatus } from './bookingUpdateStatus';
 
 export interface BookingUpdate {
   status?: BookingUpdateStatus;
+  /**
+     * Waitlist priority, where 3 is urgent and 0 is low
+     * @minimum 0
+     * @maximum 3
+     */
+  priority?: number;
   /** @nullable */
   claimedBy?: string | null;
   /** @nullable */

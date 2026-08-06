@@ -10,6 +10,7 @@ import {
   getGetBookingStatsQueryKey,
   useGetAuthMe,
   useCreateStaffBooking,
+  type Booking,
 } from '@workspace/api-client-react';
 
 import {
@@ -44,6 +45,7 @@ const EMPTY_FORM = {
   preferredDate: '',
   preferredTime: '',
   status: 'claimed' as 'pending' | 'claimed' | 'completed' | 'waitlisted',
+  priority: 1,
   sessionNotes: '',
 };
 
@@ -58,6 +60,8 @@ export default function Bookings() {
   const [notesDraft, setNotesDraft] = useState<Record<number, string>>({});
   const [rescheduleMode, setRescheduleMode] = useState<Record<number, boolean>>({});
   const [rescheduleDraft, setRescheduleDraft] = useState<Record<number, { date: string; time: string }>>({});
+  const [promotionBooking, setPromotionBooking] = useState<Booking | null>(null);
+  const [promotionDraft, setPromotionDraft] = useState({ date: '', time: '' });
 
   // New booking dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -128,7 +132,7 @@ export default function Bookings() {
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const today = startOfToday();
-  const filteredBookings = (bookings ?? [])
+  const baseFilteredBookings = (bookings ?? [])
     .filter((b) => {
       const matchesStatus = activeTab === 'all' || b.status === activeTab;
       const matchesDate = selectedDate
@@ -140,8 +144,7 @@ export default function Bookings() {
             : true;
       const haystack = `${b.clientName} ${b.phone} ${b.confirmationCode}`.toLowerCase();
       return matchesStatus && matchesDate && (!normalizedSearch || haystack.includes(normalizedSearch));
-    })
-    .sort((a, b) => `${b.preferredDate}T${b.preferredTime}`.localeCompare(`${a.preferredDate}T${a.preferredTime}`));
+    });
 
   const todayKey = format(now, 'yyyy-MM-dd');
   const todayBookings = useMemo(
@@ -217,6 +220,7 @@ export default function Bookings() {
       preferredDate: form.preferredDate,
       preferredTime: form.preferredTime,
       status: form.status,
+      priority: form.status === 'waitlisted' ? form.priority : undefined,
       sessionNotes: form.sessionNotes.trim() || undefined,
     });
   };
@@ -227,6 +231,37 @@ export default function Bookings() {
       setCodeCopied(true);
       setTimeout(() => setCodeCopied(false), 2000);
     });
+  };
+
+  const openPromotion = (booking: Booking) => {
+    setPromotionBooking(booking);
+    setPromotionDraft({ date: booking.preferredDate, time: booking.preferredTime });
+  };
+
+  const closePromotion = () => {
+    setPromotionBooking(null);
+    setPromotionDraft({ date: '', time: '' });
+  };
+
+  const handlePromote = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!promotionBooking || !promotionDraft.date || !promotionDraft.time) {
+      toast({ variant: 'destructive', title: 'Choose a date and time for this client.' });
+      return;
+    }
+    updateBooking.mutate(
+      {
+        id: promotionBooking.id,
+        data: {
+          status: 'claimed',
+          claimedBy: staffName,
+          preferredDate: promotionDraft.date,
+          preferredTime: promotionDraft.time,
+          priority: 1,
+        },
+      },
+      { onSuccess: closePromotion },
+    );
   };
 
   const closeDialog = () => {
@@ -244,7 +279,20 @@ export default function Bookings() {
     completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500',
     cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500',
     no_show: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-500',
+    waitlisted: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
   };
+
+  const waitlistBookings = (bookings ?? [])
+    .filter((booking) => booking.status === 'waitlisted')
+    .sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1) || a.createdAt.localeCompare(b.createdAt));
+  const waitlistCount = waitlistBookings.length;
+  const filteredBookings = activeTab === 'waitlisted'
+    ? waitlistBookings.filter((booking) => {
+        const matchesSearch = !normalizedSearch || `${booking.clientName} ${booking.phone} ${booking.confirmationCode}`.toLowerCase().includes(normalizedSearch);
+        const matchesDate = selectedDate ? booking.preferredDate === selectedDate : true;
+        return matchesSearch && matchesDate;
+      })
+    : baseFilteredBookings.sort((a, b) => `${b.preferredDate}T${b.preferredTime}`.localeCompare(`${a.preferredDate}T${a.preferredTime}`));
 
   if (loadingBookings || loadingStats) {
     return <div className="space-y-5"><div className="h-10 w-48 rounded-xl bg-muted animate-pulse" /><div className="h-24 rounded-2xl bg-muted animate-pulse" /><div className="h-72 rounded-2xl bg-muted animate-pulse" /></div>;
@@ -436,7 +484,7 @@ export default function Bookings() {
                 </div>
 
                 {/* Row 3: Status */}
-                <div className="space-y-1.5">
+                 <div className="space-y-1.5">
                   <Label>Initial Status</Label>
                   <Select
                     value={form.status}
@@ -453,6 +501,26 @@ export default function Bookings() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                 {form.status === 'waitlisted' && (
+                   <div className="space-y-1.5">
+                     <Label>Waitlist Priority</Label>
+                     <Select
+                       value={String(form.priority)}
+                       onValueChange={v => setForm(f => ({ ...f, priority: Number(v) }))}
+                     >
+                       <SelectTrigger>
+                         <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="3">Urgent — contact first</SelectItem>
+                         <SelectItem value="2">High — prioritize soon</SelectItem>
+                         <SelectItem value="1">Normal — standard queue</SelectItem>
+                         <SelectItem value="0">Low — flexible timing</SelectItem>
+                       </SelectContent>
+                     </Select>
+                   </div>
+                 )}
 
                 {/* Session Notes (optional) */}
                 <div className="space-y-1.5">
@@ -479,6 +547,50 @@ export default function Bookings() {
         </DialogContent>
       </Dialog>
 
+       <Dialog open={Boolean(promotionBooking)} onOpenChange={(open) => { if (!open) closePromotion(); }}>
+         <DialogContent className="max-w-md">
+           <form onSubmit={handlePromote}>
+             <DialogHeader>
+               <DialogTitle className="flex items-center gap-2"><ArrowRight className="h-5 w-5 text-primary" /> Promote from waitlist</DialogTitle>
+               <DialogDescription>
+                 {promotionBooking
+                   ? `Choose an open slot for ${promotionBooking.clientName}. The practice hours, closures, buffers, and existing appointments will be checked before promotion.`
+                   : 'Choose an open slot for this client.'}
+               </DialogDescription>
+             </DialogHeader>
+             <div className="grid grid-cols-2 gap-3 py-5">
+               <div className="space-y-1.5">
+                 <Label htmlFor="waitlist-promote-date">Appointment date</Label>
+                 <Input
+                   id="waitlist-promote-date"
+                   type="date"
+                   value={promotionDraft.date}
+                   onChange={(event) => setPromotionDraft((draft) => ({ ...draft, date: event.target.value }))}
+                   required
+                 />
+               </div>
+               <div className="space-y-1.5">
+                 <Label htmlFor="waitlist-promote-time">Appointment time</Label>
+                 <Input
+                   id="waitlist-promote-time"
+                   type="time"
+                   value={promotionDraft.time}
+                   onChange={(event) => setPromotionDraft((draft) => ({ ...draft, time: event.target.value }))}
+                   required
+                 />
+               </div>
+             </div>
+             <DialogFooter>
+               <Button type="button" variant="outline" onClick={closePromotion}>Keep on waitlist</Button>
+               <Button type="submit" disabled={updateBooking.isPending}>
+                 {updateBooking.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                 Promote to appointment
+               </Button>
+             </DialogFooter>
+           </form>
+         </DialogContent>
+       </Dialog>
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
@@ -488,6 +600,7 @@ export default function Bookings() {
           { label: 'Completed', value: stats?.completed ?? 0 },
           { label: 'Cancelled', value: stats?.cancelled ?? 0 },
           { label: 'No-show', value: stats?.noShow ?? 0 },
+           { label: 'Waitlist', value: waitlistCount },
         ].map(({ label, value }) => (
           <Card key={label} className="rounded-2xl shadow-sm">
             <CardHeader className="py-4"><CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle></CardHeader>
@@ -512,6 +625,10 @@ export default function Bookings() {
               <TabsTrigger value="completed">Completed</TabsTrigger>
               <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
                <TabsTrigger value="no_show">No-show</TabsTrigger>
+               <TabsTrigger value="waitlisted" className="gap-1.5">
+                 Waitlist
+                 {waitlistCount > 0 && <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">{waitlistCount}</span>}
+               </TabsTrigger>
             </TabsList>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 lg:ml-auto">
                 <div className="relative flex-1 sm:min-w-64">
@@ -646,7 +763,55 @@ export default function Bookings() {
                                 Claim
                               </Button>
                             )}
-                            {(b.status === 'pending' || b.status === 'claimed') && (
+                             {b.status === 'waitlisted' && (
+                               <>
+                                 <Select
+                                   value={String(b.priority ?? 1)}
+                                   onValueChange={(value) => updateBooking.mutate({ id: b.id, data: { priority: Number(value) } })}
+                                 >
+                                   <SelectTrigger className="h-8 w-[116px] text-xs"><SelectValue /></SelectTrigger>
+                                   <SelectContent>
+                                     <SelectItem value="3">Urgent</SelectItem>
+                                     <SelectItem value="2">High</SelectItem>
+                                     <SelectItem value="1">Normal</SelectItem>
+                                     <SelectItem value="0">Low</SelectItem>
+                                   </SelectContent>
+                                 </Select>
+                                 <Button size="sm" onClick={() => openPromotion(b)}>
+                                   <ArrowRight className="h-4 w-4" /> Promote
+                                 </Button>
+                                 <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => {
+                                   if (confirm(`Remove ${b.clientName} from the waitlist? The request will remain in history as cancelled.`)) {
+                                     handleStatusUpdate(b.id, 'cancelled');
+                                   }
+                                 }}>
+                                   Remove
+                                 </Button>
+                               </>
+                             )}
+                               {b.status === 'waitlisted' && (
+                                 <div className="border-t border-border pt-5 space-y-3">
+                                   <h4 className="font-semibold flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> Waitlist controls</h4>
+                                   <p className="text-sm text-muted-foreground">This request is holding its place until an appointment slot is available. Change priority or promote it when you have a valid opening.</p>
+                                   <div className="flex flex-wrap gap-2">
+                                     <Select
+                                       value={String(b.priority ?? 1)}
+                                       onValueChange={(value) => updateBooking.mutate({ id: b.id, data: { priority: Number(value) } })}
+                                     >
+                                       <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                                       <SelectContent>
+                                         <SelectItem value="3">Urgent priority</SelectItem>
+                                         <SelectItem value="2">High priority</SelectItem>
+                                         <SelectItem value="1">Normal priority</SelectItem>
+                                         <SelectItem value="0">Low priority</SelectItem>
+                                       </SelectContent>
+                                     </Select>
+                                     <Button size="sm" onClick={() => openPromotion(b)}><ArrowRight className="h-4 w-4" /> Promote to appointment</Button>
+                                   </div>
+                                 </div>
+                               )}
+
+                               {(b.status === 'pending' || b.status === 'claimed') && (
                               <>
                                 <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => handleStatusUpdate(b.id, 'completed')}>
                                   <CheckCircle2 className="w-4 h-4" />

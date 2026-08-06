@@ -20,6 +20,12 @@ export interface Booking {
   preferredTime: string;
   status: BookingStatus;
   /**
+     * Waitlist priority, where 3 is urgent and 0 is low
+     * @minimum 0
+     * @maximum 3
+     */
+  priority?: number;
+  /**
      * Staff name who claimed the booking
      * @nullable
      */
