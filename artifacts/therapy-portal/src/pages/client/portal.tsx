@@ -38,9 +38,26 @@ export default function ClientPortal() {
   const { data: threads = [] } = useSupportThreads({ query: { enabled: Boolean(session?.authenticated), retry: false } });
   const logout = useClientLogout({ mutation: { onSuccess: () => { queryClient.clear(); setLocation('/portal/login'); } } });
   const updateProfile = useUpdateClientProfile({ mutation: { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getClientMeQueryKey() }); toast({ title: 'Profile updated' }); } } });
-  const createSupport = useCreateSupportThread({ mutation: { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getSupportQueryKey() }); setSupport({ subject: '', body: '' }); toast({ title: 'Message sent', description: 'Our team will reply as soon as possible.' }); } } });
+  const createSupport = useCreateSupportThread({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getSupportQueryKey() });
+        setSupport({ subject: '', body: '' });
+        toast({ title: 'Message sent', description: 'Our team will reply as soon as possible.' });
+      },
+      onError: (error) => {
+        const message = (error as { data?: { error?: string } })?.data?.error;
+        toast({
+          variant: 'destructive',
+          title: 'Message could not be sent',
+          description: message ?? 'Please try again.',
+        });
+      },
+    },
+  });
   const [support, setSupport] = useState({ subject: '', body: '' });
   const [profile, setProfile] = useState({ name: '', phone: '' });
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => { if (session?.client) setProfile({ name: session.client.name, phone: session.client.phone ?? '' }); }, [session]);
   useEffect(() => { if (!loadingSession && (sessionError || !session?.authenticated)) setLocation('/portal/login'); }, [loadingSession, session, sessionError, setLocation]);
@@ -54,10 +71,10 @@ export default function ClientPortal() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
       {announcements[0] && <Alert className="mb-6 rounded-2xl border-primary/20 bg-primary/5"><Sparkles className="h-4 w-4" /><AlertTitle>{announcements[0].title}</AlertTitle><AlertDescription>{announcements[0].body}</AlertDescription></Alert>}
       <div className="mb-8"><p className="mb-2 text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p><h1 className="text-3xl font-semibold sm:text-4xl">Your care, in one clear space.</h1></div>
-      <Tabs defaultValue="overview" className="space-y-6">
+       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl bg-background p-1 sm:w-auto"><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="resources">Wellness resources</TabsTrigger><TabsTrigger value="support">Support</TabsTrigger><TabsTrigger value="profile">My information</TabsTrigger></TabsList>
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3"><Card className="rounded-2xl bg-primary text-primary-foreground"><CardHeader><CardDescription className="text-primary-foreground/70">Upcoming sessions</CardDescription><CardTitle className="text-4xl">{upcoming.length}</CardTitle></CardHeader><CardContent><CalendarDays className="h-5 w-5 opacity-70" /></CardContent></Card><Card className="rounded-2xl"><CardHeader><CardDescription>Next appointment</CardDescription><CardTitle className="text-2xl">{upcoming[0] ? format(parseISO(upcoming[0].preferredDate), 'MMM d') : 'Nothing booked'}</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">{upcoming[0] ? `${upcoming[0].preferredTime} · ${upcoming[0].reason}` : 'Ready when you are.'}</CardContent></Card><Card className="rounded-2xl"><CardHeader><CardDescription>Need help?</CardDescription><CardTitle className="text-2xl">We’re here</CardTitle></CardHeader><CardContent><button className="text-sm font-medium text-primary hover:underline" onClick={() => document.querySelector('[data-state="inactive"][value="support"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))}>Contact support →</button></CardContent></Card></div>
+           <div className="grid gap-4 md:grid-cols-3"><Card className="rounded-2xl bg-primary text-primary-foreground"><CardHeader><CardDescription className="text-primary-foreground/70">Upcoming sessions</CardDescription><CardTitle className="text-4xl">{upcoming.length}</CardTitle></CardHeader><CardContent><CalendarDays className="h-5 w-5 opacity-70" /></CardContent></Card><Card className="rounded-2xl"><CardHeader><CardDescription>Next appointment</CardDescription><CardTitle className="text-2xl">{upcoming[0] ? format(parseISO(upcoming[0].preferredDate), 'MMM d') : 'Nothing booked'}</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">{upcoming[0] ? `${upcoming[0].preferredTime} · ${upcoming[0].reason}` : 'Ready when you are.'}</CardContent></Card><Card className="rounded-2xl"><CardHeader><CardDescription>Need help?</CardDescription><CardTitle className="text-2xl">We’re here</CardTitle></CardHeader><CardContent><button type="button" className="text-sm font-medium text-primary hover:underline" onClick={() => setActiveTab('support')}>Contact support →</button></CardContent></Card></div>
           <Card className="rounded-2xl"><CardHeader><CardTitle>Upcoming appointments</CardTitle><CardDescription>Your next sessions and confirmation details.</CardDescription></CardHeader><CardContent className="space-y-3">{loadingBookings ? <p className="text-sm text-muted-foreground">Loading appointments…</p> : upcoming.length ? upcoming.map((booking) => <BookingCard key={booking.id} booking={booking} />) : <div className="rounded-2xl bg-muted/50 p-6 text-center"><Heart className="mx-auto mb-2 h-6 w-6 text-primary" /><p className="font-medium">No upcoming appointments</p><Link href="/#book" className="mt-2 inline-block text-sm text-primary hover:underline">Book a session</Link></div>}</CardContent></Card>
           <Card className="rounded-2xl"><CardHeader><CardTitle>Past appointments</CardTitle></CardHeader><CardContent className="space-y-3">{past.slice(0, 5).map((booking) => <BookingCard key={booking.id} booking={booking} />)}{!past.length && <p className="text-sm text-muted-foreground">Your completed sessions will appear here.</p>}</CardContent></Card>
         </TabsContent>
