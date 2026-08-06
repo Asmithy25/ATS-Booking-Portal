@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Ayden's Therapy Services"
+description = "A therapy services portal with a public booking experience and a staff workspace for managing bookings, clients, settings, and employees."
+version = "1.0.0"
+id = "artifacts/therapy-portal"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18588
+
+[services.development]
+run = "pnpm --filter @workspace/therapy-portal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/therapy-portal", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/therapy-portal/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18588"
+BASE_PATH = "/"

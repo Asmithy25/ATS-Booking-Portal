@@ -3,13 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Ayden's Therapy Services Portal API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: bookings
+    description: Session booking management
+  - name: auth
+    description: Staff authentication
+  - name: settings
+    description: Portal settings (office hours, accepting clients, etc.)
+  - name: clients
+    description: Client history and notes
+  - name: employees
+    description: Admin-only staff account management
 paths:
   /healthz:
     get:
@@ -24,6 +34,496 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: staffLogin
+      tags: [auth]
+      summary: Staff login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResult"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: staffLogout
+      tags: [auth]
+      summary: Staff logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Get current session info
+      responses:
+        "200":
+          description: Session info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionInfo"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bookings:
+    get:
+      operationId: listBookings
+      tags: [bookings]
+      summary: List all bookings (staff only)
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Submit a new session booking request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: Get a single booking (staff only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateBooking
+      tags: [bookings]
+      summary: Update a booking (staff only) - status, claim, notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingUpdate"
+      responses:
+        "200":
+          description: Updated booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteBooking
+      tags: [bookings]
+      summary: Delete a booking (staff only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bookings/stats:
+    get:
+      operationId: getBookingStats
+      tags: [bookings]
+      summary: Get booking statistics (staff only)
+      responses:
+        "200":
+          description: Booking stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingStats"
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get portal settings (public)
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update portal settings (staff only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/my-hours:
+    get:
+      operationId: getMyHours
+      tags: [settings]
+      summary: Get the signed-in therapist's own hours
+      responses:
+        "200":
+          description: Therapist schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TherapistHours"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateMyHours
+      tags: [settings]
+      summary: Update the signed-in therapist's own hours
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TherapistHoursUpdate"
+      responses:
+        "200":
+          description: Updated therapist schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TherapistHours"
+        "400":
+          description: Invalid schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /employees:
+    get:
+      operationId: listEmployees
+      tags: [employees]
+      summary: List staff accounts (admin only)
+      responses:
+        "200":
+          description: Staff accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffAccount"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createEmployee
+      tags: [employees]
+      summary: Create a staff account (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffAccountInput"
+      responses:
+        "201":
+          description: Staff account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccount"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Account conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /employees/{id}:
+    patch:
+      operationId: updateEmployee
+      tags: [employees]
+      summary: Update a staff account and therapist hours (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffAccountUpdate"
+      responses:
+        "200":
+          description: Updated staff account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccount"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteEmployee
+      tags: [employees]
+      summary: Remove a staff account (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /employees/{id}/reset-password:
+    post:
+      operationId: resetEmployeePassword
+      tags: [employees]
+      summary: Reset a staff password (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /clients/{phone}:
+    get:
+      operationId: getClientHistory
+      tags: [clients]
+      summary: Get client booking history by phone number (staff only)
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Client history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientHistory"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +534,394 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    LoginInput:
+      type: object
+      required: [email, password, keepSignedIn]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        keepSignedIn:
+          type: boolean
+
+    LoginResult:
+      type: object
+      required: [success, staffName]
+      properties:
+        success:
+          type: boolean
+        staffName:
+          type: string
+
+    SessionInfo:
+      type: object
+      required: [authenticated, staffName, email, isAdmin]
+      properties:
+        authenticated:
+          type: boolean
+        staffName:
+          type: string
+        email:
+          type: string
+          description: The authenticated staff member's email address
+        isAdmin:
+          type: boolean
+          description: True only for the primary admin account (ayden@)
+
+    Booking:
+      type: object
+      required: [id, confirmationCode, clientName, phone, reason, preferredDate, preferredTime, status, createdAt]
+      properties:
+        id:
+          type: integer
+        confirmationCode:
+          type: string
+          description: Unique confirmation code for the client to manage their booking
+        clientName:
+          type: string
+        phone:
+          type: string
+        reason:
+          type: string
+        preferredDate:
+          type: string
+          description: YYYY-MM-DD format
+        preferredTime:
+          type: string
+          description: HH:MM format (24h)
+        status:
+          type: string
+          enum: [pending, claimed, completed, cancelled]
+        claimedBy:
+          type: ["string", "null"]
+          description: Staff name who claimed the booking
+        sessionNotes:
+          type: ["string", "null"]
+          description: Staff session notes
+        isReturningClient:
+          type: boolean
+          description: True if this phone number has prior bookings
+        previousSessionCount:
+          type: integer
+          description: Number of prior sessions for this phone number
+        createdAt:
+          type: string
+          description: ISO timestamp
+
+    BookingInput:
+      type: object
+      required: [clientName, phone, reason, preferredDate, preferredTime]
+      properties:
+        clientName:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          minLength: 7
+        reason:
+          type: string
+          minLength: 1
+        preferredDate:
+          type: string
+          description: YYYY-MM-DD format
+        preferredTime:
+          type: string
+          description: HH:MM format (24h)
+
+    BookingUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, claimed, completed, cancelled]
+        claimedBy:
+          type: ["string", "null"]
+        sessionNotes:
+          type: ["string", "null"]
+        preferredDate:
+          type: string
+          description: YYYY-MM-DD format — reschedule the booking date
+        preferredTime:
+          type: string
+          description: HH:MM format (24h) — reschedule the booking time
+
+    BookingStats:
+      type: object
+      required: [total, pending, claimed, completed, cancelled, returningClients]
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        claimed:
+          type: integer
+        completed:
+          type: integer
+        cancelled:
+          type: integer
+        returningClients:
+          type: integer
+
+    DayHours:
+      type: object
+      required: [open, close, closed]
+      properties:
+        open:
+          type: string
+          description: "HH:MM (24h)"
+        close:
+          type: string
+          description: "HH:MM (24h)"
+        closed:
+          type: boolean
+
+    HolidayHour:
+      type: object
+      required: [name, date, closed, open, close]
+      properties:
+        name:
+          type: string
+        date:
+          type: string
+          description: "MM-DD format for recurring annual holidays"
+        closed:
+          type: boolean
+        open:
+          type: string
+        close:
+          type: string
+
+    ClosedDate:
+      type: object
+      required: [date, reason]
+      properties:
+        date:
+          type: string
+          description: "YYYY-MM-DD"
+        reason:
+          type: string
+
+    Settings:
+      type: object
+      required: [acceptingClients, sessionRequestsOpen, officeHours, holidayHours, closedDates, therapistHours]
+      properties:
+        acceptingClients:
+          type: boolean
+        sessionRequestsOpen:
+          type: boolean
+          description: If false, the booking form is disabled/shows fully booked
+        officeHours:
+          type: object
+          description: Map of day abbreviation to DayHours
+          properties:
+            mon: { $ref: "#/components/schemas/DayHours" }
+            tue: { $ref: "#/components/schemas/DayHours" }
+            wed: { $ref: "#/components/schemas/DayHours" }
+            thu: { $ref: "#/components/schemas/DayHours" }
+            fri: { $ref: "#/components/schemas/DayHours" }
+            sat: { $ref: "#/components/schemas/DayHours" }
+            sun: { $ref: "#/components/schemas/DayHours" }
+        holidayHours:
+          type: array
+          items:
+            $ref: "#/components/schemas/HolidayHour"
+        closedDates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClosedDate"
+        siteName:
+          type: string
+        siteTagline:
+          type: string
+        logoUrl:
+          type: string
+          description: Optional HTTP or HTTPS image URL used for the portal logo
+        heroTitle:
+          type: string
+        heroDescription:
+          type: string
+        primaryColor:
+          type: string
+        secondaryColor:
+          type: string
+        accentColor:
+          type: string
+        therapistHours:
+          type: array
+          items:
+            $ref: "#/components/schemas/TherapistHours"
+
+    TherapistHours:
+      type: object
+      required: [name, officeHours]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        officeHours:
+          type: object
+          properties:
+            mon: { $ref: "#/components/schemas/DayHours" }
+            tue: { $ref: "#/components/schemas/DayHours" }
+            wed: { $ref: "#/components/schemas/DayHours" }
+            thu: { $ref: "#/components/schemas/DayHours" }
+            fri: { $ref: "#/components/schemas/DayHours" }
+            sat: { $ref: "#/components/schemas/DayHours" }
+            sun: { $ref: "#/components/schemas/DayHours" }
+
+    TherapistHoursUpdate:
+      type: object
+      required: [officeHours]
+      properties:
+        officeHours:
+          type: object
+          properties:
+            mon: { $ref: "#/components/schemas/DayHours" }
+            tue: { $ref: "#/components/schemas/DayHours" }
+            wed: { $ref: "#/components/schemas/DayHours" }
+            thu: { $ref: "#/components/schemas/DayHours" }
+            fri: { $ref: "#/components/schemas/DayHours" }
+            sat: { $ref: "#/components/schemas/DayHours" }
+            sun: { $ref: "#/components/schemas/DayHours" }
+
+    OfficeHours:
+      type: object
+      required: [mon, tue, wed, thu, fri, sat, sun]
+      properties:
+        mon: { $ref: "#/components/schemas/DayHours" }
+        tue: { $ref: "#/components/schemas/DayHours" }
+        wed: { $ref: "#/components/schemas/DayHours" }
+        thu: { $ref: "#/components/schemas/DayHours" }
+        fri: { $ref: "#/components/schemas/DayHours" }
+        sat: { $ref: "#/components/schemas/DayHours" }
+        sun: { $ref: "#/components/schemas/DayHours" }
+
+    StaffAccount:
+      type: object
+      required: [id, email, name, officeHours, createdBy, createdAt]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        officeHours:
+          $ref: "#/components/schemas/OfficeHours"
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    StaffAccountInput:
+      type: object
+      required: [email, name, password]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 8
+
+    StaffAccountUpdate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+        officeHours:
+          $ref: "#/components/schemas/OfficeHours"
+
+    ResetPasswordInput:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 8
+
+    SettingsUpdate:
+      type: object
+      properties:
+        acceptingClients:
+          type: boolean
+        sessionRequestsOpen:
+          type: boolean
+        officeHours:
+          type: object
+          properties:
+            mon: { $ref: "#/components/schemas/DayHours" }
+            tue: { $ref: "#/components/schemas/DayHours" }
+            wed: { $ref: "#/components/schemas/DayHours" }
+            thu: { $ref: "#/components/schemas/DayHours" }
+            fri: { $ref: "#/components/schemas/DayHours" }
+            sat: { $ref: "#/components/schemas/DayHours" }
+            sun: { $ref: "#/components/schemas/DayHours" }
+        holidayHours:
+          type: array
+          items:
+            $ref: "#/components/schemas/HolidayHour"
+        closedDates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClosedDate"
+        siteName:
+          type: string
+        siteTagline:
+          type: string
+        logoUrl:
+          type: string
+          maxLength: 2048
+          description: Optional HTTP or HTTPS image URL used for the portal logo
+        heroTitle:
+          type: string
+        heroDescription:
+          type: string
+        primaryColor:
+          type: string
+        secondaryColor:
+          type: string
+        accentColor:
+          type: string
+
+    ClientHistory:
+      type: object
+      required: [phone, clientName, sessionCount, bookings]
+      properties:
+        phone:
+          type: string
+        clientName:
+          type: string
+        sessionCount:
+          type: integer
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"

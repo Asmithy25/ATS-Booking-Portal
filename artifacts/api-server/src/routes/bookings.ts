@@ -1,0 +1,439 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { bookingsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
+import { requireAuth } from "../middleware/auth";
+import crypto from "crypto";
+
+const router = Router();
+
+function generateConfirmationCode(): string {
+  // ATS + 8 uppercase alphanumeric chars, e.g. ATS-3F7KM2PQ
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous 0/O/1/I
+  const rand = crypto.randomBytes(8);
+  const code = Array.from(rand)
+    .map((b) => chars[b % chars.length])
+    .join("");
+  return `ATS-${code}`;
+}
+
+function serializeBooking(b: typeof bookingsTable.$inferSelect & { isReturningClient?: boolean; previousSessionCount?: number }) {
+  return {
+    ...b,
+    claimedBy: b.claimedBy ?? null,
+    sessionNotes: b.sessionNotes ?? null,
+    createdAt: b.createdAt.toISOString(),
+  };
+}
+
+// GET /bookings - list all (staff only)
+router.get("/", requireAuth, async (req, res) => {
+  try {
+    const all = await db
+      .select()
+      .from(bookingsTable)
+      .orderBy(desc(bookingsTable.createdAt));
+
+    const enriched = all.map((b, idx) => {
+      const priorCount = all
+        .slice(idx + 1)
+        .filter((x) => x.phone === b.phone).length;
+      return {
+        ...serializeBooking(b),
+        isReturningClient: priorCount > 0,
+        previousSessionCount: priorCount,
+      };
+    });
+
+    res.json(enriched);
+  } catch (err) {
+    req.log.error({ err }, "Failed to list bookings");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// POST /bookings - create (public)
+router.post("/", async (req, res) => {
+  const { clientName, phone, reason, preferredDate, preferredTime } =
+    req.body as {
+      clientName: string;
+      phone: string;
+      reason: string;
+      preferredDate: string;
+      preferredTime: string;
+    };
+
+  if (!clientName || !phone || !reason || !preferredDate || !preferredTime) {
+    res.status(400).json({ error: "All fields are required." });
+    return;
+  }
+
+  try {
+    // Generate a unique confirmation code
+    let confirmationCode = generateConfirmationCode();
+    let attempts = 0;
+    while (attempts < 5) {
+      const existing = await db
+        .select({ id: bookingsTable.id })
+        .from(bookingsTable)
+        .where(eq(bookingsTable.confirmationCode, confirmationCode));
+      if (existing.length === 0) break;
+      confirmationCode = generateConfirmationCode();
+      attempts++;
+    }
+
+    const [created] = await db
+      .insert(bookingsTable)
+      .values({
+        confirmationCode,
+        clientName,
+        phone,
+        reason,
+        preferredDate,
+        preferredTime,
+        status: "pending",
+      })
+      .returning();
+
+    const prior = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.phone, phone));
+    const priorCount = prior.length - 1;
+
+    res.status(201).json({
+      ...serializeBooking(created),
+      isReturningClient: priorCount > 0,
+      previousSessionCount: priorCount > 0 ? priorCount : 0,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to create booking");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// GET /bookings/stats - stats (staff only) — MUST be before /:id
+router.get("/stats", requireAuth, async (req, res) => {
+  try {
+    const all = await db.select().from(bookingsTable);
+    const total = all.length;
+    const pending = all.filter((b) => b.status === "pending").length;
+    const claimed = all.filter((b) => b.status === "claimed").length;
+    const completed = all.filter((b) => b.status === "completed").length;
+    const cancelled = all.filter((b) => b.status === "cancelled").length;
+
+    const phoneCounts: Record<string, number> = {};
+    for (const b of all) {
+      phoneCounts[b.phone] = (phoneCounts[b.phone] ?? 0) + 1;
+    }
+    const returningClients = Object.values(phoneCounts).filter(
+      (c) => c > 1,
+    ).length;
+
+    res.json({ total, pending, claimed, completed, cancelled, returningClients });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get stats");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// GET /bookings/confirm/:code - public lookup by confirmation code
+router.get("/confirm/:code", async (req, res) => {
+  const code = (req.params.code ?? "").toUpperCase().trim();
+  if (!code) {
+    res.status(400).json({ error: "Confirmation code is required." });
+    return;
+  }
+  try {
+    const [booking] = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.confirmationCode, code));
+    if (!booking) {
+      res.status(404).json({ error: "No booking found with that confirmation code." });
+      return;
+    }
+    // Return limited fields to the public (no sessionNotes, no claimedBy details)
+    res.json({
+      id: booking.id,
+      confirmationCode: booking.confirmationCode,
+      clientName: booking.clientName,
+      phone: booking.phone,
+      reason: booking.reason,
+      preferredDate: booking.preferredDate,
+      preferredTime: booking.preferredTime,
+      status: booking.status,
+      createdAt: booking.createdAt.toISOString(),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to look up booking by code");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// PATCH /bookings/confirm/:code - public update (reschedule / cancel) — no auth, just code
+router.patch("/confirm/:code", async (req, res) => {
+  const code = (req.params.code ?? "").toUpperCase().trim();
+  if (!code) {
+    res.status(400).json({ error: "Confirmation code is required." });
+    return;
+  }
+
+  const { preferredDate, preferredTime, status } = req.body as {
+    preferredDate?: string;
+    preferredTime?: string;
+    status?: string;
+  };
+
+  // Only allow reschedule (date/time) or cancel
+  const allowedStatuses = ["cancelled"];
+  if (status && !allowedStatuses.includes(status)) {
+    res.status(400).json({ error: "Clients may only cancel a booking." });
+    return;
+  }
+
+  try {
+    const [existing] = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.confirmationCode, code));
+
+    if (!existing) {
+      res.status(404).json({ error: "No booking found with that confirmation code." });
+      return;
+    }
+
+    if (existing.status === "completed" || existing.status === "cancelled") {
+      res.status(400).json({ error: `This booking is already ${existing.status} and cannot be changed.` });
+      return;
+    }
+
+    const updates: Partial<typeof bookingsTable.$inferInsert> = {};
+    if (preferredDate) updates.preferredDate = preferredDate;
+    if (preferredTime) updates.preferredTime = preferredTime;
+    if (status === "cancelled") updates.status = "cancelled";
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No valid fields to update." });
+      return;
+    }
+
+    const [updated] = await db
+      .update(bookingsTable)
+      .set(updates)
+      .where(eq(bookingsTable.confirmationCode, code))
+      .returning();
+
+    res.json({
+      id: updated.id,
+      confirmationCode: updated.confirmationCode,
+      clientName: updated.clientName,
+      phone: updated.phone,
+      reason: updated.reason,
+      preferredDate: updated.preferredDate,
+      preferredTime: updated.preferredTime,
+      status: updated.status,
+      createdAt: updated.createdAt.toISOString(),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to update booking by code");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// POST /bookings/staff - staff-initiated booking (auth required)
+router.post("/staff", requireAuth, async (req, res) => {
+  const {
+    clientName,
+    phone,
+    reason,
+    preferredDate,
+    preferredTime,
+    status = "claimed",
+    sessionNotes,
+  } = req.body as {
+    clientName: string;
+    phone: string;
+    reason: string;
+    preferredDate: string;
+    preferredTime: string;
+    status?: string;
+    sessionNotes?: string;
+  };
+
+  if (!clientName || !phone || !reason || !preferredDate || !preferredTime) {
+    res.status(400).json({ error: "clientName, phone, reason, preferredDate and preferredTime are required." });
+    return;
+  }
+
+  const allowedStatuses = ["pending", "claimed", "completed"];
+  if (!allowedStatuses.includes(status)) {
+    res.status(400).json({ error: "status must be pending, claimed, or completed." });
+    return;
+  }
+
+  try {
+    // Generate unique confirmation code
+    let confirmationCode = generateConfirmationCode();
+    for (let i = 0; i < 5; i++) {
+      const existing = await db
+        .select({ id: bookingsTable.id })
+        .from(bookingsTable)
+        .where(eq(bookingsTable.confirmationCode, confirmationCode));
+      if (existing.length === 0) break;
+      confirmationCode = generateConfirmationCode();
+    }
+
+    const session = (req as import("express").Request & { staffSession?: { email: string; name: string } }).staffSession;
+    const claimedBy = status === "claimed" ? (session?.name ?? null) : null;
+
+    const [created] = await db
+      .insert(bookingsTable)
+      .values({
+        confirmationCode,
+        clientName,
+        phone,
+        reason,
+        preferredDate,
+        preferredTime,
+        status,
+        claimedBy,
+        sessionNotes: sessionNotes ?? null,
+      })
+      .returning();
+
+    const prior = await db.select().from(bookingsTable).where(eq(bookingsTable.phone, phone));
+    const priorCount = prior.length - 1;
+
+    res.status(201).json({
+      ...serializeBooking(created),
+      isReturningClient: priorCount > 0,
+      previousSessionCount: priorCount > 0 ? priorCount : 0,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to create staff booking");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// GET /bookings/:id - single booking (staff only)
+router.get("/:id", requireAuth, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id." });
+    return;
+  }
+  try {
+    const [booking] = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.id, id));
+    if (!booking) {
+      res.status(404).json({ error: "Booking not found." });
+      return;
+    }
+
+    const allForPhone = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.phone, booking.phone));
+    const priorCount = allForPhone.filter(
+      (b) => b.createdAt < booking.createdAt,
+    ).length;
+
+    res.json({
+      ...serializeBooking(booking),
+      isReturningClient: priorCount > 0,
+      previousSessionCount: priorCount,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get booking");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// PATCH /bookings/:id - update (staff only)
+router.patch("/:id", requireAuth, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id." });
+    return;
+  }
+
+  const { status, claimedBy, sessionNotes, preferredDate, preferredTime } =
+    req.body as {
+      status?: string;
+      claimedBy?: string;
+      sessionNotes?: string;
+      preferredDate?: string;
+      preferredTime?: string;
+    };
+
+  const allowedStatuses = ["pending", "claimed", "completed", "cancelled"];
+  if (status && !allowedStatuses.includes(status)) {
+    res.status(400).json({ error: "Invalid status." });
+    return;
+  }
+
+  try {
+    const updates: Partial<typeof bookingsTable.$inferInsert> = {};
+    if (status) updates.status = status;
+    if (claimedBy !== undefined) updates.claimedBy = claimedBy;
+    if (sessionNotes !== undefined) updates.sessionNotes = sessionNotes;
+    if (preferredDate) updates.preferredDate = preferredDate;
+    if (preferredTime) updates.preferredTime = preferredTime;
+
+    const [updated] = await db
+      .update(bookingsTable)
+      .set(updates)
+      .where(eq(bookingsTable.id, id))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Booking not found." });
+      return;
+    }
+
+    const allForPhone = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.phone, updated.phone));
+    const priorCount = allForPhone.filter(
+      (b) => b.createdAt < updated.createdAt,
+    ).length;
+
+    res.json({
+      ...serializeBooking(updated),
+      isReturningClient: priorCount > 0,
+      previousSessionCount: priorCount,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to update booking");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// DELETE /bookings/:id - delete (staff only)
+router.delete("/:id", requireAuth, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id." });
+    return;
+  }
+  try {
+    const [deleted] = await db
+      .delete(bookingsTable)
+      .where(eq(bookingsTable.id, id))
+      .returning();
+    if (!deleted) {
+      res.status(404).json({ error: "Booking not found." });
+      return;
+    }
+    res.json({ message: "Booking deleted." });
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete booking");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+export default router;
