@@ -116,6 +116,22 @@ export function useClientLogout(options?: { mutation?: UseMutationOptions<{ mess
 }
 
 export const getClientBookingsQueryKey = () => ["/api/portal/client/bookings"] as const;
+export function useCreateClientBooking(options?: {
+  mutation?: UseMutationOptions<ClientBooking, ErrorType<unknown>, {
+    reason: string;
+    preferredDate: string;
+    preferredTime: string;
+  }>;
+}) {
+  return useMutation({
+    mutationFn: (data: { reason: string; preferredDate: string; preferredTime: string }) =>
+      customFetch<ClientBooking>("/api/portal/client/bookings", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    ...options?.mutation,
+  });
+}
 export function useClientBookings(options?: QueryOptions<ClientBooking[]>) {
   return useQuery({
     queryKey: getClientBookingsQueryKey(),

@@ -10,10 +10,13 @@ import {
   supportMessagesTable,
   supportThreadsTable,
   wellnessResourcesTable,
+  settingsTable,
 } from "@workspace/db";
 import { db } from "@workspace/db";
 import { getStaffAccess, hasPermission, requireAuth, requireClientAuth, type RequestWithClientSession } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
+import { generateConfirmationCode } from "../lib/booking-utils";
+import { validateBookingSlot } from "../lib/scheduling";
 
 const router = Router();
 
@@ -365,6 +368,65 @@ router.post("/support/:id/reply/client", requireClientAuth, async (req, res): Pr
     .where(eq(supportThreadsTable.id, threadId))
     .returning();
   res.status(201).json(updated);
+});
+
+router.post("/client/bookings", requireClientAuth, async (req, res): Promise<void> => {
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+  const { reason, preferredDate, preferredTime } = req.body as {
+    reason?: string;
+    preferredDate?: string;
+    preferredTime?: string;
+  };
+  const [client] = await db.select({
+    name: clientAccountsTable.name,
+    phone: clientAccountsTable.phone,
+  }).from(clientAccountsTable).where(eq(clientAccountsTable.id, clientId)).limit(1);
+
+  if (!client || !reason?.trim() || !preferredDate || !preferredTime) {
+    res.status(400).json({ error: "Reason, date, and time are required." });
+    return;
+  }
+
+  const [settings] = await db.select({ sessionRequestsOpen: settingsTable.sessionRequestsOpen })
+    .from(settingsTable)
+    .limit(1);
+  if (settings && !settings.sessionRequestsOpen) {
+    res.status(409).json({ error: "Session requests are currently closed. Please contact support." });
+    return;
+  }
+
+  const slot = await validateBookingSlot(preferredDate, preferredTime);
+  if (!slot.ok) {
+    res.status(409).json({ error: slot.error });
+    return;
+  }
+
+  let confirmationCode = generateConfirmationCode();
+  for (let attempts = 0; attempts < 5; attempts += 1) {
+    const [existing] = await db.select({ id: bookingsTable.id })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.confirmationCode, confirmationCode))
+      .limit(1);
+    if (!existing) break;
+    confirmationCode = generateConfirmationCode();
+  }
+
+  const [created] = await db.insert(bookingsTable).values({
+    confirmationCode,
+    clientName: client.name,
+    phone: client.phone,
+    reason: reason.trim().slice(0, 2000),
+    preferredDate,
+    preferredTime,
+    status: "pending",
+  }).returning();
+
+  res.status(201).json({
+    ...created,
+    claimedBy: created.claimedBy ?? null,
+    sessionNotes: created.sessionNotes ?? null,
+    createdAt: created.createdAt.toISOString(),
+  });
 });
 
 router.get("/client/bookings", requireClientAuth, async (req, res): Promise<void> => {

@@ -5,19 +5,9 @@ import { eq, desc } from "drizzle-orm";
 import { requirePermission } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 import { validateBookingSlot } from "../lib/scheduling";
-import crypto from "crypto";
+import { generateConfirmationCode } from "../lib/booking-utils";
 
 const router = Router();
-
-function generateConfirmationCode(): string {
-  // ATS + 8 uppercase alphanumeric chars, e.g. ATS-3F7KM2PQ
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous 0/O/1/I
-  const rand = crypto.randomBytes(8);
-  const code = Array.from(rand)
-    .map((b) => chars[b % chars.length])
-    .join("");
-  return `ATS-${code}`;
-}
 
 function serializeBooking(b: typeof bookingsTable.$inferSelect & { isReturningClient?: boolean; previousSessionCount?: number }) {
   return {
