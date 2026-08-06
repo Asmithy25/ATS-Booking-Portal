@@ -1,0 +1,19 @@
+This is what else we're gonna add in. We'll start with staff side and then we'll go into client. STAFF:
+
+Appointment Control Center Calendar view Staff profiles & permissions Roles (Founder, Manager, Therapist, Support Representative and you assign them access to certain things you think they should have access to) Analytics Dashboard whilst keeping the one on the booking side Total Appointments Appointments this week Most common booking times Client growth & statistics Completion rate This is for clients and staff. An AI chatbot that only answers questions regarding Ayden's Therapy Services. If they decide to be pushed through to a representative, give us a section within staff panel where we can reply to them. Name this section "Chatbot" and staff can respond to it. Audit Logs accesible to managers and Founer (me) Every action done. CLIENTS:
+
+Create an account/login to an account. Allow clients to sign up and create their own account with Aydens Therapy Services. They'll only have access to their appointments and they'll be able to book without filling out certain information so long as its registered with their account. Appointment countdown Straightforward. E.g Your appointment starts in 25 minutes Wellness resources page A section with Coping strategies, Helpful Articles, Self Care tips, and emergency resources. FOR ALL SIDES:
+
+Dark/Light mode preference you'll have to make sure the theme works for both dark and light Animated Welcome Screen "Welcome Back" dashboard Staff announcements panel (only managers and founder can publish announcements to this panel and that panel should only be accessible via staff login) Client announcements banner (of which staff put out) New logo loading animation with every change listed, make sure it can be edited by founder (ayden, me)
+
+on the booking side, sort all bookings by newest date to oldest date
+
+change aydens login to: user: ayden@aydenstherapyservices.com Password: Aydenstherapyservices122221
+
+also make it so that i can edit the logo
+
+Let's change "Availability" to "Therapist Hours:" and the names would be per staff member and every staff member can change their own hours via their staff portal sign in. the current availability will be marked as Ayden's Hours: and the hours below and every time the therapist adds in their own hours it basically essentially expands down and changes per therapist like do u understand what i mean
+
+also make it so that ayden can customize every staff members hours and reset passwords manually and also lets make the staff booking management side better dear
+
+Prioritize: 1. change the logo to the one attached and add the color scheme of that logo in 2 Full website management and control 3 website notifications to the client when their appointment time has arrived 4 Staff Side gets complete website customization e.g changing the text, changing colors, etc etc. 5 better client organization and tracking 6 improve mobile experience 7 make the website cleaner and more modern in design 8 improve appointment management dashboard    Take your time: security fixes bug fixes general qol improvements for everyone on the staff side client lookup, add in a name and confirmation code lookup so it isn’t just number and looking bland alongside the staff side allow us to pull up every appointment by day in a different category and whatever else you think we should do
