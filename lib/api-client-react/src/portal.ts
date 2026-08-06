@@ -114,10 +114,10 @@ export function useClientLogin<TError = ErrorType<unknown>>(options?: {
 }
 
 export function useClientSignup<TError = ErrorType<unknown>>(options?: {
-  mutation?: UseMutationOptions<{ authenticated: boolean; client: Client }, TError, { email: string; password: string; name: string; phone: string }>;
+  mutation?: UseMutationOptions<{ authenticated: boolean; client: Client }, TError, { email: string; password: string; name: string; phone: string; updatesOptIn: boolean }>;
 }) {
   return useMutation({
-    mutationFn: (data: { email: string; password: string; name: string; phone: string }) =>
+    mutationFn: (data: { email: string; password: string; name: string; phone: string; updatesOptIn: boolean }) =>
       customFetch<{ authenticated: boolean; client: Client }>("/api/auth/client/signup", { method: "POST", body: JSON.stringify(data) }),
     ...options?.mutation,
   });

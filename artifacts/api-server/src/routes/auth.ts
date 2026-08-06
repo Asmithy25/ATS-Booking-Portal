@@ -96,7 +96,13 @@ router.get("/me", async (req, res) => {
 });
 
 router.post("/client/signup", async (req, res) => {
-  const { email, password, name, phone } = req.body as Record<string, string>;
+  const { email, password, name, phone, updatesOptIn } = req.body as {
+    email?: string;
+    password?: string;
+    name?: string;
+    phone?: string;
+    updatesOptIn?: unknown;
+  };
   const normalizedEmail = (email ?? "").toLowerCase().trim();
   if (!normalizedEmail || !password || !name?.trim() || !phone?.trim()) {
     res.status(400).json({ error: "Name, email, phone, and password are required." });
@@ -104,6 +110,10 @@ router.post("/client/signup", async (req, res) => {
   }
   if (password.length < 8) {
     res.status(400).json({ error: "Password must be at least 8 characters." });
+    return;
+  }
+  if (typeof updatesOptIn !== "boolean") {
+    res.status(400).json({ error: "Choose whether to receive practice updates." });
     return;
   }
   const existing = await db.select({ id: clientAccountsTable.id }).from(clientAccountsTable).where(eq(clientAccountsTable.email, normalizedEmail)).limit(1);
@@ -116,9 +126,20 @@ router.post("/client/signup", async (req, res) => {
     passwordHash: hashPassword(password),
     name: name.trim().slice(0, 120),
     phone: phone.trim().slice(0, 40),
-  }).returning({ id: clientAccountsTable.id, email: clientAccountsTable.email, name: clientAccountsTable.name });
+    updatesOptIn,
+  }).returning({
+    id: clientAccountsTable.id,
+    email: clientAccountsTable.email,
+    name: clientAccountsTable.name,
+    phone: clientAccountsTable.phone,
+    updatesOptIn: clientAccountsTable.updatesOptIn,
+    createdAt: clientAccountsTable.createdAt,
+  });
   issueClientSession(res, { id: String(client.id), email: client.email, name: client.name }, true);
-  res.status(201).json({ authenticated: true, client: { id: client.id, email: client.email, name: client.name } });
+  res.status(201).json({
+    authenticated: true,
+    client: { ...client, createdAt: client.createdAt.toISOString() },
+  });
 });
 
 router.post("/client/login", async (req, res) => {
@@ -130,7 +151,17 @@ router.post("/client/login", async (req, res) => {
     return;
   }
   issueClientSession(res, { id: String(client.id), email: client.email, name: client.name }, Boolean(keepSignedIn));
-  res.json({ authenticated: true, client: { id: client.id, email: client.email, name: client.name } });
+  res.json({
+    authenticated: true,
+    client: {
+      id: client.id,
+      email: client.email,
+      name: client.name,
+      phone: client.phone,
+      updatesOptIn: client.updatesOptIn,
+      createdAt: client.createdAt.toISOString(),
+    },
+  });
 });
 
 router.post("/client/logout", (_req, res) => {

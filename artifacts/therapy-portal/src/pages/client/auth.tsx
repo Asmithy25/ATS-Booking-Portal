@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { useClientLogin, useClientSignup, getClientMeQueryKey } from '@workspace/api-client-react';
+import { useClientLogin, useClientSignup, getClientMeQueryKey, useGetSettings } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, HeartHandshake, Loader2 } from 'lucide-react';
+import { ArrowLeft, HeartHandshake, Loader2, Sparkles } from 'lucide-react';
 import { Link } from 'wouter';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 
 export default function ClientAuth() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', updatesOptIn: false });
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: settings } = useGetSettings();
+  const updatesPreferenceEnabled = settings?.featureFlags?.clientUpdatesOptIn !== false;
 
   const finish = (name: string) => {
     queryClient.invalidateQueries({ queryKey: getClientMeQueryKey() });
@@ -58,6 +60,19 @@ export default function ClientAuth() {
                 {mode === 'signup' && <>
                   <div className="space-y-2"><Label htmlFor="client-name">Full name</Label><Input id="client-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
                   <div className="space-y-2"><Label htmlFor="client-phone">Phone</Label><Input id="client-phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required /></div>
+                  {updatesPreferenceEnabled && <label htmlFor="client-updates-opt-in" className="flex cursor-pointer items-start gap-3 rounded-2xl border bg-muted/30 p-4">
+                    <input
+                      id="client-updates-opt-in"
+                      type="checkbox"
+                      checked={form.updatesOptIn}
+                      onChange={(event) => setForm({ ...form, updatesOptIn: event.target.checked })}
+                      className="mt-0.5 h-5 w-5 shrink-0 accent-[hsl(var(--primary))]"
+                    />
+                    <span>
+                      <span className="flex items-center gap-2 font-medium"><Sparkles className="h-4 w-4 text-primary" /> Receive practice updates</span>
+                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">Get non-urgent updates from the care team in your client portal. You can change this anytime in Settings.</span>
+                    </span>
+                  </label>}
                 </>}
                 <div className="space-y-2"><Label htmlFor="client-email">Email</Label><Input id="client-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
                 <div className="space-y-2"><Label htmlFor="client-password">Password</Label><Input id="client-password" type="password" minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
