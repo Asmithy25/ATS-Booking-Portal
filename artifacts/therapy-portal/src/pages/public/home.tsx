@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { getThemeStyle } from '@/lib/theme';
+import { getDailyQuote } from '@/lib/motivationalQuotes';
 
 import terracottaLogoUrl from '@assets/ATS_FALL_1786003864019.png';
 import oliveLogoUrl from '@assets/ATS_FALL_1786003864019.png';
@@ -42,6 +43,12 @@ export default function Home() {
   const { toast } = useToast();
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState('');
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
@@ -149,6 +156,22 @@ export default function Home() {
         {/* HERO SECTION */}
         <section className="relative overflow-hidden pt-14 pb-24 lg:pt-28 lg:pb-36">
           <div className="container mx-auto px-4 relative z-10">
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-10 max-w-2xl rounded-[1.5rem] border border-primary/15 bg-card/75 px-5 py-4 shadow-sm backdrop-blur sm:px-6"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">
+                {now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'}
+              </p>
+              <p className="mt-1 font-serif text-xl font-semibold text-foreground">
+                Welcome — this is a space for you.
+              </p>
+              <p className="mt-1 text-sm italic text-muted-foreground">
+                “{getDailyQuote(now).quote}”
+              </p>
+            </motion.div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                  <motion.div
                 initial="hidden" 

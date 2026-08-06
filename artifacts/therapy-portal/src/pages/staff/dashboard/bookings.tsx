@@ -277,12 +277,12 @@ export default function Bookings() {
   // ── Status colors ──────────────────────────────────────────────────────────
 
   const statusColors = {
-    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-500',
-    claimed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-500',
-    completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500',
-    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500',
-    no_show: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-500',
-    waitlisted: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    pending: 'bg-[#F2D6B8] text-[#6F3F2C] dark:bg-[#8B5A3C]/35 dark:text-[#F2D6B8]',
+    claimed: 'bg-[#D8C4A8] text-[#5B422F] dark:bg-[#8A6A4A]/35 dark:text-[#E7C9A3]',
+    completed: 'bg-[#C5CCB0] text-[#405039] dark:bg-[#667653]/35 dark:text-[#D5DEBD]',
+    cancelled: 'bg-[#D8A18C] text-[#6B3426] dark:bg-[#9A5039]/35 dark:text-[#F0B9A6]',
+    no_show: 'bg-[#C9A6A0] text-[#613F3C] dark:bg-[#7E514B]/35 dark:text-[#E7BDB5]',
+    waitlisted: 'bg-[#E6C27A] text-[#664A22] dark:bg-[#9A7535]/35 dark:text-[#F3D99A]',
   };
 
   const waitlistBookings = (bookings ?? [])
@@ -386,7 +386,7 @@ export default function Bookings() {
             /* ── Success state ── */
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                <DialogTitle className="flex items-center gap-2 text-primary">
                   <CheckCircle2 className="w-5 h-5" />
                   Booking Created
                 </DialogTitle>
@@ -405,7 +405,7 @@ export default function Bookings() {
                 </div>
                 <Button variant="outline" className="w-full" onClick={handleCopyCode}>
                   {codeCopied
-                    ? <><CheckCheck className="w-4 h-4 mr-2 text-green-600" />Copied!</>
+                    ? <><CheckCheck className="w-4 h-4 mr-2 text-primary" />Copied!</>
                     : <><Copy className="w-4 h-4 mr-2" />Copy Code</>}
                 </Button>
               </div>
@@ -818,13 +818,13 @@ export default function Bookings() {
 
                                {(b.status === 'pending' || b.status === 'claimed') && (
                               <>
-                                <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => handleStatusUpdate(b.id, 'completed')}>
+                                 <Button size="sm" variant="outline" className="text-[#71805A] hover:text-[#536440] dark:text-[#B7C597] dark:hover:text-[#D5DEBD]" onClick={() => handleStatusUpdate(b.id, 'completed')}>
                                   <CheckCircle2 className="w-4 h-4" />
                                 </Button>
-                                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleStatusUpdate(b.id, 'cancelled')}>
+                                 <Button size="sm" variant="outline" className="text-[#A95532] hover:text-[#853E26] dark:text-[#E39A79] dark:hover:text-[#F0B9A6]" onClick={() => handleStatusUpdate(b.id, 'cancelled')}>
                                   <XCircle className="w-4 h-4" />
                                 </Button>
-                                <Button size="sm" variant="outline" className="text-purple-700 hover:text-purple-800" onClick={() => handleStatusUpdate(b.id, 'no_show')}>
+                                 <Button size="sm" variant="outline" className="text-[#80605A] hover:text-[#654A45] dark:text-[#D3A59D] dark:hover:text-[#E7BDB5]" onClick={() => handleStatusUpdate(b.id, 'no_show')}>
                                   No-show
                                 </Button>
                               </>
