@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function PublicNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -37,6 +38,7 @@ export function PublicNavbar() {
           <Link href="/portal/login" data-testid="link-client-portal" className="hidden md:inline-flex text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             Client Portal
           </Link>
+           <ThemeToggle compact />
           <Button data-testid="button-get-started" onClick={() => handleScrollTo('book')} className="rounded-full px-6 shadow-sm">
             Get Started
           </Button>
