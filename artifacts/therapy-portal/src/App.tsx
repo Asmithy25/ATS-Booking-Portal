@@ -63,6 +63,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/booking/:code" component={BookingManage} />
+      <Route path="/booking" component={BookingManage} />
       <Route path="/staff" component={Login} />
       <Route path="/staff/login" component={Login} />
       <Route path="/portal/login" component={ClientAuth} />

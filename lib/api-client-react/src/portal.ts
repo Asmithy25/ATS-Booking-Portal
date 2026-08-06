@@ -154,6 +154,21 @@ export function useClientBookings(options?: QueryOptions<ClientBooking[]>) {
     ...options?.query,
   });
 }
+export function useUpdateClientBooking(options?: {
+  mutation?: UseMutationOptions<ClientBooking, ErrorType<unknown>, {
+    id: number;
+    data: { preferredDate?: string; preferredTime?: string; status?: "cancelled" };
+  }>;
+}) {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: { preferredDate?: string; preferredTime?: string; status?: "cancelled" } }) =>
+      customFetch<ClientBooking>(`/api/portal/client/bookings/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    ...options?.mutation,
+  });
+}
 
 export const getResourcesQueryKey = () => ["/api/portal/resources"] as const;
 export function useWellnessResources(options?: QueryOptions<WellnessResource[]>) {

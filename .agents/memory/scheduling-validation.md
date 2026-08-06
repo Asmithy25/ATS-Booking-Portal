@@ -7,4 +7,4 @@ Appointment availability is a server-side rule, not only a calendar UI concern. 
 
 **Why:** Scheduling controls can be bypassed by direct API requests or by a second client using a different flow. Centralizing the decision prevents conflicting appointments even while the visual calendar evolves, while persistent priority keeps staff queue decisions consistent across sessions.
 
-**How to apply:** When adding a new appointment entry point or changing session duration, buffer behavior, waitlist promotion, or availability settings, update the shared server validator and exercise every booking/rescheduling path before changing only the frontend.
+**How to apply:** When adding a new appointment entry point or changing session duration, buffer behavior, waitlist promotion, or availability settings, update the shared server validator and exercise public booking, confirmation-code management, authenticated client management, staff editing, and waitlist promotion before changing only the frontend.

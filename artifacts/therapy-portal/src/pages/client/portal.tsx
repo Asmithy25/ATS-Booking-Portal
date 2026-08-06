@@ -9,6 +9,7 @@ import {
   useCreateSupportThread, useGetSettings, useSupportThreads, useUpdateClientProfile,
   useWellnessResources, useUpdateClientSupportStatus, useClientNotifications,
   useMarkClientNotificationRead, useUpdateClientPreferences,
+  useUpdateClientBooking,
 } from '@workspace/api-client-react';
 import type { ClientBooking } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarDays, Clock3, Heart, LogOut, Mail, MessageCircle, Moon, Settings2, ShieldAlert, Sparkles, Sun } from 'lucide-react';
+import { CalendarDays, Clock3, Heart, LogOut, Mail, MessageCircle, Moon, Settings2, ShieldAlert, Sparkles, Sun, RefreshCw, XCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { WelcomeSplash } from '@/components/welcome-splash';
 import { getDailyQuote } from '@/lib/motivationalQuotes';
@@ -36,14 +37,35 @@ function formatCountdown(target: Date, now: Date) {
   return `${minutes}m`;
 }
 
-function BookingCard({ booking, now, showCountdown }: { booking: ClientBooking; now: Date; showCountdown: boolean }) {
+function BookingCard({
+  booking,
+  now,
+  showCountdown,
+  onUpdate,
+  updatePending,
+}: {
+  booking: ClientBooking;
+  now: Date;
+  showCountdown: boolean;
+  onUpdate: (data: { preferredDate?: string; preferredTime?: string; status?: 'cancelled' }) => void;
+  updatePending: boolean;
+}) {
   const statusLabel = booking.status === 'no_show' ? 'No-show' : booking.status.replace('_', ' ');
   const appointmentTime = parseISO(`${booking.preferredDate}T${booking.preferredTime}`);
   const isUpcoming = !isBefore(appointmentTime, now);
-  return <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-    <div><div className="flex items-center gap-2"><p className="font-medium">{format(parseISO(`${booking.preferredDate}T${booking.preferredTime}`), 'EEEE, MMMM d')}</p><Badge variant={booking.status === 'cancelled' ? 'destructive' : 'secondary'}>{statusLabel}</Badge></div><p className="mt-1 text-sm text-muted-foreground"><Clock3 className="mr-1 inline h-3.5 w-3.5" />{booking.preferredTime} · {booking.reason}</p></div>
-    {showCountdown && isUpcoming && booking.status !== 'cancelled' && booking.status !== 'completed' && <div className="rounded-xl bg-primary/10 px-3 py-2 text-right"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-primary">Starts in</p><p className="font-semibold text-primary">{formatCountdown(appointmentTime, now)}</p></div>}
-    <p className="font-mono text-xs text-muted-foreground">{booking.confirmationCode}</p>
+  const [editing, setEditing] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [date, setDate] = useState(booking.preferredDate);
+  const [time, setTime] = useState(booking.preferredTime);
+  const editable = isUpcoming && booking.status !== 'cancelled' && booking.status !== 'completed';
+  return <div className="space-y-4 rounded-2xl border border-border/70 bg-background/60 p-4">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div><div className="flex items-center gap-2"><p className="font-medium">{format(parseISO(`${booking.preferredDate}T${booking.preferredTime}`), 'EEEE, MMMM d')}</p><Badge variant={booking.status === 'cancelled' ? 'destructive' : 'secondary'}>{statusLabel}</Badge></div><p className="mt-1 text-sm text-muted-foreground"><Clock3 className="mr-1 inline h-3.5 w-3.5" />{booking.preferredTime} · {booking.reason}</p></div>
+      <div className="flex items-center gap-3"><p className="font-mono text-xs text-muted-foreground">{booking.confirmationCode}</p>{showCountdown && isUpcoming && editable && <div className="rounded-xl bg-primary/10 px-3 py-2 text-right"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-primary">Starts in</p><p className="font-semibold text-primary">{formatCountdown(appointmentTime, now)}</p></div>}</div>
+    </div>
+    {editable && !editing && !confirmCancel && <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3"><Button type="button" size="sm" variant="outline" onClick={() => { setDate(booking.preferredDate); setTime(booking.preferredTime); setEditing(true); }}><RefreshCw className="h-3.5 w-3.5" /> Reschedule</Button><Button type="button" size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setConfirmCancel(true)}><XCircle className="h-3.5 w-3.5" /> Cancel appointment</Button></div>}
+    {editing && <div className="space-y-3 rounded-xl border border-primary/15 bg-primary/5 p-3"><p className="text-sm font-medium">Choose a new date and time</p><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label htmlFor={`reschedule-date-${booking.id}`}>Date</Label><Input id={`reschedule-date-${booking.id}`} type="date" min={format(new Date(), 'yyyy-MM-dd')} value={date} onChange={(event) => setDate(event.target.value)} /></div><div className="space-y-1"><Label htmlFor={`reschedule-time-${booking.id}`}>Time</Label><Input id={`reschedule-time-${booking.id}`} type="time" step="900" value={time} onChange={(event) => setTime(event.target.value)} /></div></div><p className="text-xs text-muted-foreground">Any requested time is checked against business hours, closures, session length, buffers, and other appointments.</p><div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={updatePending || !date || !time} onClick={() => { onUpdate({ preferredDate: date, preferredTime: time }); setEditing(false); }}>Save new time</Button><Button type="button" size="sm" variant="outline" disabled={updatePending} onClick={() => setEditing(false)}>Keep current time</Button></div></div>}
+    {confirmCancel && <div className="space-y-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3"><p className="text-sm font-medium">Cancel this appointment?</p><p className="text-xs text-muted-foreground">This cannot be undone. You can submit a new request later.</p><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="destructive" disabled={updatePending} onClick={() => { onUpdate({ status: 'cancelled' }); setConfirmCancel(false); }}>Yes, cancel appointment</Button><Button type="button" size="sm" variant="outline" disabled={updatePending} onClick={() => setConfirmCancel(false)}>Keep appointment</Button></div></div>}
   </div>;
 }
 
@@ -107,6 +129,18 @@ export default function ClientPortal() {
       },
     },
   });
+  const updateBooking = useUpdateClientBooking({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getClientBookingsQueryKey() });
+        toast({ title: 'Appointment updated' });
+      },
+      onError: (error) => {
+        const message = (error as { data?: { error?: string } })?.data?.error;
+        toast({ variant: 'destructive', title: 'Appointment could not be updated', description: message ?? 'Please choose another time and try again.' });
+      },
+    },
+  });
   const [support, setSupport] = useState({ subject: '', body: '' });
   const [booking, setBooking] = useState({ reason: '', preferredDate: '', preferredTime: '' });
   const [bookingConfirmation, setBookingConfirmation] = useState('');
@@ -147,8 +181,8 @@ export default function ClientPortal() {
         <TabsContent value="overview" className="space-y-6">
            <div className="grid gap-4 md:grid-cols-3"><Card className="rounded-2xl bg-primary text-primary-foreground"><CardHeader><CardDescription className="text-primary-foreground/70">Upcoming sessions</CardDescription><CardTitle className="text-4xl">{upcoming.length}</CardTitle></CardHeader><CardContent><CalendarDays className="h-5 w-5 opacity-70" /></CardContent></Card><Card className="rounded-2xl"><CardHeader><CardDescription>Next appointment</CardDescription><CardTitle className="text-2xl">{upcoming[0] ? format(parseISO(upcoming[0].preferredDate), 'MMM d') : 'Nothing booked'}</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">{upcoming[0] ? `${upcoming[0].preferredTime} · ${upcoming[0].reason}` : 'Ready when you are.'}</CardContent></Card><Card className="rounded-2xl"><CardHeader><CardDescription>Need help?</CardDescription><CardTitle className="text-2xl">We’re here</CardTitle></CardHeader><CardContent><button type="button" className="text-sm font-medium text-primary hover:underline" onClick={() => setActiveTab('support')}>Contact support →</button></CardContent></Card></div>
            <Card className="overflow-hidden rounded-2xl border-primary/15 bg-gradient-to-br from-primary/10 via-card to-secondary/10"><CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="mb-1 text-xs font-semibold uppercase tracking-[.18em] text-primary">A thought for today</p><p className="font-serif text-xl leading-8">“{getDailyQuote().quote}”</p><p className="mt-1 text-sm text-muted-foreground">{getDailyQuote().author}</p></div><Sparkles className="hidden h-10 w-10 text-primary/50 sm:block" /></CardContent></Card>
-            <Card className="rounded-2xl"><CardHeader><CardTitle>Upcoming appointments</CardTitle><CardDescription>Your next sessions and confirmation details.</CardDescription></CardHeader><CardContent className="space-y-3">{loadingBookings ? <p className="text-sm text-muted-foreground">Loading appointments…</p> : upcoming.length ? upcoming.map((booking) => <BookingCard key={booking.id} booking={booking} now={now} showCountdown={recognizedDevice && settings?.featureFlags?.clientPortalCountdown !== false} />) : <div className="rounded-2xl bg-muted/50 p-6 text-center"><Heart className="mx-auto mb-2 h-6 w-6 text-primary" /><p className="font-medium">No upcoming appointments</p><Button type="button" variant="link" className="mt-2 h-auto p-0" onClick={() => setActiveTab('book')}>Book a session</Button></div>}</CardContent></Card>
-           <Card className="rounded-2xl"><CardHeader><CardTitle>Past appointments</CardTitle></CardHeader><CardContent className="space-y-3">{past.slice(0, 5).map((booking) => <BookingCard key={booking.id} booking={booking} now={now} showCountdown={false} />)}{!past.length && <p className="text-sm text-muted-foreground">Your completed sessions will appear here.</p>}</CardContent></Card>
+            <Card className="rounded-2xl"><CardHeader><CardTitle>Upcoming appointments</CardTitle><CardDescription>Your next sessions and confirmation details. You can reschedule or cancel an upcoming appointment here.</CardDescription></CardHeader><CardContent className="space-y-3">{loadingBookings ? <p className="text-sm text-muted-foreground">Loading appointments…</p> : upcoming.length ? upcoming.map((booking) => <BookingCard key={booking.id} booking={booking} now={now} showCountdown={recognizedDevice && settings?.featureFlags?.clientPortalCountdown !== false} onUpdate={(data) => updateBooking.mutate({ id: booking.id, data })} updatePending={updateBooking.isPending} />) : <div className="rounded-2xl bg-muted/50 p-6 text-center"><Heart className="mx-auto mb-2 h-6 w-6 text-primary" /><p className="font-medium">No upcoming appointments</p><Button type="button" variant="link" className="mt-2 h-auto p-0" onClick={() => setActiveTab('book')}>Book a session</Button></div>}</CardContent></Card>
+            <Card className="rounded-2xl"><CardHeader><CardTitle>Past appointments</CardTitle></CardHeader><CardContent className="space-y-3">{past.slice(0, 5).map((booking) => <BookingCard key={booking.id} booking={booking} now={now} showCountdown={false} onUpdate={() => undefined} updatePending={false} />)}{!past.length && <p className="text-sm text-muted-foreground">Your completed sessions will appear here.</p>}</CardContent></Card>
         </TabsContent>
          <TabsContent value="notifications" className="space-y-6">
            <Card className="rounded-2xl"><CardHeader><CardTitle>Updates from your care team</CardTitle><CardDescription>Important messages and practice updates stay here until you mark them read.</CardDescription></CardHeader><CardContent className="space-y-3">{notifications.length ? notifications.map((notification) => <button key={notification.id} type="button" onClick={() => !notification.read && markNotificationRead.mutate(notification.id)} className={`w-full rounded-2xl border p-4 text-left transition-colors ${notification.read ? 'border-border/60 bg-muted/20' : 'border-primary/25 bg-primary/5 hover:bg-primary/10'}`}><div className="flex items-start justify-between gap-4"><div><p className="font-medium">{notification.title}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{notification.body}</p></div>{!notification.read && <Badge className="shrink-0">New</Badge>}</div><p className="mt-3 text-xs text-muted-foreground">{format(new Date(notification.createdAt), 'MMM d, yyyy')}</p></button>) : <div className="rounded-2xl bg-muted/40 p-8 text-center"><Sparkles className="mx-auto mb-3 h-7 w-7 text-primary" /><p className="font-medium">No updates yet</p><p className="mt-1 text-sm text-muted-foreground">New messages from the care team will appear here.</p></div>}</CardContent></Card>

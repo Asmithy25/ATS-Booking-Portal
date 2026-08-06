@@ -790,6 +790,69 @@ router.get("/client/bookings", requireClientAuth, async (req, res): Promise<void
   res.json(bookings.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() })));
 });
 
+router.patch("/client/bookings/:id", requireClientAuth, async (req, res): Promise<void> => {
+  if (!await featureEnabled("clientBooking")) {
+    res.status(403).json({ error: "Client booking is currently disabled." });
+    return;
+  }
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+  const bookingId = Number(req.params.id);
+  const { preferredDate, preferredTime, status } = req.body as {
+    preferredDate?: string;
+    preferredTime?: string;
+    status?: string;
+  };
+  if (!Number.isInteger(bookingId) || (status !== undefined && status !== "cancelled")) {
+    res.status(400).json({ error: "Choose a valid appointment update." });
+    return;
+  }
+  const [client] = await db.select({ phone: clientAccountsTable.phone })
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.id, clientId))
+    .limit(1);
+  const [existing] = client
+    ? await db.select().from(bookingsTable)
+      .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.phone, client.phone)))
+      .limit(1)
+    : [];
+  if (!existing) {
+    res.status(404).json({ error: "Appointment not found." });
+    return;
+  }
+  if (existing.status === "completed" || existing.status === "cancelled") {
+    res.status(400).json({ error: `This appointment is already ${existing.status} and cannot be changed.` });
+    return;
+  }
+  if (preferredDate || preferredTime) {
+    const slot = await validateBookingSlot(
+      preferredDate ?? existing.preferredDate,
+      preferredTime ?? existing.preferredTime,
+      { excludeBookingId: existing.id },
+    );
+    if (!slot.ok) {
+      res.status(409).json({ error: slot.error });
+      return;
+    }
+  }
+  const updates: Partial<typeof bookingsTable.$inferInsert> = {};
+  if (preferredDate) updates.preferredDate = preferredDate;
+  if (preferredTime) updates.preferredTime = preferredTime;
+  if (status === "cancelled") updates.status = "cancelled";
+  if (!Object.keys(updates).length) {
+    res.status(400).json({ error: "Choose a new date, time, or cancellation." });
+    return;
+  }
+  const [updated] = await db.update(bookingsTable)
+    .set(updates)
+    .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.phone, client?.phone ?? "")))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Appointment not found." });
+    return;
+  }
+  res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
+});
+
 router.patch("/client/profile", requireClientAuth, async (req, res): Promise<void> => {
   const clientId = Number((req as RequestWithClientSession).clientSession?.id);
   const { name, phone } = req.body as { name?: string; phone?: string };

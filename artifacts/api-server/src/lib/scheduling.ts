@@ -26,6 +26,11 @@ function dateDayKey(value: string) {
   return DAY_KEYS[new Date(`${value}T12:00:00Z`).getUTCDay()];
 }
 
+function isPastDate(value: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  return value < today;
+}
+
 export async function validateBookingSlot(
   preferredDate: string,
   preferredTime: string,
@@ -33,6 +38,9 @@ export async function validateBookingSlot(
 ): Promise<SlotResult> {
   if (!isValidDate(preferredDate) || !isValidTime(preferredTime)) {
     return { ok: false, error: "Choose a valid appointment date and time." };
+  }
+  if (isPastDate(preferredDate)) {
+    return { ok: false, error: "Choose a future appointment date." };
   }
 
   const [settings] = await db.select().from(settingsTable).limit(1);

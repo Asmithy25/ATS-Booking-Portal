@@ -50,7 +50,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function BookingManage() {
   const params = useParams<{ code: string }>();
-  const code = (params.code ?? '').toUpperCase();
+  const routeCode = (params.code ?? '').toUpperCase();
+  const [enteredCode, setEnteredCode] = useState('');
+  const code = routeCode || enteredCode.trim().toUpperCase();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -71,6 +73,15 @@ export default function BookingManage() {
     enabled: !!code,
     retry: false,
   });
+
+  const submitCode = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!enteredCode.trim()) {
+      toast({ variant: 'destructive', title: 'Enter your confirmation code' });
+      return;
+    }
+    setEnteredCode(enteredCode.trim().toUpperCase());
+  };
 
   const appointmentTime = useMemo(() => {
     if (!booking) return null;
@@ -236,8 +247,30 @@ export default function BookingManage() {
 
           <div className="mb-8">
             <h1 className="text-3xl font-serif font-bold text-foreground">Manage Your Booking</h1>
-            <p className="text-muted-foreground mt-2">Confirmation code: <span className="font-mono font-semibold text-foreground">{code}</span></p>
+            {code ? (
+              <p className="text-muted-foreground mt-2">Confirmation code: <span className="font-mono font-semibold text-foreground">{code}</span></p>
+            ) : (
+              <p className="text-muted-foreground mt-2">Enter the code from your booking confirmation to reschedule or cancel.</p>
+            )}
           </div>
+
+          {!code && (
+            <form onSubmit={submitCode} className="mb-6 rounded-2xl border border-primary/15 bg-card p-6 shadow-sm">
+              <label htmlFor="booking-confirmation-code" className="mb-2 block text-sm font-medium">Confirmation code</label>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Input
+                  id="booking-confirmation-code"
+                  value={enteredCode}
+                  onChange={(event) => setEnteredCode(event.target.value.toUpperCase())}
+                  placeholder="e.g. ATS-123456"
+                  autoComplete="off"
+                  className="font-mono uppercase tracking-widest"
+                />
+                <Button type="submit" className="shrink-0">Find my booking</Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Your confirmation code is shown after booking and in your booking confirmation.</p>
+            </form>
+          )}
 
           {isLoading && (
             <div className="flex justify-center py-24">

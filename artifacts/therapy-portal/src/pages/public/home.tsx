@@ -60,6 +60,14 @@ export default function Home() {
       preferredTime: '',
     },
   });
+  const selectedDate = form.watch('preferredDate');
+  const selectedDayKey = selectedDate ? (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const)[getDay(parseISO(selectedDate))] : null;
+  const selectedHoliday = selectedDate ? settings?.holidayHours.find((holiday) => holiday.date === selectedDate.slice(5)) : undefined;
+  const selectedHours = selectedHoliday
+    ? (selectedHoliday.closed ? null : selectedHoliday)
+    : selectedDayKey
+      ? settings?.officeHours[selectedDayKey]
+      : undefined;
 
   const createBooking = useCreateBooking({
     mutation: {
@@ -116,11 +124,15 @@ export default function Home() {
         return selectedStr >= openStr && selectedStr <= closeStr;
       };
 
-      const validTime = holiday 
-        ? checkTime(holiday.open, holiday.close, values.preferredTime)
-        : daySettings 
-          ? checkTime(daySettings.open, daySettings.close, values.preferredTime)
-          : false;
+       const toMinutes = (time: string) => {
+         const [hours, minutes] = time.split(':').map(Number);
+         return hours * 60 + minutes;
+       };
+       const validTime = holiday
+         ? toMinutes(values.preferredTime) >= toMinutes(holiday.open) && toMinutes(values.preferredTime) + 60 <= toMinutes(holiday.close)
+         : daySettings
+           ? toMinutes(values.preferredTime) >= toMinutes(daySettings.open) && toMinutes(values.preferredTime) + 60 <= toMinutes(daySettings.close)
+           : false;
 
       if (!validTime) {
         form.setError('preferredTime', { message: 'Selected time is outside of office hours for this date.' });
@@ -435,7 +447,10 @@ export default function Home() {
                   </div>
                 ) : null}
 
-                    <h3 className="font-serif text-2xl font-bold mb-6">Request a consultation</h3>
+                    <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                      <h3 className="font-serif text-2xl font-bold">Request a consultation</h3>
+                      <a href="/booking" className="text-sm font-medium text-primary hover:underline">Already booked? Manage with your code →</a>
+                    </div>
                 
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -508,8 +523,8 @@ export default function Home() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Preferred Time</FormLabel>
-                            <FormControl>
-                              <Input type="time" {...field} />
+                             <FormControl>
+                               <Input type="time" step="900" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -533,7 +548,15 @@ export default function Home() {
                   </form>
                 </Form>
               </motion.div>
-            </div>
+                    </div>
+                    <div className="rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+                      <Clock className="mr-2 inline h-4 w-4 text-primary" />
+                      {selectedHours
+                        ? selectedHours.closed
+                          ? 'The practice is closed on this date.'
+                          : `Choose any start time from ${selectedHours.open} to ${selectedHours.close}, leaving one hour for your phone session.`
+                        : 'Choose a date to see available business hours. Sessions are 60 minutes and must fit within the practice hours.'}
+                    </div>
           </div>
         </section>
       </main>
