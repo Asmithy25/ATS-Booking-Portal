@@ -4,6 +4,7 @@ export const clientTemplatesTable = pgTable("client_templates", {
   id: serial("id").primaryKey(),
   key: text("key").notNull().unique(),
   label: text("label").notNull(),
+  icon: text("icon").notNull().default("file-text"),
   body: text("body").notNull(),
   updatedBy: text("updated_by").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

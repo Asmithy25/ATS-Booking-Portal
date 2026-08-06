@@ -3,3 +3,4 @@
 - [Scheduling validation](scheduling-validation.md) — Keep appointment availability, closures, vacation windows, buffers, and collision checks centralized at the API boundary.
 - [Workspace client declarations](workspace-client-declarations.md) — After editing shared API client source, refresh its declaration-only TypeScript output before web typechecking.
 - [Client rollout privacy](client-rollout-privacy.md) — Targeted updates use scoped notification records and explicit opt-in, never broad announcements or Support threads.
+- [Message template icons](message-template-icons.md) — Store stable whitelisted Lucide icon keys with templates so Support and editors share the same visual language.

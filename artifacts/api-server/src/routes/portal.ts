@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import {
   announcementsTable,
@@ -23,17 +24,23 @@ import { validateBookingSlot } from "../lib/scheduling";
 const router = Router();
 
 const DEFAULT_MESSAGE_TEMPLATES = [
-  { key: "booking_confirmation", label: "Booking confirmation", subject: "Your session request is received", body: "Hi {{clientName}},\n\nWe received your session request for {{date}} at {{time}}. We’ll follow up shortly with confirmation.\n\nAyden’s Therapy Services" },
-  { key: "appointment_reminder", label: "Appointment reminder", subject: "Reminder: your session is {{date}} at {{time}}", body: "Hi {{clientName}},\n\nThis is a gentle reminder that your phone session is scheduled for {{date}} at {{time}}.\n\nPlease keep your confirmation details nearby, and reach out if you need support." },
-  { key: "starting_soon", label: "Starting soon", subject: "Your session is starting soon", body: "Hi {{clientName}},\n\nYour session is starting soon at {{time}}. Find a quiet, comfortable place and keep your phone close.\n\nYou’ve got this." },
-  { key: "cancellation", label: "Cancellation", subject: "Update about your session request", body: "Hi {{clientName}},\n\nWe’re sorry, but we need to update your session request for {{date}} at {{time}}. Please reply here so we can help find another time." },
-  { key: "business_update", label: "Business update", subject: "An update from Ayden’s Therapy Services", body: "Hi {{clientName}},\n\nWe wanted to share an update from Ayden’s Therapy Services.\n\nPlease reply if you have any questions." },
+  { key: "booking_confirmation", label: "Booking confirmation", icon: "calendar-check", subject: "Your session request is received", body: "Hi {{clientName}},\n\nWe received your session request for {{date}} at {{time}}. We’ll follow up shortly with confirmation.\n\nAyden’s Therapy Services" },
+  { key: "appointment_reminder", label: "Appointment reminder", icon: "bell", subject: "Reminder: your session is {{date}} at {{time}}", body: "Hi {{clientName}},\n\nThis is a gentle reminder that your phone session is scheduled for {{date}} at {{time}}.\n\nPlease keep your confirmation details nearby, and reach out if you need support." },
+  { key: "starting_soon", label: "Starting soon", icon: "clock-3", subject: "Your session is starting soon", body: "Hi {{clientName}},\n\nYour session is starting soon at {{time}}. Find a quiet, comfortable place and keep your phone close.\n\nYou’ve got this." },
+  { key: "cancellation", label: "Cancellation", icon: "calendar-x", subject: "Update about your session request", body: "Hi {{clientName}},\n\nWe’re sorry, but we need to update your session request for {{date}} at {{time}}. Please reply here so we can help find another time." },
+  { key: "business_update", label: "Business update", icon: "megaphone", subject: "An update from Ayden’s Therapy Services", body: "Hi {{clientName}},\n\nWe wanted to share an update from Ayden’s Therapy Services.\n\nPlease reply if you have any questions." },
 ];
 
+const MESSAGE_TEMPLATE_ICONS = new Set([
+  "mail", "bell", "calendar", "calendar-check", "calendar-x", "clock-3",
+  "heart-handshake", "heart", "sparkles", "megaphone", "message-circle",
+  "phone", "shield-check", "star", "party-popper", "file-text",
+]);
+
 const DEFAULT_CLIENT_TEMPLATES = [
-  { key: "grounding_checkin", label: "Grounding check-in", body: "Pause for a moment. Name five things you can see, four you can feel, three you can hear, two you can smell, and one you can taste." },
-  { key: "session_preparation", label: "Session preparation", body: "Before your session, consider what feels most important to bring into the conversation. You do not need to have the perfect words." },
-  { key: "care_followup", label: "Care follow-up", body: "Small steps count. Consider one gentle action for your body, one for your mind, and one point of connection today." },
+  { key: "grounding_checkin", label: "Grounding check-in", icon: "heart", body: "Pause for a moment. Name five things you can see, four you can feel, three you can hear, two you can smell, and one you can taste." },
+  { key: "session_preparation", label: "Session preparation", icon: "calendar", body: "Before your session, consider what feels most important to bring into the conversation. You do not need to have the perfect words." },
+  { key: "care_followup", label: "Care follow-up", icon: "sparkles", body: "Small steps count. Consider one gentle action for your body, one for your mind, and one point of connection today." },
 ];
 
 async function ensureMessageTemplates() {
@@ -169,6 +176,39 @@ router.get("/templates", requireAuth, async (req, res): Promise<void> => {
   res.json(await ensureMessageTemplates());
 });
 
+router.post("/templates", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
+    res.status(403).json({ error: "Message access required." });
+    return;
+  }
+  const { label, icon = "mail", subject, body } = req.body as {
+    label?: string;
+    icon?: string;
+    subject?: string;
+    body?: string;
+  };
+  if (!label?.trim() || !subject?.trim() || !body?.trim()) {
+    res.status(400).json({ error: "Template name, subject, and message are required." });
+    return;
+  }
+  if (!MESSAGE_TEMPLATE_ICONS.has(icon)) {
+    res.status(400).json({ error: "Choose an icon from the available set." });
+    return;
+  }
+  const template = {
+    key: `custom_${randomUUID()}`,
+    label: label.trim().slice(0, 120),
+    icon,
+    subject: subject.trim().slice(0, 240),
+    body: body.trim().slice(0, 5000),
+    updatedBy: access.name,
+  };
+  const [created] = await db.insert(messageTemplatesTable).values(template).returning();
+  await recordAudit(req, "created_message_template", "message_template", String(created.id));
+  res.status(201).json(created);
+});
+
 router.get("/client-templates", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
   if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
@@ -182,6 +222,40 @@ router.get("/client-templates", requireAuth, async (req, res): Promise<void> => 
   res.json(await ensureClientTemplates());
 });
 
+router.post("/client-templates", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
+    res.status(403).json({ error: "Message access required." });
+    return;
+  }
+  if (!await featureEnabled("clientTemplates")) {
+    res.status(403).json({ error: "Client Templates are currently disabled." });
+    return;
+  }
+  const { label, icon = "file-text", body } = req.body as {
+    label?: string;
+    icon?: string;
+    body?: string;
+  };
+  if (!label?.trim() || !body?.trim()) {
+    res.status(400).json({ error: "Template name and text are required." });
+    return;
+  }
+  if (!MESSAGE_TEMPLATE_ICONS.has(icon)) {
+    res.status(400).json({ error: "Choose an icon from the available set." });
+    return;
+  }
+  const [created] = await db.insert(clientTemplatesTable).values({
+    key: `custom_${randomUUID()}`,
+    label: label.trim().slice(0, 120),
+    icon,
+    body: body.trim().slice(0, 5000),
+    updatedBy: access.name,
+  }).returning();
+  await recordAudit(req, "created_client_template", "client_template", String(created.id));
+  res.status(201).json(created);
+});
+
 router.patch("/client-templates/:key", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
   if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
@@ -192,14 +266,19 @@ router.patch("/client-templates/:key", requireAuth, async (req, res): Promise<vo
     res.status(403).json({ error: "Client Templates are currently disabled." });
     return;
   }
-  const { body, label } = req.body as { body?: string; label?: string };
+  const { body, label, icon } = req.body as { body?: string; label?: string; icon?: string };
   if (!body?.trim()) {
     res.status(400).json({ error: "Template text is required." });
+    return;
+  }
+  if (icon !== undefined && !MESSAGE_TEMPLATE_ICONS.has(icon)) {
+    res.status(400).json({ error: "Choose an icon from the available set." });
     return;
   }
   const [updated] = await db.update(clientTemplatesTable).set({
     body: body.trim().slice(0, 5000),
     ...(label?.trim() ? { label: label.trim().slice(0, 120) } : {}),
+    ...(icon ? { icon } : {}),
     updatedBy: access.name,
     updatedAt: new Date(),
   }).where(eq(clientTemplatesTable.key, String(req.params.key))).returning();
@@ -209,6 +288,32 @@ router.patch("/client-templates/:key", requireAuth, async (req, res): Promise<vo
   }
   await recordAudit(req, "updated_client_template", "client_template", String(updated.id));
   res.json(updated);
+});
+
+router.delete("/client-templates/:key", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
+    res.status(403).json({ error: "Message access required." });
+    return;
+  }
+  if (!await featureEnabled("clientTemplates")) {
+    res.status(403).json({ error: "Client Templates are currently disabled." });
+    return;
+  }
+  const key = String(req.params.key);
+  if (!key.startsWith("custom_")) {
+    res.status(400).json({ error: "Default Client Templates cannot be deleted." });
+    return;
+  }
+  const [deleted] = await db.delete(clientTemplatesTable)
+    .where(eq(clientTemplatesTable.key, key))
+    .returning({ id: clientTemplatesTable.id });
+  if (!deleted) {
+    res.status(404).json({ error: "Custom Client Template not found." });
+    return;
+  }
+  await recordAudit(req, "deleted_client_template", "client_template", String(deleted.id));
+  res.json({ deleted: true });
 });
 
 router.get("/collaboration", requireAuth, async (req, res): Promise<void> => {
@@ -308,11 +413,16 @@ router.patch("/templates/:key", requireAuth, async (req, res): Promise<void> => 
     res.status(403).json({ error: "Message access required." });
     return;
   }
-  const { subject, body, label } = req.body as { subject?: string; body?: string; label?: string };
+  const { subject, body, label, icon } = req.body as { subject?: string; body?: string; label?: string; icon?: string };
+  if (icon !== undefined && !MESSAGE_TEMPLATE_ICONS.has(icon)) {
+    res.status(400).json({ error: "Choose an icon from the available set." });
+    return;
+  }
   const [updated] = await db.update(messageTemplatesTable).set({
     subject: subject?.trim() ?? "",
     body: body?.trim() ?? "",
     ...(label ? { label: label.trim() } : {}),
+    ...(icon ? { icon } : {}),
     updatedBy: access.name,
     updatedAt: new Date(),
   }).where(eq(messageTemplatesTable.key, String(req.params.key))).returning();
@@ -322,6 +432,28 @@ router.patch("/templates/:key", requireAuth, async (req, res): Promise<void> => 
   }
   await recordAudit(req, "updated_message_template", "message_template", String(updated.id));
   res.json(updated);
+});
+
+router.delete("/templates/:key", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "sendEmails") || !["founder", "manager"].includes(access.role)) {
+    res.status(403).json({ error: "Message access required." });
+    return;
+  }
+  const key = String(req.params.key);
+  if (!key.startsWith("custom_")) {
+    res.status(400).json({ error: "Default templates cannot be deleted." });
+    return;
+  }
+  const [deleted] = await db.delete(messageTemplatesTable)
+    .where(eq(messageTemplatesTable.key, key))
+    .returning({ id: messageTemplatesTable.id });
+  if (!deleted) {
+    res.status(404).json({ error: "Custom message template not found." });
+    return;
+  }
+  await recordAudit(req, "deleted_message_template", "message_template", String(deleted.id));
+  res.json({ deleted: true });
 });
 
 router.get("/rollout/clients", requireAuth, async (req, res): Promise<void> => {

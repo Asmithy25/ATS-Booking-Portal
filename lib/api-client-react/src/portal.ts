@@ -70,12 +70,13 @@ export type MessageTemplate = {
   id: number;
   key: string;
   label: string;
+  icon: string;
   subject: string;
   body: string;
   updatedBy: string;
   updatedAt: string;
 };
-export type ClientTemplate = { id: number; key: string; label: string; body: string; updatedBy: string; updatedAt: string };
+export type ClientTemplate = { id: number; key: string; label: string; icon: string; body: string; updatedBy: string; updatedAt: string };
 export type ClientNotification = { id: number; clientAccountId: number; title: string; body: string; pushedBy: string; read: boolean; createdAt: string };
 export type RolloutClient = { id: number; name: string; email: string; updatesOptIn: boolean };
 export type CollaborationItem = {
@@ -267,14 +268,44 @@ export function useMessageTemplates(options?: QueryOptions<MessageTemplate[]>) {
 export function useUpdateMessageTemplate(options?: {
   mutation?: UseMutationOptions<MessageTemplate, ErrorType<unknown>, {
     key: string;
-    data: { subject: string; body: string; label?: string };
+    data: { subject: string; body: string; label?: string; icon?: string };
   }>;
 }) {
   return useMutation({
-    mutationFn: ({ key, data }: { key: string; data: { subject: string; body: string; label?: string } }) =>
+    mutationFn: ({ key, data }: { key: string; data: { subject: string; body: string; label?: string; icon?: string } }) =>
       customFetch<MessageTemplate>(`/api/portal/templates/${encodeURIComponent(key)}`, {
         method: "PATCH",
         body: JSON.stringify(data),
+      }),
+    ...options?.mutation,
+  });
+}
+
+export function useCreateMessageTemplate(options?: {
+  mutation?: UseMutationOptions<MessageTemplate, ErrorType<unknown>, {
+    label: string;
+    icon: string;
+    subject: string;
+    body: string;
+  }>;
+}) {
+  return useMutation({
+    mutationFn: (data: { label: string; icon: string; subject: string; body: string }) =>
+      customFetch<MessageTemplate>("/api/portal/templates", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    ...options?.mutation,
+  });
+}
+
+export function useDeleteMessageTemplate(options?: {
+  mutation?: UseMutationOptions<{ deleted: boolean }, ErrorType<unknown>, string>;
+}) {
+  return useMutation({
+    mutationFn: (key: string) =>
+      customFetch<{ deleted: boolean }>(`/api/portal/templates/${encodeURIComponent(key)}`, {
+        method: "DELETE",
       }),
     ...options?.mutation,
   });
@@ -289,11 +320,36 @@ export function useClientTemplates(options?: QueryOptions<ClientTemplate[]>) {
   });
 }
 export function useUpdateClientTemplate(options?: {
-  mutation?: UseMutationOptions<ClientTemplate, ErrorType<unknown>, { key: string; data: { body: string; label?: string } }>;
+  mutation?: UseMutationOptions<ClientTemplate, ErrorType<unknown>, { key: string; data: { body: string; label?: string; icon?: string } }>;
 }) {
   return useMutation({
-    mutationFn: ({ key, data }: { key: string; data: { body: string; label?: string } }) =>
+    mutationFn: ({ key, data }: { key: string; data: { body: string; label?: string; icon?: string } }) =>
       customFetch<ClientTemplate>(`/api/portal/client-templates/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(data) }),
+    ...options?.mutation,
+  });
+}
+
+export function useCreateClientTemplate(options?: {
+  mutation?: UseMutationOptions<ClientTemplate, ErrorType<unknown>, { label: string; icon: string; body: string }>;
+}) {
+  return useMutation({
+    mutationFn: (data: { label: string; icon: string; body: string }) =>
+      customFetch<ClientTemplate>("/api/portal/client-templates", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    ...options?.mutation,
+  });
+}
+
+export function useDeleteClientTemplate(options?: {
+  mutation?: UseMutationOptions<{ deleted: boolean }, ErrorType<unknown>, string>;
+}) {
+  return useMutation({
+    mutationFn: (key: string) =>
+      customFetch<{ deleted: boolean }>(`/api/portal/client-templates/${encodeURIComponent(key)}`, {
+        method: "DELETE",
+      }),
     ...options?.mutation,
   });
 }
