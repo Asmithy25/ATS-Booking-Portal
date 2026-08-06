@@ -6,6 +6,7 @@ import {
   bookingsTable,
   clientAccountsTable,
   messageTemplatesTable,
+  collaborationItemsTable,
   supportMessagesTable,
   supportThreadsTable,
   wellnessResourcesTable,
@@ -119,6 +120,97 @@ router.get("/templates", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   res.json(await db.select().from(messageTemplatesTable).orderBy(messageTemplatesTable.key));
+});
+
+router.get("/collaboration", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access) {
+    res.status(401).json({ error: "Staff authentication required." });
+    return;
+  }
+  const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
+  const items = await db
+    .select()
+    .from(collaborationItemsTable)
+    .where(kind ? eq(collaborationItemsTable.kind, kind) : undefined)
+    .orderBy(desc(collaborationItemsTable.updatedAt), desc(collaborationItemsTable.createdAt))
+    .limit(200);
+  res.json(items.map((item) => ({
+    ...item,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString(),
+  })));
+});
+
+router.post("/collaboration", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access) {
+    res.status(401).json({ error: "Staff authentication required." });
+    return;
+  }
+
+  const input = req.body as {
+    kind?: string;
+    title?: string;
+    body?: string;
+    assignedTo?: string;
+    status?: string;
+    dueDate?: string;
+  };
+  const allowedKinds = ["chat", "inbox", "task", "shift_note"];
+  const allowedStatuses = ["open", "in_progress", "done"];
+  const kind = input.kind ?? "chat";
+  const body = input.body?.trim() ?? "";
+  if (!allowedKinds.includes(kind) || !body) {
+    res.status(400).json({ error: "A valid collaboration type and message are required." });
+    return;
+  }
+  const status = input.status && allowedStatuses.includes(input.status) ? input.status : "open";
+  const [created] = await db.insert(collaborationItemsTable).values({
+    kind,
+    title: input.title?.trim().slice(0, 160) ?? "",
+    body: body.slice(0, 5000),
+    authorName: access.name,
+    assignedTo: input.assignedTo?.trim().slice(0, 120) || null,
+    status,
+    dueDate: input.dueDate?.trim().slice(0, 10) || null,
+  }).returning();
+  await recordAudit(req, `created_${kind}`, "collaboration_item", String(created.id));
+  res.status(201).json({
+    ...created,
+    createdAt: created.createdAt.toISOString(),
+    updatedAt: created.updatedAt.toISOString(),
+  });
+});
+
+router.patch("/collaboration/:id", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access) {
+    res.status(401).json({ error: "Staff authentication required." });
+    return;
+  }
+  const id = Number(req.params.id);
+  const input = req.body as { status?: string; assignedTo?: string; body?: string; title?: string };
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid collaboration item." });
+    return;
+  }
+  const updates: Partial<typeof collaborationItemsTable.$inferInsert> = { updatedAt: new Date() };
+  if (input.status && ["open", "in_progress", "done"].includes(input.status)) updates.status = input.status;
+  if (input.assignedTo !== undefined) updates.assignedTo = input.assignedTo.trim().slice(0, 120) || null;
+  if (input.body !== undefined && input.body.trim()) updates.body = input.body.trim().slice(0, 5000);
+  if (input.title !== undefined) updates.title = input.title.trim().slice(0, 160);
+  const [updated] = await db.update(collaborationItemsTable).set(updates).where(eq(collaborationItemsTable.id, id)).returning();
+  if (!updated) {
+    res.status(404).json({ error: "Collaboration item not found." });
+    return;
+  }
+  await recordAudit(req, "updated_collaboration_item", "collaboration_item", String(id));
+  res.json({
+    ...updated,
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
+  });
 });
 
 router.patch("/templates/:key", requireAuth, async (req, res): Promise<void> => {

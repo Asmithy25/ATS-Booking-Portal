@@ -15,4 +15,5 @@ export const BookingStatus = {
   completed: 'completed',
   cancelled: 'cancelled',
   no_show: 'no_show',
+  waitlisted: 'waitlisted',
 } as const;

@@ -4,6 +4,7 @@ import { bookingsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requirePermission } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
+import { validateBookingSlot } from "../lib/scheduling";
 import crypto from "crypto";
 
 const router = Router();
@@ -70,6 +71,12 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    const slot = await validateBookingSlot(preferredDate, preferredTime);
+    if (!slot.ok) {
+      res.status(409).json({ error: slot.error });
+      return;
+    }
+
     // Generate a unique confirmation code
     let confirmationCode = generateConfirmationCode();
     let attempts = 0;
@@ -210,6 +217,18 @@ router.patch("/confirm/:code", async (req, res) => {
       return;
     }
 
+    if (preferredDate || preferredTime) {
+      const slot = await validateBookingSlot(
+        preferredDate ?? existing.preferredDate,
+        preferredTime ?? existing.preferredTime,
+        { excludeBookingId: existing.id },
+      );
+      if (!slot.ok) {
+        res.status(409).json({ error: slot.error });
+        return;
+      }
+    }
+
     const updates: Partial<typeof bookingsTable.$inferInsert> = {};
     if (preferredDate) updates.preferredDate = preferredDate;
     if (preferredTime) updates.preferredTime = preferredTime;
@@ -268,13 +287,21 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
     return;
   }
 
-  const allowedStatuses = ["pending", "claimed", "completed"];
+  const allowedStatuses = ["pending", "claimed", "completed", "waitlisted"];
   if (!allowedStatuses.includes(status)) {
-    res.status(400).json({ error: "status must be pending, claimed, or completed." });
+    res.status(400).json({ error: "status must be pending, claimed, completed, or waitlisted." });
     return;
   }
 
   try {
+    if (status !== "waitlisted") {
+      const slot = await validateBookingSlot(preferredDate, preferredTime);
+      if (!slot.ok) {
+        res.status(409).json({ error: slot.error });
+        return;
+      }
+    }
+
     // Generate unique confirmation code
     let confirmationCode = generateConfirmationCode();
     for (let i = 0; i < 5; i++) {
@@ -371,13 +398,34 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
       preferredTime?: string;
     };
 
-  const allowedStatuses = ["pending", "claimed", "completed", "cancelled", "no_show"];
+  const allowedStatuses = ["pending", "claimed", "completed", "cancelled", "no_show", "waitlisted"];
   if (status && !allowedStatuses.includes(status)) {
     res.status(400).json({ error: "Invalid status." });
     return;
   }
 
   try {
+    const [current] = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.id, id));
+    if (!current) {
+      res.status(404).json({ error: "Booking not found." });
+      return;
+    }
+
+    if ((preferredDate || preferredTime) && status !== "waitlisted" && current.status !== "waitlisted") {
+      const slot = await validateBookingSlot(
+        preferredDate ?? current.preferredDate,
+        preferredTime ?? current.preferredTime,
+        { excludeBookingId: id },
+      );
+      if (!slot.ok) {
+        res.status(409).json({ error: slot.error });
+        return;
+      }
+    }
+
     const updates: Partial<typeof bookingsTable.$inferInsert> = {};
     if (status) updates.status = status;
     if (claimedBy !== undefined) updates.claimedBy = claimedBy;

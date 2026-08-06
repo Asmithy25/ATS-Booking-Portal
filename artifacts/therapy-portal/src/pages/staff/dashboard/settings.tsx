@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Switch as SwitchComponent } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Plus, Trash2, Save } from 'lucide-react';
-import defaultLogoUrl from '@assets/ATS_FALL_1785938831030.png';
+import defaultLogoUrl from '@assets/ATS_FALL_1786003864019.png';
 
 // Using the same structure as the API
 const daySchema = z.object({
@@ -78,6 +78,10 @@ const settingsSchema = z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format'),
     reason: z.string().min(1, 'Reason is required'),
   })),
+  bufferMinutes: z.number().int().min(0).max(180),
+  vacationMode: z.boolean(),
+  vacationStart: z.string(),
+  vacationEnd: z.string(),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -137,6 +141,10 @@ export default function Settings() {
       },
       holidayHours: [],
       closedDates: [],
+      bufferMinutes: 15,
+      vacationMode: false,
+      vacationStart: '',
+      vacationEnd: '',
     }
   });
 
@@ -496,6 +504,76 @@ export default function Settings() {
               </div>
             </CardContent>
            </Card>}
+
+          <Card className="rounded-2xl border-primary/15">
+            <CardHeader>
+              <CardTitle>Scheduling controls</CardTitle>
+              <CardDescription>Protect quiet time and keep the calendar from double-booking sessions.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <FormField
+                control={form.control}
+                name="bufferMinutes"
+                render={({ field }) => (
+                  <FormItem className="max-w-sm">
+                    <FormLabel>Buffer between appointments</FormLabel>
+                    <FormDescription>Minutes reserved after each 60-minute session.</FormDescription>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={180}
+                        step={5}
+                        value={field.value}
+                        onChange={(event) => field.onChange(Number(event.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="vacationMode"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-2xl border bg-background p-4">
+                    <div className="space-y-1">
+                      <FormLabel className="text-base">Vacation mode</FormLabel>
+                      <FormDescription>Pause new sessions across a date range while keeping existing records.</FormDescription>
+                    </div>
+                    <FormControl><SwitchComponent checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="vacationStart"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vacation starts</FormLabel>
+                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="vacationEnd"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vacation ends</FormLabel>
+                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <p className="rounded-xl bg-primary/5 p-3 text-sm leading-6 text-muted-foreground">
+                Recurring availability, holiday hours, and one-off closed dates below are all enforced when a booking is created or rescheduled.
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Special Holidays */}
           <Card>

@@ -15,6 +15,14 @@ export interface SettingsUpdate {
   officeHours?: SettingsUpdateOfficeHours;
   holidayHours?: HolidayHour[];
   closedDates?: ClosedDate[];
+  /**
+     * @minimum 0
+     * @maximum 180
+     */
+  bufferMinutes?: number;
+  vacationMode?: boolean;
+  vacationStart?: string;
+  vacationEnd?: string;
   siteName?: string;
   siteTagline?: string;
   /**

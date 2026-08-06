@@ -28,6 +28,10 @@ const DEFAULT_SETTINGS = {
     { name: "4th of July", date: "07-04", closed: true, open: "", close: "" },
   ] as HolidayHour[],
   closedDates: [] as ClosedDate[],
+  bufferMinutes: 15,
+  vacationMode: false,
+  vacationStart: "",
+  vacationEnd: "",
   siteName: "Ayden's Therapy Services",
   siteTagline: "Heal. Grow. Thrive.",
   logoUrl: "",
@@ -95,6 +99,10 @@ router.get("/", async (req, res) => {
       officeHours: settings.officeHours,
       holidayHours: settings.holidayHours,
       closedDates: settings.closedDates,
+      bufferMinutes: settings.bufferMinutes,
+      vacationMode: settings.vacationMode,
+      vacationStart: settings.vacationStart ?? "",
+      vacationEnd: settings.vacationEnd ?? "",
       siteName: settings.siteName,
       siteTagline: settings.siteTagline,
       logoUrl: settings.logoUrl,
@@ -199,6 +207,10 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
     officeHours: OfficeHours;
     holidayHours: HolidayHour[];
     closedDates: ClosedDate[];
+    bufferMinutes: number;
+    vacationMode: boolean;
+    vacationStart: string;
+    vacationEnd: string;
     siteName: string;
     siteTagline: string;
     logoUrl: string;
@@ -217,6 +229,10 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       officeHours: OfficeHours;
       holidayHours: HolidayHour[];
       closedDates: ClosedDate[];
+      bufferMinutes: number;
+      vacationMode: boolean;
+      vacationStart: string;
+      vacationEnd: string;
       siteName: string;
       siteTagline: string;
       logoUrl: string;
@@ -232,6 +248,23 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
     if (body.officeHours !== undefined) updates.officeHours = body.officeHours;
     if (body.holidayHours !== undefined) updates.holidayHours = body.holidayHours;
     if (body.closedDates !== undefined) updates.closedDates = body.closedDates;
+    if (body.bufferMinutes !== undefined) {
+      if (!Number.isInteger(body.bufferMinutes) || body.bufferMinutes < 0 || body.bufferMinutes > 180) {
+        res.status(400).json({ error: "bufferMinutes must be a whole number from 0 to 180." });
+        return;
+      }
+      updates.bufferMinutes = body.bufferMinutes;
+    }
+    if (body.vacationMode !== undefined) updates.vacationMode = body.vacationMode;
+    if (body.vacationStart !== undefined) updates.vacationStart = body.vacationStart.trim().slice(0, 10);
+    if (body.vacationEnd !== undefined) updates.vacationEnd = body.vacationEnd.trim().slice(0, 10);
+    if ((updates.vacationStart || updates.vacationEnd) && (
+      (updates.vacationStart && !/^\d{4}-\d{2}-\d{2}$/.test(updates.vacationStart)) ||
+      (updates.vacationEnd && !/^\d{4}-\d{2}-\d{2}$/.test(updates.vacationEnd))
+    )) {
+      res.status(400).json({ error: "Vacation dates must use YYYY-MM-DD format." });
+      return;
+    }
     if (body.siteName !== undefined) updates.siteName = body.siteName.trim().slice(0, 100);
     if (body.siteTagline !== undefined) updates.siteTagline = body.siteTagline.trim().slice(0, 120);
     if (body.logoUrl !== undefined) {
@@ -280,6 +313,10 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       officeHours: updated.officeHours,
       holidayHours: updated.holidayHours,
       closedDates: updated.closedDates,
+      bufferMinutes: updated.bufferMinutes,
+      vacationMode: updated.vacationMode,
+      vacationStart: updated.vacationStart ?? "",
+      vacationEnd: updated.vacationEnd ?? "",
       siteName: updated.siteName,
       siteTagline: updated.siteTagline,
       logoUrl: updated.logoUrl,

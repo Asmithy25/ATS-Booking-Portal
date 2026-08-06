@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -81,6 +82,7 @@ export default function Login() {
 
         <div className="relative z-10">
           <div className="text-center mb-8">
+            <img src={logoUrl} alt="Ayden's Therapy Services" className="mx-auto mb-5 h-20 w-20 rounded-2xl object-cover shadow-md" />
             <h1 className="font-serif text-3xl font-bold text-foreground mb-2">Staff Portal</h1>
             <p className="text-muted-foreground">Sign in to manage bookings and settings.</p>
           </div>

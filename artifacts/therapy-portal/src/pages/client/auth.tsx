@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, HeartHandshake, Loader2 } from 'lucide-react';
 import { Link } from 'wouter';
+import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 
 export default function ClientAuth() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -34,7 +35,7 @@ export default function ClientAuth() {
         </Link>
         <div className="grid items-center gap-10 lg:grid-cols-[1fr_420px]">
           <section className="max-w-xl">
-            <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><HeartHandshake /></div>
+            <img src={logoUrl} alt="Ayden's Therapy Services" className="mb-5 h-16 w-16 rounded-2xl object-cover shadow-md" />
             <p className="mb-3 text-xs font-semibold uppercase tracking-[.2em] text-primary">A private space for your care</p>
             <h1 className="mb-5 text-4xl font-semibold leading-tight sm:text-6xl">Stay connected to your healing journey.</h1>
             <p className="text-lg leading-8 text-muted-foreground">View appointments, keep your information current, reach support, and find gentle resources whenever you need them.</p>

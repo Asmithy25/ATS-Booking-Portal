@@ -622,7 +622,7 @@ components:
           description: HH:MM format (24h)
         status:
           type: string
-          enum: [pending, claimed, completed, cancelled, no_show]
+          enum: [pending, claimed, completed, cancelled, no_show, waitlisted]
         claimedBy:
           type: ["string", "null"]
           description: Staff name who claimed the booking
@@ -664,7 +664,7 @@ components:
       properties:
         status:
           type: string
-          enum: [pending, claimed, completed, cancelled, no_show]
+          enum: [pending, claimed, completed, cancelled, no_show, waitlisted]
         claimedBy:
           type: ["string", "null"]
         sessionNotes:
@@ -736,7 +736,7 @@ components:
 
     Settings:
       type: object
-      required: [acceptingClients, sessionRequestsOpen, officeHours, holidayHours, closedDates, therapistHours]
+      required: [acceptingClients, sessionRequestsOpen, officeHours, holidayHours, closedDates, bufferMinutes, vacationMode, therapistHours]
       properties:
         acceptingClients:
           type: boolean
@@ -762,6 +762,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClosedDate"
+        bufferMinutes:
+          type: integer
+          minimum: 0
+          maximum: 180
+        vacationMode:
+          type: boolean
+        vacationStart:
+          type: string
+          description: Optional YYYY-MM-DD vacation start
+        vacationEnd:
+          type: string
+          description: Optional YYYY-MM-DD vacation end
         siteName:
           type: string
         siteTagline:
@@ -941,6 +953,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClosedDate"
+        bufferMinutes:
+          type: integer
+          minimum: 0
+          maximum: 180
+        vacationMode:
+          type: boolean
+        vacationStart:
+          type: string
+        vacationEnd:
+          type: string
         siteName:
           type: string
         siteTagline:

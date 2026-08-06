@@ -66,7 +66,7 @@ export const ListBookingsResponseItem = zod.object({
   "reason": zod.string(),
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
-  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show']),
+  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),
@@ -101,7 +101,7 @@ export const CreateBookingResponse = zod.object({
   "reason": zod.string(),
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
-  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show']),
+  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),
@@ -125,7 +125,7 @@ export const GetBookingResponse = zod.object({
   "reason": zod.string(),
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
-  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show']),
+  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),
@@ -142,7 +142,7 @@ export const UpdateBookingParams = zod.object({
 })
 
 export const UpdateBookingBody = zod.object({
-  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show']).optional(),
+  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']).optional(),
   "claimedBy": zod.string().nullish(),
   "sessionNotes": zod.string().nullish(),
   "preferredDate": zod.string().optional().describe('YYYY-MM-DD format — reschedule the booking date'),
@@ -157,7 +157,7 @@ export const UpdateBookingResponse = zod.object({
   "reason": zod.string(),
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
-  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show']),
+  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),
@@ -195,6 +195,11 @@ export const GetBookingStatsResponse = zod.object({
 /**
  * @summary Get portal settings (public)
  */
+export const getSettingsResponseBufferMinutesMin = 0;
+export const getSettingsResponseBufferMinutesMax = 180;
+
+
+
 export const GetSettingsResponse = zod.object({
   "acceptingClients": zod.boolean(),
   "sessionRequestsOpen": zod.boolean().describe('If false, the booking form is disabled\/shows fully booked'),
@@ -246,6 +251,10 @@ export const GetSettingsResponse = zod.object({
   "date": zod.string().describe('YYYY-MM-DD'),
   "reason": zod.string()
 })),
+  "bufferMinutes": zod.number().int().min(getSettingsResponseBufferMinutesMin).max(getSettingsResponseBufferMinutesMax),
+  "vacationMode": zod.boolean(),
+  "vacationStart": zod.string().optional().describe('Optional YYYY-MM-DD vacation start'),
+  "vacationEnd": zod.string().optional().describe('Optional YYYY-MM-DD vacation end'),
   "siteName": zod.string().optional(),
   "siteTagline": zod.string().optional(),
   "logoUrl": zod.string().optional().describe('Optional HTTP or HTTPS image URL used for the portal logo'),
@@ -301,6 +310,9 @@ export const GetSettingsResponse = zod.object({
 /**
  * @summary Update portal settings (staff only)
  */
+export const updateSettingsBodyBufferMinutesMin = 0;
+export const updateSettingsBodyBufferMinutesMax = 180;
+
 export const updateSettingsBodyLogoUrlMax = 2048;
 
 
@@ -356,6 +368,10 @@ export const UpdateSettingsBody = zod.object({
   "date": zod.string().describe('YYYY-MM-DD'),
   "reason": zod.string()
 })).optional(),
+  "bufferMinutes": zod.number().int().min(updateSettingsBodyBufferMinutesMin).max(updateSettingsBodyBufferMinutesMax).optional(),
+  "vacationMode": zod.boolean().optional(),
+  "vacationStart": zod.string().optional(),
+  "vacationEnd": zod.string().optional(),
   "siteName": zod.string().optional(),
   "siteTagline": zod.string().optional(),
   "logoUrl": zod.string().max(updateSettingsBodyLogoUrlMax).optional().describe('Optional HTTP or HTTPS image URL used for the portal logo'),
@@ -365,6 +381,11 @@ export const UpdateSettingsBody = zod.object({
   "secondaryColor": zod.string().optional(),
   "accentColor": zod.string().optional()
 })
+
+export const updateSettingsResponseBufferMinutesMin = 0;
+export const updateSettingsResponseBufferMinutesMax = 180;
+
+
 
 export const UpdateSettingsResponse = zod.object({
   "acceptingClients": zod.boolean(),
@@ -417,6 +438,10 @@ export const UpdateSettingsResponse = zod.object({
   "date": zod.string().describe('YYYY-MM-DD'),
   "reason": zod.string()
 })),
+  "bufferMinutes": zod.number().int().min(updateSettingsResponseBufferMinutesMin).max(updateSettingsResponseBufferMinutesMax),
+  "vacationMode": zod.boolean(),
+  "vacationStart": zod.string().optional().describe('Optional YYYY-MM-DD vacation start'),
+  "vacationEnd": zod.string().optional().describe('Optional YYYY-MM-DD vacation end'),
   "siteName": zod.string().optional(),
   "siteTagline": zod.string().optional(),
   "logoUrl": zod.string().optional().describe('Optional HTTP or HTTPS image URL used for the portal logo'),
@@ -882,7 +907,7 @@ export const GetClientHistoryResponse = zod.object({
   "reason": zod.string(),
   "preferredDate": zod.string().describe('YYYY-MM-DD format'),
   "preferredTime": zod.string().describe('HH:MM format (24h)'),
-  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show']),
+  "status": zod.enum(['pending', 'claimed', 'completed', 'cancelled', 'no_show', 'waitlisted']),
   "claimedBy": zod.string().nullish().describe('Staff name who claimed the booking'),
   "sessionNotes": zod.string().nullish().describe('Staff session notes'),
   "isReturningClient": zod.boolean().optional().describe('True if this phone number has prior bookings'),

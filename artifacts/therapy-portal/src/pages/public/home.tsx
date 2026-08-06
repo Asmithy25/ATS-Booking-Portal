@@ -24,8 +24,8 @@ import { Badge } from '@/components/ui/badge';
 import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { getThemeStyle } from '@/lib/theme';
 
-import terracottaLogoUrl from '@assets/ATS_FALL_1785938709441.png';
-import oliveLogoUrl from '@assets/ats_1783351122778.png';
+import terracottaLogoUrl from '@assets/ATS_FALL_1786003864019.png';
+import oliveLogoUrl from '@assets/ATS_FALL_1786003864019.png';
 
 const bookingSchema = z.object({
   clientName: z.string().min(2, 'Name is required'),

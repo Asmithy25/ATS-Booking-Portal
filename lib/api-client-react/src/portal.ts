@@ -64,6 +64,18 @@ export type MessageTemplate = {
   updatedBy: string;
   updatedAt: string;
 };
+export type CollaborationItem = {
+  id: number;
+  kind: "chat" | "inbox" | "task" | "shift_note";
+  title: string;
+  body: string;
+  authorName: string;
+  assignedTo?: string | null;
+  status: "open" | "in_progress" | "done";
+  dueDate?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 type QueryOptions<T> = { query?: Partial<UseQueryOptions<T, ErrorType<unknown>, T>> };
 
@@ -213,6 +225,61 @@ export function useUpdateMessageTemplate(options?: {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
+    ...options?.mutation,
+  });
+}
+
+export const getCollaborationQueryKey = (kind?: string) => ["/api/portal/collaboration", kind ?? "all"] as const;
+export function useCollaboration(kind?: CollaborationItem["kind"], options?: QueryOptions<CollaborationItem[]>) {
+  return useQuery({
+    queryKey: getCollaborationQueryKey(kind),
+    queryFn: () => customFetch<CollaborationItem[]>(
+      `/api/portal/collaboration${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`,
+    ),
+    ...options?.query,
+  });
+}
+
+export function useCreateCollaboration(options?: {
+  mutation?: UseMutationOptions<CollaborationItem, ErrorType<unknown>, {
+    kind: CollaborationItem["kind"];
+    title?: string;
+    body: string;
+    assignedTo?: string;
+    status?: CollaborationItem["status"];
+    dueDate?: string;
+  }>;
+}) {
+  return useMutation({
+    mutationFn: (data: {
+      kind: CollaborationItem["kind"];
+      title?: string;
+      body: string;
+      assignedTo?: string;
+      status?: CollaborationItem["status"];
+      dueDate?: string;
+    }) => customFetch<CollaborationItem>("/api/portal/collaboration", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+    ...options?.mutation,
+  });
+}
+
+export function useUpdateCollaboration(options?: {
+  mutation?: UseMutationOptions<CollaborationItem, ErrorType<unknown>, {
+    id: number;
+    data: Partial<Pick<CollaborationItem, "title" | "body" | "assignedTo" | "status">>;
+  }>;
+}) {
+  return useMutation({
+    mutationFn: ({ id, data }: {
+      id: number;
+      data: Partial<Pick<CollaborationItem, "title" | "body" | "assignedTo" | "status">>;
+    }) => customFetch<CollaborationItem>(`/api/portal/collaboration/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
     ...options?.mutation,
   });
 }

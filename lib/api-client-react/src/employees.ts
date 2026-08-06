@@ -40,7 +40,7 @@ export interface StaffBookingInput {
   reason: string;
   preferredDate: string;
   preferredTime: string;
-  status?: "pending" | "claimed" | "completed";
+  status?: "pending" | "claimed" | "completed" | "waitlisted";
   sessionNotes?: string;
 }
 

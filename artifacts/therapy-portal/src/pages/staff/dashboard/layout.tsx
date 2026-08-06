@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey } from '@workspace/api-client-react';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import logoUrl from '@assets/ATS_FALL_1785938831030.png';
+import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { getDailyQuote } from '@/lib/motivationalQuotes';
 
 export default function StaffDashboardLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const { data: settings } = useGetSettings();
 
   const { data: session, isLoading, error } = useGetAuthMe({
@@ -31,6 +34,11 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
       setLocation('/staff/login');
     }
   }, [session, isLoading, error, setLocation]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   if (isLoading) {
     return (
@@ -63,9 +71,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   };
 
   return (
-    <div className="min-h-screen flex bg-muted/30 ats-paper">
+      <div className="min-h-screen flex bg-muted/30 ats-paper">
       {/* Sidebar */}
-      <aside className={`w-72 bg-[hsl(32_32%_92%)] border-r border-border flex flex-col fixed h-full z-30 transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`w-72 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col fixed h-full z-30 transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-3">
             <img src={settings?.logoUrl || logoUrl} alt="" className="h-12 w-12 rounded-full object-cover object-top" />
@@ -87,6 +95,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/clients', <Users className="h-4 w-4" />, 'Clients')}
           {navItem('/staff/analytics', <BarChart3 className="h-4 w-4" />, 'Analytics')}
           {navItem('/staff/support', <MessageCircle className="h-4 w-4" />, 'Support inbox')}
+          {navItem('/staff/team', <UsersRound className="h-4 w-4" />, 'Team workspace')}
           {navItem('/staff/messages', <Mail className="h-4 w-4" />, 'Message templates')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/announcements', <Megaphone className="h-4 w-4" />, 'Announcements')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Activity history')}
@@ -125,7 +134,25 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </Button>
         </div>
-        <div className="max-w-6xl mx-auto ats-rise">{children}</div>
+        <div className="max-w-6xl mx-auto ats-rise">
+          <div className="mb-7 flex flex-col gap-4 rounded-[1.75rem] border border-primary/15 bg-card/80 p-5 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">Your care workspace</p>
+              <h1 className="mt-1 font-serif text-2xl font-semibold sm:text-3xl">
+                {now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'}, {session.staffName.split(' ')[0]}.
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">{getDailyQuote().quote}</p>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <div className="hidden items-center gap-2 rounded-xl bg-muted/60 px-3 py-2 text-sm text-muted-foreground sm:flex">
+                <Clock3 className="h-4 w-4 text-primary" />
+                <span className="font-mono tabular-nums text-foreground">{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span>
+              </div>
+              <ThemeToggle compact />
+            </div>
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -18,6 +18,16 @@ export interface Settings {
   officeHours: SettingsOfficeHours;
   holidayHours: HolidayHour[];
   closedDates: ClosedDate[];
+  /**
+     * @minimum 0
+     * @maximum 180
+     */
+  bufferMinutes: number;
+  vacationMode: boolean;
+  /** Optional YYYY-MM-DD vacation start */
+  vacationStart?: string;
+  /** Optional YYYY-MM-DD vacation end */
+  vacationEnd?: string;
   siteName?: string;
   siteTagline?: string;
   /** Optional HTTP or HTTPS image URL used for the portal logo */

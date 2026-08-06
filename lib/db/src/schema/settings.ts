@@ -1,4 +1,4 @@
-import { pgTable, serial, boolean, jsonb, text } from "drizzle-orm/pg-core";
+import { pgTable, serial, boolean, jsonb, text, integer } from "drizzle-orm/pg-core";
 
 export type DayHours = {
   open: string;
@@ -23,6 +23,10 @@ export const settingsTable = pgTable("settings", {
   officeHours: jsonb("office_hours").notNull().$type<OfficeHours>(),
   holidayHours: jsonb("holiday_hours").notNull().$type<HolidayHour[]>(),
   closedDates: jsonb("closed_dates").notNull().$type<ClosedDate[]>(),
+  bufferMinutes: integer("buffer_minutes").notNull().default(15),
+  vacationMode: boolean("vacation_mode").notNull().default(false),
+  vacationStart: text("vacation_start"),
+  vacationEnd: text("vacation_end"),
   siteName: text("site_name").notNull().default("Ayden's Therapy Services"),
   siteTagline: text("site_tagline").notNull().default("Heal. Grow. Thrive."),
   logoUrl: text("logo_url").notNull().default(""),

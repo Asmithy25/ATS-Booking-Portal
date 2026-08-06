@@ -7,3 +7,4 @@ export * from "./auditLogs";
 export * from "./support";
 export * from "./wellnessResources";
 export * from "./messageTemplates";
+export * from "./collaboration";

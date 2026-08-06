@@ -74,6 +74,7 @@ export const BookingStatus = {
   completed: 'completed',
   cancelled: 'cancelled',
   no_show: 'no_show',
+  waitlisted: 'waitlisted',
 } as const;
 
 export interface Booking {
@@ -128,6 +129,7 @@ export const BookingUpdateStatus = {
   completed: 'completed',
   cancelled: 'cancelled',
   no_show: 'no_show',
+  waitlisted: 'waitlisted',
 } as const;
 
 export interface BookingUpdate {
@@ -212,6 +214,16 @@ export interface Settings {
   officeHours: SettingsOfficeHours;
   holidayHours: HolidayHour[];
   closedDates: ClosedDate[];
+  /**
+     * @minimum 0
+     * @maximum 180
+     */
+  bufferMinutes: number;
+  vacationMode: boolean;
+  /** Optional YYYY-MM-DD vacation start */
+  vacationStart?: string;
+  /** Optional YYYY-MM-DD vacation end */
+  vacationEnd?: string;
   siteName?: string;
   siteTagline?: string;
   /** Optional HTTP or HTTPS image URL used for the portal logo */
@@ -338,6 +350,14 @@ export interface SettingsUpdate {
   officeHours?: SettingsUpdateOfficeHours;
   holidayHours?: HolidayHour[];
   closedDates?: ClosedDate[];
+  /**
+     * @minimum 0
+     * @maximum 180
+     */
+  bufferMinutes?: number;
+  vacationMode?: boolean;
+  vacationStart?: string;
+  vacationEnd?: string;
   siteName?: string;
   siteTagline?: string;
   /**

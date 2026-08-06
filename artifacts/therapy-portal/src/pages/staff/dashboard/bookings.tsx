@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, isBefore, parseISO, startOfToday } from 'date-fns';
 import {
@@ -30,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Loader2, Trash2, CheckCircle2, XCircle, UserPlus, Clock,
+  Loader2, Trash2, CheckCircle2, XCircle, UserPlus, Clock, ArrowRight,
   StickyNote, ChevronDown, ChevronUp, CalendarDays, Hash, Plus, Copy, CheckCheck,
   Search, SlidersHorizontal,
 } from 'lucide-react';
@@ -43,7 +43,7 @@ const EMPTY_FORM = {
   reason: '',
   preferredDate: '',
   preferredTime: '',
-  status: 'claimed' as 'pending' | 'claimed' | 'completed',
+  status: 'claimed' as 'pending' | 'claimed' | 'completed' | 'waitlisted',
   sessionNotes: '',
 };
 
@@ -64,6 +64,7 @@ export default function Bookings() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [now, setNow] = useState(() => new Date());
 
   const { data: authData } = useGetAuthMe();
   const staffName = authData?.staffName || 'Staff';
@@ -72,6 +73,11 @@ export default function Bookings() {
   const { data: stats, isLoading: loadingStats } = useGetBookingStats();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -137,12 +143,43 @@ export default function Bookings() {
     })
     .sort((a, b) => `${b.preferredDate}T${b.preferredTime}`.localeCompare(`${a.preferredDate}T${a.preferredTime}`));
 
+  const todayKey = format(now, 'yyyy-MM-dd');
+  const todayBookings = useMemo(
+    () => (bookings ?? []).filter((booking) => booking.preferredDate === todayKey && booking.status !== 'cancelled'),
+    [bookings, todayKey],
+  );
+  const nextBooking = useMemo(
+    () => (bookings ?? [])
+      .filter((booking) => booking.status !== 'cancelled' && booking.status !== 'completed')
+      .filter((booking) => parseISO(`${booking.preferredDate}T${booking.preferredTime}`) >= now)
+      .sort((a, b) => `${a.preferredDate}T${a.preferredTime}`.localeCompare(`${b.preferredDate}T${b.preferredTime}`))[0],
+    [bookings, now],
+  );
+  const nextBookingDate = nextBooking ? parseISO(`${nextBooking.preferredDate}T${nextBooking.preferredTime}`) : null;
+  const countdown = nextBookingDate
+    ? (() => {
+        const remaining = Math.max(0, nextBookingDate.getTime() - now.getTime());
+        const hours = Math.floor(remaining / 3_600_000);
+        const minutes = Math.floor((remaining % 3_600_000) / 60_000);
+        const seconds = Math.floor((remaining % 60_000) / 1_000);
+        return `${hours}h ${minutes}m ${seconds}s`;
+      })()
+    : 'No upcoming sessions';
+  const scheduleCapacity = 8;
+  const scheduleProgress = Math.min(100, Math.round((todayBookings.length / scheduleCapacity) * 100));
+  const missedAppointments = bookings?.filter((booking) => booking.status === 'no_show').length ?? 0;
+  const newClientsThisMonth = new Set(
+    (bookings ?? [])
+      .filter((booking) => booking.createdAt.slice(0, 7) === todayKey.slice(0, 7))
+      .map((booking) => booking.phone),
+  ).size;
+
   const setDateFilter = (preset: 'all' | 'today' | 'upcoming') => {
     setDatePreset(preset);
     setSelectedDate('');
   };
 
-  const handleStatusUpdate = (id: number, status: 'claimed' | 'completed' | 'cancelled' | 'no_show') => {
+  const handleStatusUpdate = (id: number, status: 'claimed' | 'completed' | 'cancelled' | 'no_show' | 'waitlisted') => {
     updateBooking.mutate({ id, data: { status, ...(status === 'claimed' ? { claimedBy: staffName } : {}) } });
   };
 
@@ -229,6 +266,64 @@ export default function Bookings() {
           <Plus className="w-4 h-4 mr-2" />
           New Booking
         </Button>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.35fr_.65fr]">
+        <Card className="overflow-hidden rounded-[1.75rem] border-primary/15 bg-gradient-to-br from-primary/10 via-card to-secondary/10">
+          <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center">
+            <div className="relative grid h-32 w-32 shrink-0 place-items-center">
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{ background: `conic-gradient(hsl(var(--primary)) ${scheduleProgress}%, hsl(var(--muted)) ${scheduleProgress}% 100%)` }}
+              />
+              <div className="relative grid h-24 w-24 place-items-center rounded-full bg-card shadow-inner">
+                <span className="font-serif text-2xl font-semibold text-primary">{scheduleProgress}%</span>
+              </div>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">Today&apos;s rhythm</p>
+              <h2 className="mt-1 font-serif text-2xl font-semibold">Your schedule is {scheduleProgress}% booked.</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {todayBookings.length ? `${todayBookings.length} appointment${todayBookings.length === 1 ? '' : 's'} on the calendar today.` : 'A clear calendar is still a chance to prepare, connect, and reset.'}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span className="rounded-full bg-background/70 px-3 py-1.5">{todayBookings.length} today</span>
+                <span className="rounded-full bg-background/70 px-3 py-1.5">{missedAppointments} missed total</span>
+                <span className="rounded-full bg-background/70 px-3 py-1.5">{newClientsThisMonth} new this month</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-[1.75rem]">
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4 text-primary" /> Next appointment</CardTitle></CardHeader>
+          <CardContent>
+            {nextBooking ? (
+              <>
+                <p className="font-serif text-2xl font-semibold">{nextBooking.clientName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{format(nextBookingDate!, 'EEEE, MMM d')} at {nextBooking.preferredTime}</p>
+                <p className="mt-4 font-mono text-lg tabular-nums text-primary">{countdown}</p>
+                <p className="mt-1 text-xs text-muted-foreground">counting down in your local time</p>
+              </>
+            ) : <p className="text-sm text-muted-foreground">No upcoming sessions are scheduled.</p>}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[
+          ['Today', todayBookings.length, 'appointments'],
+          ['Pending', stats?.pending ?? 0, 'needs attention'],
+          ['New clients', newClientsThisMonth, 'this month'],
+          ['Goal progress', `${Math.min(100, Math.round(((stats?.completed ?? 0) / 20) * 100))}%`, '20 completed sessions'],
+        ].map(([label, value, detail], index) => (
+          <Card key={label} className="rounded-2xl transition-all duration-500 hover:-translate-y-0.5 hover:shadow-md" style={{ animationDelay: `${index * 90}ms` }}>
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground">{label}</p>
+              <p className="mt-2 animate-in fade-in slide-in-from-bottom-2 text-2xl font-semibold duration-700">{value}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{detail}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* New Booking Dialog */}
@@ -353,6 +448,7 @@ export default function Bookings() {
                     <SelectContent>
                       <SelectItem value="claimed">Claimed — assign to me immediately</SelectItem>
                       <SelectItem value="pending">Pending — unassigned</SelectItem>
+                      <SelectItem value="waitlisted">Waitlist — hold for an opening</SelectItem>
                       <SelectItem value="completed">Completed — session already done</SelectItem>
                     </SelectContent>
                   </Select>
