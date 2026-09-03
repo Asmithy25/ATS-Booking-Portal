@@ -1,0 +1,4 @@
+[build]
+  base = "artifacts/therapy-portal"
+  command = "pnpm run build"
+  publish = "dist/public"
