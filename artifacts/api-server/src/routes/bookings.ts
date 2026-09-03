@@ -361,8 +361,8 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
       preferredDate,
       preferredTime,
       status === "waitlisted"
-        ? { skipAvailability: true }
-        : { bypassBusinessHours },
+        ? { skipAvailability: true, allowPastDate: true }
+        : { bypassBusinessHours, allowPastDate: true },
     );
     if (!slot.ok) {
       if (slot.code === "BUSINESS_HOURS" && staffSession) {
@@ -547,6 +547,7 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
           // every other staff reschedule.
           skipAvailability: status === "waitlisted",
           bypassBusinessHours,
+          allowPastDate: true,
         },
       );
       if (!slot.ok) {

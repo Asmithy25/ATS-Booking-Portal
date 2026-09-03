@@ -44,12 +44,13 @@ export async function validateBookingSlot(
     excludeBookingId?: number;
     skipAvailability?: boolean;
     bypassBusinessHours?: boolean;
+    allowPastDate?: boolean;
   } = {},
 ): Promise<SlotResult> {
   if (!isValidDate(preferredDate) || !isValidTime(preferredTime)) {
     return { ok: false, error: "Choose a valid appointment date and time." };
   }
-  if (isPastDate(preferredDate)) {
+  if (!options.allowPastDate && isPastDate(preferredDate)) {
     return { ok: false, error: "Choose a future appointment date." };
   }
 
