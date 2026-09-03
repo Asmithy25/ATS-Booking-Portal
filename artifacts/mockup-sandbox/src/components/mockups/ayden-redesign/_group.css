@@ -1,0 +1,172 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --ay-ink: #18383d;
+  --ay-ink-soft: #31565a;
+  --ay-paper: #f5f1e7;
+  --ay-paper-deep: #eae5d8;
+  --ay-white: #fbf9f2;
+  --ay-sun: #e8c66b;
+  --ay-sun-deep: #bd953b;
+  --ay-sea: #afd2c4;
+  --ay-sea-deep: #5c988a;
+  --ay-coral: #c46a57;
+  --ay-line: rgba(24, 56, 61, .16);
+}
+
+.ayden-root {
+  min-height: 100vh;
+  color: var(--ay-ink);
+  background: var(--ay-paper);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  overflow: hidden;
+}
+.ayden-root * { box-sizing: border-box; }
+.ayden-root button, .ayden-root input, .ayden-root textarea { font: inherit; }
+.ayden-root button { cursor: pointer; }
+.ayden-display { font-family: 'Instrument Serif', serif; font-weight: 400; letter-spacing: -.035em; }
+.ayden-mono { font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: .11em; font-size: 10px; }
+.ayden-shell { width: min(1180px, calc(100% - 48px)); margin: 0 auto; }
+.ayden-rule { border-top: 1px solid var(--ay-line); }
+.ayden-fade { animation: ayden-fade .7s cubic-bezier(.2,.8,.2,1) both; }
+.ayden-delay-1 { animation-delay: .08s; }
+.ayden-delay-2 { animation-delay: .16s; }
+.ayden-delay-3 { animation-delay: .24s; }
+@keyframes ayden-fade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ayden-drift { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+.ayden-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 46px; padding: 0 18px; border: 1px solid transparent; border-radius: 2px;
+  background: var(--ay-ink); color: var(--ay-paper); font-size: 12px; font-weight: 700;
+  transition: transform .2s ease, background-color .2s ease, color .2s ease;
+}
+.ayden-btn:hover { transform: translateY(-2px); background: #2a555b; }
+.ayden-btn.sun { background: var(--ay-sun); color: var(--ay-ink); }
+.ayden-btn.sun:hover { background: #f0d17b; }
+.ayden-btn.ghost { background: transparent; border-color: var(--ay-line); color: var(--ay-ink); }
+.ayden-btn.ghost:hover { background: var(--ay-white); }
+.ayden-btn.small { min-height: 36px; padding: 0 12px; font-size: 11px; }
+.ayden-link { color: inherit; text-decoration: none; }
+.ayden-link:hover { color: var(--ay-coral); }
+.ayden-kicker { color: var(--ay-coral); font-weight: 700; }
+.ayden-topline { min-height: 34px; display:flex; align-items:center; justify-content:center; background: var(--ay-ink); color: var(--ay-paper); }
+.ayden-topline span { opacity: .86; }
+.ayden-nav { min-height: 78px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--ay-line); }
+.ayden-brand { display:flex; align-items:center; gap:12px; font-weight:800; font-size:13px; letter-spacing:-.02em; }
+.ayden-mark { width:30px; height:30px; display:grid; place-items:center; background:var(--ay-sun); color:var(--ay-ink); font-family:'Instrument Serif',serif; font-size:20px; line-height:1; border-radius:50%; }
+.ayden-navlinks { display:flex; align-items:center; gap:28px; font-size:12px; font-weight:600; color:var(--ay-ink-soft); }
+.ayden-navlinks a { text-decoration:none; }
+.ayden-navlinks a:hover { color:var(--ay-coral); }
+.ayden-mobile-menu { display:none; }
+.ayden-label { display:block; width:100%; border:0; padding:0; background:transparent; text-align:left; color:var(--ay-ink-soft); font-size:11px; font-weight:700; }
+.ayden-input { width:100%; min-height:46px; border:1px solid var(--ay-line); border-radius:2px; padding:0 13px; background:rgba(251,249,242,.68); color:var(--ay-ink); outline:none; }
+.ayden-input:focus { border-color:var(--ay-sea-deep); box-shadow: 0 0 0 3px rgba(92,152,138,.14); }
+.ayden-textarea { width:100%; min-height:112px; padding:12px 13px; resize:vertical; }
+.ayden-field { display:grid; gap:7px; }
+.ayden-select { appearance:none; }
+.ayden-pill { display:inline-flex; align-items:center; gap:7px; padding:6px 9px; border:1px solid var(--ay-line); border-radius:999px; font-size:10px; font-weight:700; }
+.ayden-status { display:inline-flex; align-items:center; gap:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; }
+.ayden-status:before { content:''; width:7px; height:7px; border-radius:50%; background:var(--ay-sea-deep); }
+.ayden-status.pending:before { background:var(--ay-sun-deep); }
+.ayden-status.cancelled:before { background:var(--ay-coral); }
+.ayden-card { border:1px solid var(--ay-line); background:rgba(251,249,242,.72); }
+.ayden-noise { position:relative; isolation:isolate; }
+.ayden-noise:after { content:''; position:fixed; inset:0; pointer-events:none; opacity:.04; z-index:20; background-image:radial-gradient(var(--ay-ink) .45px, transparent .45px); background-size:6px 6px; mix-blend-mode:multiply; }
+
+/* staff */
+.ayden-staff { background:#edf0eb; }
+.ayden-staff .ayden-topline { justify-content:space-between; padding:0 20px; background:var(--ay-ink); }
+.ayden-staff-layout { display:grid; grid-template-columns:224px 1fr; min-height:calc(100vh - 34px); }
+.ayden-sidebar { background:var(--ay-ink); color:var(--ay-paper); padding:28px 16px 18px; display:flex; flex-direction:column; }
+.ayden-sidebar .ayden-brand { color:var(--ay-paper); padding:0 10px 30px; }
+.ayden-sidebar nav { display:grid; gap:3px; }
+.ayden-side-link { display:flex; align-items:center; gap:11px; padding:11px 10px; color:rgba(245,241,231,.64); font-size:12px; text-decoration:none; border-left:2px solid transparent; }
+.ayden-side-link.active, .ayden-side-link:hover { color:var(--ay-paper); background:rgba(175,210,196,.11); border-left-color:var(--ay-sun); }
+.ayden-side-foot { margin-top:auto; border-top:1px solid rgba(245,241,231,.14); padding:18px 10px 0; color:rgba(245,241,231,.62); font-size:11px; line-height:1.6; }
+.ayden-workspace { padding:28px 34px 44px; }
+.ayden-staff-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; }
+.ayden-staff-title { font-size:42px; line-height:.98; margin:8px 0 10px; }
+.ayden-avatar { width:34px; height:34px; display:grid; place-items:center; border-radius:50%; background:var(--ay-sea); font-weight:800; font-size:11px; }
+.ayden-metric-grid { display:grid; grid-template-columns:1.25fr 1fr 1fr 1fr; gap:10px; margin-bottom:24px; }
+.ayden-metric { padding:17px; min-height:108px; background:var(--ay-white); border:1px solid var(--ay-line); }
+.ayden-metric.featured { background:var(--ay-sun); border-color:var(--ay-sun); }
+.ayden-metric-value { margin-top:12px; font-size:31px; font-weight:700; letter-spacing:-.06em; }
+.ayden-metric-caption { margin-top:4px; color:var(--ay-ink-soft); font-size:11px; }
+.ayden-staff-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(280px,.8fr); gap:18px; align-items:start; }
+.ayden-panel-head { display:flex; justify-content:space-between; align-items:center; padding:17px 18px; border-bottom:1px solid var(--ay-line); }
+.ayden-panel-title { font-size:13px; font-weight:800; }
+.ayden-table { width:100%; border-collapse:collapse; }
+.ayden-table th { padding:11px 16px; text-align:left; color:var(--ay-ink-soft); border-bottom:1px solid var(--ay-line); }
+.ayden-table td { padding:14px 16px; border-bottom:1px solid rgba(24,56,61,.1); font-size:12px; vertical-align:middle; }
+.ayden-table tr:last-child td { border-bottom:0; }
+.ayden-table tr:hover td { background:rgba(175,210,196,.12); }
+.ayden-client-cell { display:flex; align-items:center; gap:10px; }
+.ayden-client-cell strong { display:block; font-size:12px; }
+.ayden-client-cell span { display:block; margin-top:3px; color:var(--ay-ink-soft); font-size:10px; }
+.ayden-note { padding:18px; border-left:3px solid var(--ay-sun); background:var(--ay-white); }
+.ayden-note + .ayden-note { border-left-color:var(--ay-sea-deep); border-top:1px solid var(--ay-line); }
+.ayden-note p { font-size:12px; line-height:1.55; margin:9px 0 0; color:var(--ay-ink-soft); }
+.ayden-quick { margin-top:18px; padding:18px; background:var(--ay-ink); color:var(--ay-paper); }
+.ayden-quick .ayden-btn { width:100%; margin-top:14px; }
+
+/* client */
+.ayden-client { background:#f7f2e9; }
+.ayden-client-header { min-height:78px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--ay-line); }
+.ayden-client-header .ayden-shell { display:flex; justify-content:space-between; align-items:center; }
+.ayden-client-main { padding:54px 0 80px; }
+.ayden-client-intro { display:flex; justify-content:space-between; align-items:end; gap:24px; margin-bottom:35px; }
+.ayden-client-title { font-size:54px; line-height:.92; margin:8px 0 14px; }
+.ayden-client-grid { display:grid; grid-template-columns:1.4fr .7fr; gap:18px; align-items:start; }
+.ayden-next { padding:24px; background:var(--ay-ink); color:var(--ay-paper); min-height:235px; position:relative; overflow:hidden; }
+.ayden-next:before { content:''; position:absolute; width:180px; height:180px; border:1px solid rgba(232,198,107,.5); border-radius:50%; right:-58px; top:-68px; }
+.ayden-next .ayden-mono { color:var(--ay-sun); }
+.ayden-next-date { margin:28px 0 20px; display:flex; align-items:end; gap:14px; }
+.ayden-next-day { font-size:52px; line-height:.7; color:var(--ay-sun); }
+.ayden-next-meta { color:rgba(245,241,231,.7); font-size:11px; line-height:1.5; }
+.ayden-next-foot { display:flex; justify-content:space-between; align-items:center; padding-top:15px; border-top:1px solid rgba(245,241,231,.18); font-size:11px; }
+.ayden-personal-card { padding:24px; background:var(--ay-sea); min-height:235px; }
+.ayden-personal-card .ayden-display { font-size:29px; line-height:1.05; margin-top:24px; }
+.ayden-personal-card p { margin:14px 0 0; color:var(--ay-ink-soft); font-size:12px; line-height:1.65; }
+.ayden-client-lower { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:18px; }
+.ayden-list { padding:19px; }
+.ayden-list-item { display:flex; gap:13px; padding:14px 0; border-bottom:1px solid var(--ay-line); }
+.ayden-list-item:last-child { border-bottom:0; padding-bottom:0; }
+.ayden-list-icon { flex:none; width:32px; height:32px; display:grid; place-items:center; background:var(--ay-sun); color:var(--ay-ink); font-size:12px; font-weight:800; }
+.ayden-list-item strong { display:block; font-size:12px; }
+.ayden-list-item p { margin:4px 0 0; color:var(--ay-ink-soft); font-size:11px; line-height:1.5; }
+.ayden-client-nav { display:flex; gap:22px; margin-bottom:28px; border-bottom:1px solid var(--ay-line); }
+.ayden-client-nav button { border:0; background:transparent; padding:0 0 12px; border-bottom:2px solid transparent; color:var(--ay-ink-soft); font-size:11px; font-weight:700; }
+.ayden-client-nav button.active { color:var(--ay-ink); border-bottom-color:var(--ay-coral); }
+.ayden-toast { position:fixed; right:20px; bottom:20px; z-index:30; padding:13px 16px; background:var(--ay-ink); color:var(--ay-paper); box-shadow:0 9px 24px rgba(24,56,61,.18); font-size:12px; animation:ayden-fade .3s ease-out both; }
+
+@media (max-width: 820px) {
+  .ayden-shell { width:min(100% - 32px, 620px); }
+  .ayden-hero-grid, .ayden-approach-grid, .ayden-book-grid { grid-template-columns:1fr !important; gap:34px !important; }
+  .ayden-hero-grid { padding-top:54px !important; padding-bottom:64px !important; }
+  .ayden-hero-grid > div:last-child { min-height:300px !important; }
+  .ayden-form-row { grid-template-columns:1fr !important; }
+  .ayden-navlinks { display:none; }
+  .ayden-mobile-menu { display:inline-flex; }
+  .ayden-staff-layout { grid-template-columns:1fr; }
+  .ayden-sidebar { display:none; }
+  .ayden-workspace { padding:22px 16px 38px; }
+  .ayden-staff-head { align-items:flex-start; }
+  .ayden-staff-title { font-size:36px; }
+  .ayden-metric-grid { grid-template-columns:1fr 1fr; }
+  .ayden-staff-grid, .ayden-client-grid, .ayden-client-lower { grid-template-columns:1fr; }
+  .ayden-client-main { padding-top:34px; }
+  .ayden-client-intro { display:block; }
+  .ayden-client-title { font-size:44px; }
+}
+@media (max-width: 500px) {
+  .ayden-topline { padding:0 12px; text-align:center; font-size:9px; }
+  .ayden-nav { min-height:66px; }
+  .ayden-brand { font-size:12px; }
+  .ayden-metric-grid { gap:7px; }
+  .ayden-metric { min-height:92px; padding:13px; }
+  .ayden-metric-value { font-size:26px; }
+  .ayden-table { min-width:560px; }
+  .ayden-table-wrap { overflow-x:auto; }
+  .ayden-client-nav { overflow:auto; width:calc(100vw - 32px); }
+  .ayden-client-nav button { white-space:nowrap; }
+}

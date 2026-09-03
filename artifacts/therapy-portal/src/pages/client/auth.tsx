@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, HeartHandshake, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, HeartHandshake, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link } from 'wouter';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 
@@ -30,26 +30,32 @@ export default function ClientAuth() {
   const pending = login.isPending || signup.isPending;
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8 sm:py-14">
-      <div className="mx-auto max-w-5xl">
-        <Link href="/" className="mb-10 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
+    <main className="min-h-screen bg-[#f7f2e9] px-4 py-8 text-foreground dark:bg-background sm:py-14">
+      <div className="mx-auto max-w-6xl">
+        <Link href="/" className="mb-10 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-destructive">
           <ArrowLeft className="h-4 w-4" /> Back to Ayden's Therapy Services
         </Link>
-        <div className="grid items-center gap-10 lg:grid-cols-[1fr_420px]">
-          <section className="max-w-xl">
-            <img src={logoUrl} alt="Ayden's Therapy Services" className="mb-5 h-16 w-16 rounded-2xl object-cover shadow-md" />
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[.2em] text-primary">A private space for your care</p>
-            <h1 className="mb-5 text-4xl font-semibold leading-tight sm:text-6xl">Stay connected to your healing journey.</h1>
-            <p className="text-lg leading-8 text-muted-foreground">View appointments, keep your information current, reach support, and find gentle resources whenever you need them.</p>
+        <div className="grid items-stretch gap-12 lg:grid-cols-[1fr_440px]">
+          <section className="flex max-w-xl flex-col justify-center">
+            <span className="mb-8 flex h-12 w-12 items-center justify-center bg-secondary p-1">
+              <img src={logoUrl} alt="Ayden's Therapy Services" className="h-full w-full object-cover mix-blend-multiply" />
+            </span>
+            <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">A private space for your care</p>
+            <h1 className="mb-6 font-serif text-6xl font-normal leading-[.9] sm:text-8xl">Stay connected to your healing journey.</h1>
+            <p className="max-w-lg text-base leading-7 text-muted-foreground">View appointments, keep your information current, reach support, and find gentle resources whenever you need them.</p>
+            <div className="mt-10 grid gap-3 border-t border-border pt-5 text-sm text-muted-foreground sm:grid-cols-2">
+              <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 text-primary" /><span>Private coordination with your care team.</span></div>
+              <div className="flex items-start gap-3"><HeartHandshake className="mt-0.5 h-4 w-4 text-primary" /><span>Appointments and support in one place.</span></div>
+            </div>
           </section>
-          <Card className="rounded-3xl border-primary/10 shadow-xl">
+          <Card className="rounded-sm border-primary/15 shadow-xl">
             <CardHeader>
-              <div className="mb-4 flex gap-2 rounded-xl bg-muted p-1">
-                <button onClick={() => setMode('login')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${mode === 'login' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}>Sign in</button>
-                <button onClick={() => setMode('signup')} className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${mode === 'signup' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}>Create account</button>
+              <div className="mb-5 flex gap-5 border-b border-border">
+                <button onClick={() => setMode('login')} className={`border-b-2 px-0 py-3 text-xs font-bold uppercase tracking-[.1em] ${mode === 'login' ? 'border-destructive text-foreground' : 'border-transparent text-muted-foreground'}`}>Sign in</button>
+                <button onClick={() => setMode('signup')} className={`border-b-2 px-0 py-3 text-xs font-bold uppercase tracking-[.1em] ${mode === 'signup' ? 'border-destructive text-foreground' : 'border-transparent text-muted-foreground'}`}>Create account</button>
               </div>
-              <CardTitle>{mode === 'login' ? 'Welcome back' : 'Create your client account'}</CardTitle>
-              <CardDescription>{mode === 'login' ? 'Use the email connected to your care.' : 'Your account keeps your appointments and support in one place.'}</CardDescription>
+              <CardTitle className="font-serif text-3xl font-normal">{mode === 'login' ? 'Welcome back' : 'Create your client account'}</CardTitle>
+              <CardDescription className="leading-6">{mode === 'login' ? 'Use the email connected to your care.' : 'Your account keeps your appointments and support in one place.'}</CardDescription>
             </CardHeader>
             <CardContent>
               <form className="space-y-4" onSubmit={(event) => {
@@ -76,7 +82,7 @@ export default function ClientAuth() {
                 </>}
                 <div className="space-y-2"><Label htmlFor="client-email">Email</Label><Input id="client-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
                 <div className="space-y-2"><Label htmlFor="client-password">Password</Label><Input id="client-password" type="password" minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
-                <Button className="h-11 w-full rounded-xl" disabled={pending}>{pending && <Loader2 className="h-4 w-4 animate-spin" />}{mode === 'login' ? 'Sign in securely' : 'Create my account'}</Button>
+                 <Button className="h-11 w-full" disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}{mode === 'login' ? 'Sign in securely' : 'Create my account'}</Button>
               </form>
               <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">Your client portal is for care coordination and is not monitored for emergencies.</p>
             </CardContent>

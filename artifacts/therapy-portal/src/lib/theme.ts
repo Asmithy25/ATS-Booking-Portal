@@ -1,6 +1,21 @@
 import type React from 'react';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const LEGACY_THEME = {
+  primary: '#7B4A2F',
+  secondary: '#C38A4A',
+  accent: '#D9B7A2',
+};
+const SEA_GLASS_THEME = {
+  primary: '#18383D',
+  secondary: '#E8C66B',
+  accent: '#AFD2C4',
+};
+
+function normalizeThemeColor(value: string | undefined, legacy: string, fallback: string) {
+  const normalized = value?.toUpperCase();
+  return normalized === legacy ? fallback : (value ?? fallback);
+}
 
 export function hexToHslValue(value: string, fallback: string): string {
   const hex = HEX_COLOR.test(value) ? value : fallback;
@@ -33,9 +48,9 @@ export function getThemeStyle(settings?: {
   accentColor?: string;
 }): React.CSSProperties {
   return {
-    '--primary': hexToHslValue(settings?.primaryColor ?? '', '18 55% 40%'),
-    '--secondary': hexToHslValue(settings?.secondaryColor ?? '', '35 45% 56%'),
-    '--accent': hexToHslValue(settings?.accentColor ?? '', '75 18% 84%'),
-    '--ring': hexToHslValue(settings?.primaryColor ?? '', '18 55% 40%'),
+    '--primary': hexToHslValue(normalizeThemeColor(settings?.primaryColor, LEGACY_THEME.primary, SEA_GLASS_THEME.primary), '191 43% 17%'),
+    '--secondary': hexToHslValue(normalizeThemeColor(settings?.secondaryColor, LEGACY_THEME.secondary, SEA_GLASS_THEME.secondary), '45 71% 67%'),
+    '--accent': hexToHslValue(normalizeThemeColor(settings?.accentColor, LEGACY_THEME.accent, SEA_GLASS_THEME.accent), '159 31% 75%'),
+    '--ring': hexToHslValue(normalizeThemeColor(settings?.primaryColor, LEGACY_THEME.primary, SEA_GLASS_THEME.primary), '159 31% 55%'),
   } as React.CSSProperties;
 }

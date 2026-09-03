@@ -175,7 +175,7 @@ export default function Home() {
   }
 
   return (
-      <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(settings)}>
+      <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(settings)}>
       <PublicNavbar />
       
       <main className="flex-1">
@@ -186,7 +186,7 @@ export default function Home() {
               initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="mb-10 max-w-2xl rounded-[1.5rem] border border-primary/15 bg-card/75 px-5 py-4 shadow-sm backdrop-blur sm:px-6"
+               className="mb-10 max-w-2xl border-l-4 border-primary bg-card/75 px-5 py-4 shadow-sm backdrop-blur sm:px-6"
             >
               <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">
                 {now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'}
@@ -242,10 +242,10 @@ export default function Home() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                 className="relative hidden lg:block"
+                  className="relative hidden lg:block"
               >
                   <div className="absolute -inset-8 rounded-[3rem] bg-secondary/20 blur-3xl" />
-                  <div className="relative w-full max-w-lg mx-auto rounded-[2.5rem] overflow-hidden border border-primary/15 shadow-2xl bg-[hsl(35_44%_94%)]">
+                  <div className="relative w-full max-w-lg mx-auto overflow-hidden border border-primary/15 shadow-2xl bg-[hsl(43_33%_94%)]">
                     <img
                       src={settings?.logoUrl || terracottaLogoUrl}
                       alt="Ayden's Therapy Services botanical logo"
@@ -253,7 +253,7 @@ export default function Home() {
                       fetchPriority="high"
                       decoding="async"
                     />
-                    <div className="absolute inset-5 rounded-[2rem] border border-primary/20 pointer-events-none" />
+                    <div className="absolute inset-5 border border-primary/20 pointer-events-none" />
                   </div>
                  <div className="absolute bottom-8 -left-12 transform bg-card p-5 rounded-2xl shadow-xl border border-border/50 max-w-xs animate-in slide-in-from-bottom-8 duration-1000 delay-500 fill-mode-both">
                   <div className="flex items-center gap-4 mb-3">
