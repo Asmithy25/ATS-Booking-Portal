@@ -6,6 +6,7 @@ import settingsRouter from "./settings";
 import clientsRouter from "./clients";
 import employeesRouter from "./employees";
 import portalRouter from "./portal";
+import backupRouter from "./backup";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use("/settings", settingsRouter);
 router.use("/clients", clientsRouter);
 router.use("/employees", employeesRouter);
 router.use("/portal", portalRouter);
+router.use("/backup", backupRouter);
 
 export default router;

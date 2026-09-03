@@ -16,6 +16,8 @@ tags:
     description: Staff authentication
   - name: settings
     description: Portal settings (office hours, accepting clients, etc.)
+  - name: backup
+    description: Protected site data backup and migration
   - name: clients
     description: Client history and notes
   - name: employees
@@ -310,6 +312,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /backup/export:
+    get:
+      operationId: exportBackup
+      tags: [backup]
+      summary: Export protected site data
+      description: Founder-only JSON export of bookings, settings, or site data. Password hashes are never included.
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/BackupScope"
+      responses:
+        "200":
+          description: Backup JSON payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupExport"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Founder access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /backup/import:
+    post:
+      operationId: importBackup
+      tags: [backup]
+      summary: Import a protected site backup
+      description: Founder-only merge import. Existing records are updated or preserved and the transaction rolls back if validation fails.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupImportInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupImportResult"
+        "400":
+          description: Invalid backup file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Founder access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /employees:
     get:
       operationId: listEmployees
@@ -1010,6 +1081,73 @@ components:
           type: object
           additionalProperties:
             type: boolean
+
+    BackupScope:
+      type: string
+      enum: [bookings, settings, site-data, everything]
+
+    BackupRow:
+      type: object
+      additionalProperties: true
+
+    BackupExport:
+      type: object
+      required: [format, version, scope, exportedAt, tables, counts]
+      properties:
+        format:
+          type: string
+          enum: [ayden-therapy-backup]
+        version:
+          type: integer
+          enum: [1]
+        scope:
+          $ref: "#/components/schemas/BackupScope"
+        exportedAt:
+          type: string
+          format: date-time
+        tables:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/BackupRow"
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+
+    BackupImportInput:
+      type: object
+      required: [backup]
+      properties:
+        backup:
+          $ref: "#/components/schemas/BackupExport"
+        mode:
+          type: string
+          enum: [merge]
+          default: merge
+
+    BackupImportResult:
+      type: object
+      required: [scope, importedAt, imported, skipped, warnings]
+      properties:
+        scope:
+          $ref: "#/components/schemas/BackupScope"
+        importedAt:
+          type: string
+          format: date-time
+        imported:
+          type: object
+          additionalProperties:
+            type: integer
+        skipped:
+          type: object
+          additionalProperties:
+            type: integer
+        warnings:
+          type: array
+          items:
+            type: string
 
     ClientHistory:
       type: object

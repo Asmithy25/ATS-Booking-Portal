@@ -397,10 +397,77 @@ export interface SettingsUpdate {
   featureFlags?: SettingsUpdateFeatureFlags;
 }
 
+export type BackupScope = typeof BackupScope[keyof typeof BackupScope];
+
+
+export const BackupScope = {
+  bookings: 'bookings',
+  settings: 'settings',
+  'site-data': 'site-data',
+  everything: 'everything',
+} as const;
+
+export interface BackupRow { [key: string]: unknown }
+
+export type BackupExportFormat = typeof BackupExportFormat[keyof typeof BackupExportFormat];
+
+
+export const BackupExportFormat = {
+  'ayden-therapy-backup': 'ayden-therapy-backup',
+} as const;
+
+export type BackupExportVersion = typeof BackupExportVersion[keyof typeof BackupExportVersion];
+
+
+export const BackupExportVersion = {
+  NUMBER_1: 1,
+} as const;
+
+export type BackupExportTables = {[key: string]: BackupRow[]};
+
+export type BackupExportCounts = {[key: string]: number};
+
+export interface BackupExport {
+  format: BackupExportFormat;
+  version: BackupExportVersion;
+  scope: BackupScope;
+  exportedAt: string;
+  tables: BackupExportTables;
+  counts: BackupExportCounts;
+}
+
+export type BackupImportInputMode = typeof BackupImportInputMode[keyof typeof BackupImportInputMode];
+
+
+export const BackupImportInputMode = {
+  merge: 'merge',
+} as const;
+
+export interface BackupImportInput {
+  backup: BackupExport;
+  mode?: BackupImportInputMode;
+}
+
+export type BackupImportResultImported = {[key: string]: number};
+
+export type BackupImportResultSkipped = {[key: string]: number};
+
+export interface BackupImportResult {
+  scope: BackupScope;
+  importedAt: string;
+  imported: BackupImportResultImported;
+  skipped: BackupImportResultSkipped;
+  warnings: string[];
+}
+
 export interface ClientHistory {
   phone: string;
   clientName: string;
   sessionCount: number;
   bookings: Booking[];
 }
+
+export type ExportBackupParams = {
+scope: BackupScope;
+};
 

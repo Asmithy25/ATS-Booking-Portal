@@ -4,3 +4,4 @@
 - [Workspace client declarations](workspace-client-declarations.md) — After editing shared API client source, refresh its declaration-only TypeScript output before web typechecking.
 - [Client rollout privacy](client-rollout-privacy.md) — Targeted updates use scoped notification records and explicit opt-in, never broad announcements or Support threads.
 - [Message template icons](message-template-icons.md) — Store stable whitelisted Lucide icon keys with templates so Support and editors share the same visual language.
+- [Backup and migration](backup-migration.md) — Founder-only scoped JSON backups merge transactionally and never include login password hashes.

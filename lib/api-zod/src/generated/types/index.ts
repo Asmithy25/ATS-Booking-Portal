@@ -6,6 +6,18 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './backupExport';
+export * from './backupExportCounts';
+export * from './backupExportFormat';
+export * from './backupExportTables';
+export * from './backupExportVersion';
+export * from './backupImportInput';
+export * from './backupImportInputMode';
+export * from './backupImportResult';
+export * from './backupImportResultImported';
+export * from './backupImportResultSkipped';
+export * from './backupRow';
+export * from './backupScope';
 export * from './booking';
 export * from './bookingInput';
 export * from './bookingStats';
@@ -16,6 +28,7 @@ export * from './clientHistory';
 export * from './closedDate';
 export * from './dayHours';
 export * from './errorResponse';
+export * from './exportBackupParams';
 export * from './healthStatus';
 export * from './holidayHour';
 export * from './loginInput';

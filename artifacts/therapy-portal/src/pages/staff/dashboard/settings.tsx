@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +13,11 @@ import {
   useGetMyHours,
   useUpdateMyHours,
   getGetMyHoursQueryKey,
+  exportBackup,
+  useImportBackup,
+  type BackupExport,
+  type BackupImportResult,
+  type BackupScope,
 } from '@workspace/api-client-react';
 
 import {
@@ -27,9 +32,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch as SwitchComponent } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, Save } from 'lucide-react';
+import { DatabaseBackup, Download, FileJson, Loader2, Plus, Save, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import defaultLogoUrl from '@assets/ATS_FALL_1786003864019.png';
 
 // Using the same structure as the API
@@ -97,6 +103,33 @@ type SettingsFormValues = z.infer<typeof settingsSchema>;
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
+const BACKUP_OPTIONS: Array<{
+  value: BackupScope;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'bookings',
+    label: 'Bookings only',
+    description: 'Every appointment, confirmation code, status, note, and booking history record.',
+  },
+  {
+    value: 'settings',
+    label: 'All site settings',
+    description: 'Branding, colors, office hours, holidays, closures, vacation mode, and feature controls.',
+  },
+  {
+    value: 'site-data',
+    label: 'Site data',
+    description: 'Client and staff profiles, announcements, templates, support, team workspace, resources, notifications, and activity history.',
+  },
+  {
+    value: 'everything',
+    label: 'Everything',
+    description: 'Bookings, site settings, and all site data in one protected backup.',
+  },
+];
+
 export default function Settings() {
   const { data: session } = useGetAuthMe({
     query: { queryKey: getGetAuthMeQueryKey(), retry: false },
@@ -107,8 +140,14 @@ export default function Settings() {
   });
   const updateSettings = useUpdateSettings();
   const updateMyHours = useUpdateMyHours();
+  const importBackup = useImportBackup();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const backupFileInput = useRef<HTMLInputElement>(null);
+  const [backupScope, setBackupScope] = useState<BackupScope>('everything');
+  const [backupFileName, setBackupFileName] = useState('');
+  const [backupPayload, setBackupPayload] = useState<BackupExport | null>(null);
+  const [lastImport, setLastImport] = useState<BackupImportResult | null>(null);
   const hoursForm = useForm<{ officeHours: SettingsFormValues['officeHours'] }>({
     resolver: zodResolver(z.object({
       officeHours: settingsSchema.shape.officeHours,
@@ -231,6 +270,86 @@ export default function Settings() {
         onError: (err) => {
           const msg = (err as { data?: { error?: string } })?.data?.error;
           toast({ variant: 'destructive', title: 'Failed to save hours', description: msg });
+        },
+      },
+    );
+  };
+
+  const handleBackupExport = async () => {
+    try {
+      const backup = await exportBackup({ scope: backupScope });
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ayden-therapy-${backupScope}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast({
+        title: 'Backup downloaded',
+        description: `${backup.counts[Object.keys(backup.counts)[0]] ?? 0} records are included in this ${BACKUP_OPTIONS.find((option) => option.value === backupScope)?.label.toLowerCase()} export.`,
+      });
+    } catch (err) {
+      const message = (err as { data?: { error?: string } })?.data?.error;
+      toast({ variant: 'destructive', title: 'Export failed', description: message ?? 'The backup could not be downloaded.' });
+    }
+  };
+
+  const handleBackupFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const parsed = JSON.parse(await file.text()) as BackupExport;
+      if (
+        parsed?.format !== 'ayden-therapy-backup'
+        || parsed?.version !== 1
+        || !parsed?.scope
+        || !parsed?.tables
+        || typeof parsed.tables !== 'object'
+      ) {
+        throw new Error('This is not a supported Ayden backup file.');
+      }
+      setBackupPayload(parsed);
+      setBackupFileName(file.name);
+      setLastImport(null);
+      toast({ title: 'Backup ready to import', description: 'Review the record count below before confirming the merge.' });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid backup file',
+        description: err instanceof Error ? err.message : 'Choose a valid Ayden backup JSON file.',
+      });
+    }
+  };
+
+  const handleBackupImport = () => {
+    if (!backupPayload) return;
+    const totalRecords = Object.values(backupPayload.tables).reduce((sum, rows) => sum + rows.length, 0);
+    if (!window.confirm(`Merge ${totalRecords} records from ${backupFileName || 'this backup'} into the portal? Existing matching records will be updated. This cannot be undone.`)) {
+      return;
+    }
+
+    importBackup.mutate(
+      { data: { backup: backupPayload, mode: 'merge' } },
+      {
+        onSuccess: (result) => {
+          setLastImport(result);
+          setBackupPayload(null);
+          setBackupFileName('');
+          if (backupFileInput.current) backupFileInput.current.value = '';
+          queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
+          toast({
+            title: 'Backup imported',
+            description: `${Object.values(result.imported).reduce((sum, count) => sum + count, 0)} records were merged successfully.`,
+          });
+        },
+        onError: (err) => {
+          const message = (err as { data?: { error?: string } })?.data?.error;
+          toast({ variant: 'destructive', title: 'Import failed', description: message ?? 'The backup was not changed.' });
         },
       },
     );
@@ -791,6 +910,117 @@ export default function Settings() {
 
         </form>
       </Form>
+
+        {session?.isAdmin && (
+          <Card className="overflow-hidden rounded-2xl border-primary/20 shadow-sm">
+            <CardHeader className="bg-primary/5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <DatabaseBackup className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle>Data Backup &amp; Migration</CardTitle>
+                  <CardDescription className="mt-1">
+                    Download protected copies of your portal data or merge a previous Ayden backup into this site.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6 p-6">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Download className="h-4 w-4 text-primary" />
+                    Download / export
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="backup-export-scope">What should be included?</label>
+                    <Select value={backupScope} onValueChange={(value) => setBackupScope(value as BackupScope)}>
+                      <SelectTrigger id="backup-export-scope">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BACKUP_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {BACKUP_OPTIONS.find((option) => option.value === backupScope)?.description}
+                    </p>
+                  </div>
+                  <Button type="button" className="w-full sm:w-auto" onClick={handleBackupExport}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download JSON backup
+                  </Button>
+                </div>
+
+                <div className="space-y-3 rounded-2xl border bg-background p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Upload className="h-4 w-4 text-primary" />
+                    Import / restore
+                  </div>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Choose an Ayden JSON backup to validate and merge. Matching records are updated; unrelated records are preserved.
+                  </p>
+                  <input
+                    ref={backupFileInput}
+                    type="file"
+                    accept="application/json,.json"
+                    className="sr-only"
+                    onChange={handleBackupFile}
+                  />
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <Button type="button" variant="outline" onClick={() => backupFileInput.current?.click()}>
+                      <FileJson className="mr-2 h-4 w-4" />
+                      Choose backup file
+                    </Button>
+                    {backupFileName && (
+                      <span className="truncate text-sm text-muted-foreground" title={backupFileName}>{backupFileName}</span>
+                    )}
+                  </div>
+                  {backupPayload && (
+                    <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+                      <p className="text-sm font-medium">Ready to merge {Object.values(backupPayload.tables).reduce((sum, rows) => sum + rows.length, 0)} records</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Scope: {BACKUP_OPTIONS.find((option) => option.value === backupPayload.scope)?.label ?? backupPayload.scope}. Existing matching records will be updated.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button type="button" size="sm" onClick={handleBackupImport} disabled={importBackup.isPending}>
+                          {importBackup.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                          Confirm merge import
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => { setBackupPayload(null); setBackupFileName(''); }}>
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {lastImport && (
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm">
+                      <p className="flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4 text-emerald-600" /> Import completed</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {Object.values(lastImport.imported).reduce((sum, count) => sum + count, 0)} merged
+                        {Object.values(lastImport.skipped).reduce((sum, count) => sum + count, 0) > 0
+                          ? ` · ${Object.values(lastImport.skipped).reduce((sum, count) => sum + count, 0)} skipped`
+                          : ''}
+                      </p>
+                      {lastImport.warnings.length > 0 && (
+                        <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+                          {lastImport.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="flex items-start gap-2 rounded-xl bg-muted/60 p-3 text-xs leading-5 text-muted-foreground">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                Backups are founder-only and do not contain staff or client password hashes. Keep downloaded files in a secure location because they may contain private client and appointment information.
+              </p>
+            </CardContent>
+          </Card>
+        )}
     </div>
   );
 }

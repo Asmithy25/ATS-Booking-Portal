@@ -20,12 +20,16 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BackupExport,
+  BackupImportInput,
+  BackupImportResult,
   Booking,
   BookingInput,
   BookingStats,
   BookingUpdate,
   ClientHistory,
   ErrorResponse,
+  ExportBackupParams,
   HealthStatus,
   LoginInput,
   LoginResult,
@@ -1104,6 +1108,163 @@ export const useUpdateMyHours = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getUpdateMyHoursMutationOptions(options));
+    }
+
+export const getExportBackupUrl = (params: ExportBackupParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/backup/export?${stringifiedParams}` : `/api/backup/export`
+}
+
+/**
+ * Founder-only JSON export of bookings, settings, or site data. Password hashes are never included.
+ * @summary Export protected site data
+ */
+export const exportBackup = async (params: ExportBackupParams, options?: Parameters<typeof customFetch>[1]): Promise<BackupExport> => {
+
+  return customFetch<BackupExport>(getExportBackupUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportBackupQueryKey = (params?: ExportBackupParams,) => {
+    return [
+    `/api/backup/export`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getExportBackupQueryOptions = <TData = Awaited<ReturnType<typeof exportBackup>>, TError = ErrorType<ErrorResponse>>(params: ExportBackupParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportBackup>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportBackupQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportBackup>>> = ({ signal }) => exportBackup(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportBackup>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportBackupQueryResult = NonNullable<Awaited<ReturnType<typeof exportBackup>>>
+export type ExportBackupQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Export protected site data
+ */
+
+export function useExportBackup<TData = Awaited<ReturnType<typeof exportBackup>>, TError = ErrorType<ErrorResponse>>(
+ params: ExportBackupParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportBackup>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportBackupQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getImportBackupUrl = () => {
+
+
+
+
+  return `/api/backup/import`
+}
+
+/**
+ * Founder-only merge import. Existing records are updated or preserved and the transaction rolls back if validation fails.
+ * @summary Import a protected site backup
+ */
+export const importBackup = async (backupImportInput: BackupImportInput, options?: Parameters<typeof customFetch>[1]): Promise<BackupImportResult> => {
+
+  return customFetch<BackupImportResult>(getImportBackupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(backupImportInput)
+  }
+);}
+
+
+
+
+
+export const getImportBackupMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importBackup>>, TError,{data: BodyType<BackupImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importBackup>>, TError,{data: BodyType<BackupImportInput>}, TContext> => {
+
+const mutationKey = ['importBackup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importBackup>>, {data: BodyType<BackupImportInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importBackup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportBackupMutationResult = NonNullable<Awaited<ReturnType<typeof importBackup>>>
+    export type ImportBackupMutationBody = BodyType<BackupImportInput>
+    export type ImportBackupMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Import a protected site backup
+ */
+export const useImportBackup = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importBackup>>, TError,{data: BodyType<BackupImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importBackup>>,
+        TError,
+        {data: BodyType<BackupImportInput>},
+        TContext
+      > => {
+      return useMutation(getImportBackupMutationOptions(options));
     }
 
 export const getListEmployeesUrl = () => {

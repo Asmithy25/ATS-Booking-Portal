@@ -661,6 +661,51 @@ export const UpdateMyHoursResponse = zod.object({
 
 
 /**
+ * Founder-only JSON export of bookings, settings, or site data. Password hashes are never included.
+ * @summary Export protected site data
+ */
+export const ExportBackupQueryParams = zod.object({
+  "scope": zod.enum(['bookings', 'settings', 'site-data', 'everything'])
+})
+
+export const ExportBackupResponse = zod.object({
+  "format": zod.enum(['ayden-therapy-backup']),
+  "version": zod.literal(1),
+  "scope": zod.enum(['bookings', 'settings', 'site-data', 'everything']),
+  "exportedAt": zod.coerce.date(),
+  "tables": zod.record(zod.string(), zod.array(zod.record(zod.string(), zod.unknown()))),
+  "counts": zod.record(zod.string(), zod.number().int())
+})
+
+
+/**
+ * Founder-only merge import. Existing records are updated or preserved and the transaction rolls back if validation fails.
+ * @summary Import a protected site backup
+ */
+export const importBackupBodyModeDefault = `merge`;
+
+export const ImportBackupBody = zod.object({
+  "backup": zod.object({
+  "format": zod.enum(['ayden-therapy-backup']),
+  "version": zod.literal(1),
+  "scope": zod.enum(['bookings', 'settings', 'site-data', 'everything']),
+  "exportedAt": zod.coerce.date(),
+  "tables": zod.record(zod.string(), zod.array(zod.record(zod.string(), zod.unknown()))),
+  "counts": zod.record(zod.string(), zod.number().int())
+}),
+  "mode": zod.enum(['merge']).default(importBackupBodyModeDefault)
+})
+
+export const ImportBackupResponse = zod.object({
+  "scope": zod.enum(['bookings', 'settings', 'site-data', 'everything']),
+  "importedAt": zod.coerce.date(),
+  "imported": zod.record(zod.string(), zod.number().int()),
+  "skipped": zod.record(zod.string(), zod.number().int()),
+  "warnings": zod.array(zod.string())
+})
+
+
+/**
  * @summary List staff accounts (admin only)
  */
 export const ListEmployeesResponseItem = zod.object({
