@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, bookingsTable } from "@workspace/db";
+import { db, bookingsTable, sessionFeedbackTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requirePermission } from "../middleware/auth";
 
@@ -15,6 +15,19 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
 
   try {
     const all = await db.select().from(bookingsTable).orderBy(asc(bookingsTable.createdAt));
+    const allFeedback = await db.select().from(sessionFeedbackTable);
+    const feedbackMap = new Map(
+      allFeedback.map((f) => [
+        f.bookingId,
+        {
+          id: f.id,
+          rating: f.rating,
+          comment: f.comment ?? null,
+          createdAt: f.createdAt.toISOString(),
+        },
+      ]),
+    );
+
     const matches = all.filter((booking) =>
       booking.clientName.toLowerCase().includes(query) ||
       booking.phone.toLowerCase().includes(query) ||
@@ -29,6 +42,7 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
     }
 
     const clients = [...byPhone.entries()].map(([phone, bookings]) => ({
+      clientAccountId: bookings[bookings.length - 1]?.clientAccountId ?? null,
       phone,
       clientName: bookings[bookings.length - 1]?.clientName ?? "",
       sessionCount: bookings.length,
@@ -36,6 +50,7 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
         ...b,
         claimedBy: b.claimedBy ?? null,
         sessionNotes: b.sessionNotes ?? null,
+        feedback: feedbackMap.get(b.id) ?? null,
         isReturningClient: idx > 0,
         previousSessionCount: idx,
         createdAt: b.createdAt.toISOString(),
@@ -67,10 +82,24 @@ router.get("/:phone", requirePermission("viewClients"), async (req, res) => {
 
     const clientName = all[all.length - 1].clientName; // most recent name
 
+    const allFeedback = await db.select().from(sessionFeedbackTable);
+    const feedbackMap = new Map(
+      allFeedback.map((f) => [
+        f.bookingId,
+        {
+          id: f.id,
+          rating: f.rating,
+          comment: f.comment ?? null,
+          createdAt: f.createdAt.toISOString(),
+        },
+      ]),
+    );
+
     const enriched = all.map((b, idx) => ({
       ...b,
       claimedBy: b.claimedBy ?? null,
       sessionNotes: b.sessionNotes ?? null,
+      feedback: feedbackMap.get(b.id) ?? null,
       isReturningClient: idx > 0,
       previousSessionCount: idx,
       createdAt: b.createdAt.toISOString(),

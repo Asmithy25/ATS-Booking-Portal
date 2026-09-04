@@ -14,6 +14,8 @@ import {
   settingsTable,
   clientTemplatesTable,
   clientNotificationsTable,
+  sessionFeedbackTable,
+  wellnessAssignmentsTable,
 } from "@workspace/db";
 import { db } from "@workspace/db";
 import { getStaffAccess, hasPermission, requireAuth, requireClientAuth, type RequestWithClientSession } from "../middleware/auth";
@@ -112,6 +114,13 @@ router.get("/analytics", requireAuth, async (req, res): Promise<void> => {
     popularDay: [...byDay.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—",
     peakHour: [...byHour.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ? `${[...byHour.entries()].sort((a, b) => b[1] - a[1])[0][0]}:00` : "—",
     monthly: [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([month, count]) => ({ month, count })),
+    averageRating: (await (async () => {
+      const allFeedback = await db.select().from(sessionFeedbackTable);
+      if (!allFeedback.length) return null;
+      const sum = allFeedback.reduce((acc, f) => acc + f.rating, 0);
+      return Math.round((sum / allFeedback.length) * 10) / 10;
+    })()),
+    totalRatings: (await db.select().from(sessionFeedbackTable)).length,
   });
 });
 
@@ -787,7 +796,24 @@ router.get("/client/bookings", requireClientAuth, async (req, res): Promise<void
     return;
   }
   const bookings = await db.select().from(bookingsTable).where(eq(bookingsTable.phone, client.phone)).orderBy(desc(bookingsTable.preferredDate), desc(bookingsTable.preferredTime));
-  res.json(bookings.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() })));
+  const feedbacks = await db.select().from(sessionFeedbackTable);
+  const feedbackMap = new Map(
+    feedbacks.map((f) => [
+      f.bookingId,
+      {
+        id: f.id,
+        rating: f.rating,
+        comment: f.comment ?? null,
+        createdAt: f.createdAt.toISOString(),
+      },
+    ]),
+  );
+
+  res.json(bookings.map((b) => ({
+    ...b,
+    feedback: feedbackMap.get(b.id) ?? null,
+    createdAt: b.createdAt.toISOString(),
+  })));
 });
 
 router.patch("/client/bookings/:id", requireClientAuth, async (req, res): Promise<void> => {
@@ -853,6 +879,107 @@ router.patch("/client/bookings/:id", requireClientAuth, async (req, res): Promis
   res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
 });
 
+router.post("/client/bookings/:id/feedback", requireClientAuth, async (req, res): Promise<void> => {
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+  const bookingId = Number(req.params.id);
+  if (!Number.isInteger(bookingId)) {
+    res.status(400).json({ error: "Invalid booking ID." });
+    return;
+  }
+
+  const { rating, comment } = req.body as { rating?: unknown; comment?: unknown };
+
+  if (
+    typeof rating !== "number" ||
+    !Number.isInteger(rating) ||
+    rating < 1 ||
+    rating > 5
+  ) {
+    res.status(400).json({ error: "Rating must be a whole number between 1 and 5." });
+    return;
+  }
+
+  if (comment !== undefined && comment !== null && typeof comment !== "string") {
+    res.status(400).json({ error: "Comment must be a text string." });
+    return;
+  }
+
+  const [client] = await db
+    .select({ id: clientAccountsTable.id, name: clientAccountsTable.name, email: clientAccountsTable.email, phone: clientAccountsTable.phone })
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.id, clientId))
+    .limit(1);
+
+  if (!client) {
+    res.status(401).json({ error: "Account not found." });
+    return;
+  }
+
+  // Ensure the booking belongs to this client (by phone or clientAccountId)
+  const [booking] = await db
+    .select()
+    .from(bookingsTable)
+    .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.phone, client.phone)))
+    .limit(1);
+
+  if (!booking) {
+    res.status(404).json({ error: "Appointment not found." });
+    return;
+  }
+
+  if (booking.status !== "completed") {
+    res.status(400).json({ error: "Feedback can only be submitted for completed sessions." });
+    return;
+  }
+
+  const [existing] = await db
+    .select({ id: sessionFeedbackTable.id })
+    .from(sessionFeedbackTable)
+    .where(eq(sessionFeedbackTable.bookingId, bookingId))
+    .limit(1);
+
+  if (existing) {
+    res.status(409).json({ error: "Feedback has already been submitted for this session." });
+    return;
+  }
+
+  const trimmedComment =
+    typeof comment === "string" && comment.trim()
+      ? comment.trim().slice(0, 2000)
+      : null;
+
+  const [created] = await db
+    .insert(sessionFeedbackTable)
+    .values({
+      bookingId: booking.id,
+      confirmationCode: booking.confirmationCode,
+      clientAccountId: client.id,
+      clientName: client.name,
+      rating,
+      comment: trimmedComment,
+    })
+    .returning();
+
+  await db.insert(auditLogsTable).values({
+    actorEmail: client.email,
+    actorName: client.name,
+    action: "submitted_session_feedback",
+    entityType: "session_feedback",
+    entityId: String(created.id),
+    details: `Rating: ${rating}/5 for booking ${booking.confirmationCode}`,
+  });
+
+  res.status(201).json({
+    id: created.id,
+    bookingId: created.bookingId,
+    confirmationCode: created.confirmationCode,
+    clientName: created.clientName,
+    rating: created.rating,
+    comment: created.comment,
+    createdAt: created.createdAt.toISOString(),
+  });
+});
+
 router.patch("/client/profile", requireClientAuth, async (req, res): Promise<void> => {
   const clientId = Number((req as RequestWithClientSession).clientSession?.id);
   const { name, phone } = req.body as { name?: string; phone?: string };
@@ -861,6 +988,339 @@ router.patch("/client/profile", requireClientAuth, async (req, res): Promise<voi
     return;
   }
   const [updated] = await db.update(clientAccountsTable).set({ name: name.trim().slice(0, 120), phone: phone.trim().slice(0, 40), updatedAt: new Date() }).where(eq(clientAccountsTable.id, clientId)).returning({ id: clientAccountsTable.id, email: clientAccountsTable.email, name: clientAccountsTable.name, phone: clientAccountsTable.phone });
+  res.json(updated);
+});
+
+
+// ─── Wellness Journey / Notebook / Homework Assignments ──────────────────────
+
+// Staff: list all wellness assignments
+router.get("/wellness-assignments", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+
+  if (!access || !hasPermission(access, "viewClients")) {
+    res.status(403).json({ error: "You do not have permission to view wellness assignments." });
+    return;
+  }
+
+  const assignments = await db
+    .select()
+    .from(wellnessAssignmentsTable)
+    .orderBy(desc(wellnessAssignmentsTable.createdAt));
+
+  res.json(assignments);
+});
+
+// Staff: create a wellness assignment
+router.post("/wellness-assignments", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+
+  if (
+    !access ||
+    !hasPermission(access, "viewClients") ||
+    !["founder", "manager"].includes(access.role)
+  ) {
+    res.status(403).json({ error: "You do not have permission to create wellness assignments." });
+    return;
+  }
+
+  const {
+    clientAccountId,
+    bookingId,
+    type,
+    title,
+    content,
+    dueDate,
+  } = req.body as {
+    clientAccountId?: unknown;
+    bookingId?: unknown;
+    type?: unknown;
+    title?: unknown;
+    content?: unknown;
+    dueDate?: unknown;
+  };
+
+  const clientId = Number(clientAccountId);
+
+  if (!Number.isInteger(clientId) || clientId <= 0) {
+    res.status(400).json({ error: "A valid client is required." });
+    return;
+  }
+
+  const validTypes = ["wellness_journey", "notebook", "homework"];
+
+  if (typeof type !== "string" || !validTypes.includes(type)) {
+    res.status(400).json({
+      error: "Assignment type must be wellness_journey, notebook, or homework.",
+    });
+    return;
+  }
+
+  if (typeof title !== "string" || !title.trim()) {
+    res.status(400).json({ error: "A title is required." });
+    return;
+  }
+
+  if (typeof content !== "string" || !content.trim()) {
+    res.status(400).json({ error: "Assignment content is required." });
+    return;
+  }
+
+  const [client] = await db
+    .select({ id: clientAccountsTable.id })
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.id, clientId))
+    .limit(1);
+
+  if (!client) {
+    res.status(404).json({ error: "Client not found." });
+    return;
+  }
+
+  const parsedBookingId =
+    bookingId === undefined || bookingId === null || bookingId === ""
+      ? null
+      : Number(bookingId);
+
+  if (
+    parsedBookingId !== null &&
+    (!Number.isInteger(parsedBookingId) || parsedBookingId <= 0)
+  ) {
+    res.status(400).json({ error: "Invalid booking ID." });
+    return;
+  }
+
+  const [created] = await db
+    .insert(wellnessAssignmentsTable)
+    .values({
+      clientAccountId: clientId,
+      bookingId: parsedBookingId,
+      type,
+      title: title.trim().slice(0, 200),
+      content: content.trim().slice(0, 10000),
+      dueDate:
+        typeof dueDate === "string" && dueDate.trim()
+          ? dueDate.trim().slice(0, 40)
+          : null,
+      status: "assigned",
+      createdBy: access.email,
+    })
+    .returning();
+
+  await recordAudit(
+    req,
+    "created_wellness_assignment",
+    "wellness_assignment",
+    String(created.id),
+  );
+
+  res.status(201).json(created);
+});
+
+// Staff: edit a wellness assignment
+router.patch("/wellness-assignments/:id", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+
+  if (
+    !access ||
+    !hasPermission(access, "viewClients") ||
+    !["founder", "manager"].includes(access.role)
+  ) {
+    res.status(403).json({ error: "You do not have permission to edit wellness assignments." });
+    return;
+  }
+
+  const assignmentId = Number(req.params.id);
+
+  if (!Number.isInteger(assignmentId)) {
+    res.status(400).json({ error: "Invalid assignment ID." });
+    return;
+  }
+
+  const body = req.body as {
+    type?: unknown;
+    title?: unknown;
+    content?: unknown;
+    dueDate?: unknown;
+    status?: unknown;
+  };
+
+  const updates: Partial<typeof wellnessAssignmentsTable.$inferInsert> = {};
+
+  if (body.type !== undefined) {
+    const validTypes = ["wellness_journey", "notebook", "homework"];
+
+    if (typeof body.type !== "string" || !validTypes.includes(body.type)) {
+      res.status(400).json({ error: "Invalid assignment type." });
+      return;
+    }
+
+    updates.type = body.type;
+  }
+
+  if (body.title !== undefined) {
+    if (typeof body.title !== "string" || !body.title.trim()) {
+      res.status(400).json({ error: "Title cannot be empty." });
+      return;
+    }
+
+    updates.title = body.title.trim().slice(0, 200);
+  }
+
+  if (body.content !== undefined) {
+    if (typeof body.content !== "string" || !body.content.trim()) {
+      res.status(400).json({ error: "Content cannot be empty." });
+      return;
+    }
+
+    updates.content = body.content.trim().slice(0, 10000);
+  }
+
+  if (body.dueDate !== undefined) {
+    updates.dueDate =
+      typeof body.dueDate === "string" && body.dueDate.trim()
+        ? body.dueDate.trim().slice(0, 40)
+        : null;
+  }
+
+  if (body.status !== undefined) {
+    const validStatuses = ["assigned", "in_progress", "completed"];
+
+    if (typeof body.status !== "string" || !validStatuses.includes(body.status)) {
+      res.status(400).json({ error: "Invalid assignment status." });
+      return;
+    }
+
+    updates.status = body.status;
+  }
+
+  if (!Object.keys(updates).length) {
+    res.status(400).json({ error: "No assignment changes were provided." });
+    return;
+  }
+
+  updates.updatedAt = new Date();
+
+  const [updated] = await db
+    .update(wellnessAssignmentsTable)
+    .set(updates)
+    .where(eq(wellnessAssignmentsTable.id, assignmentId))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Wellness assignment not found." });
+    return;
+  }
+
+  await recordAudit(
+    req,
+    "updated_wellness_assignment",
+    "wellness_assignment",
+    String(updated.id),
+  );
+
+  res.json(updated);
+});
+
+// Staff: delete a wellness assignment
+router.delete("/wellness-assignments/:id", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+
+  if (
+    !access ||
+    !hasPermission(access, "viewClients") ||
+    !["founder", "manager"].includes(access.role)
+  ) {
+    res.status(403).json({ error: "You do not have permission to delete wellness assignments." });
+    return;
+  }
+
+  const assignmentId = Number(req.params.id);
+
+  if (!Number.isInteger(assignmentId)) {
+    res.status(400).json({ error: "Invalid assignment ID." });
+    return;
+  }
+
+  const [deleted] = await db
+    .delete(wellnessAssignmentsTable)
+    .where(eq(wellnessAssignmentsTable.id, assignmentId))
+    .returning();
+
+  if (!deleted) {
+    res.status(404).json({ error: "Wellness assignment not found." });
+    return;
+  }
+
+  await recordAudit(
+    req,
+    "deleted_wellness_assignment",
+    "wellness_assignment",
+    String(deleted.id),
+  );
+
+  res.json({ success: true });
+});
+
+// Client: view their own wellness assignments
+router.get("/client/wellness-assignments", requireClientAuth, async (req, res): Promise<void> => {
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+
+  if (!Number.isInteger(clientId)) {
+    res.status(401).json({ error: "Client account not found." });
+    return;
+  }
+
+  const assignments = await db
+    .select()
+    .from(wellnessAssignmentsTable)
+    .where(eq(wellnessAssignmentsTable.clientAccountId, clientId))
+    .orderBy(desc(wellnessAssignmentsTable.createdAt));
+
+  res.json(assignments);
+});
+
+// Client: update only their own assignment progress
+router.patch("/client/wellness-assignments/:id", requireClientAuth, async (req, res): Promise<void> => {
+  const clientId = Number((req as RequestWithClientSession).clientSession?.id);
+  const assignmentId = Number(req.params.id);
+
+  if (!Number.isInteger(clientId) || !Number.isInteger(assignmentId)) {
+    res.status(400).json({ error: "Invalid assignment request." });
+    return;
+  }
+
+  const { status } = req.body as {
+    status?: unknown;
+  };
+
+  if (
+    typeof status !== "string" ||
+    !["assigned", "in_progress", "completed"].includes(status)
+  ) {
+    res.status(400).json({ error: "Invalid assignment status." });
+    return;
+  }
+
+  const [updated] = await db
+    .update(wellnessAssignmentsTable)
+    .set({
+      status,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(wellnessAssignmentsTable.id, assignmentId),
+        eq(wellnessAssignmentsTable.clientAccountId, clientId),
+      ),
+    )
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Wellness assignment not found." });
+    return;
+  }
+
   res.json(updated);
 });
 

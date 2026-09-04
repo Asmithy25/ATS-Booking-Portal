@@ -7,6 +7,7 @@ import { customFetch } from "./custom-fetch";
 import type { ErrorType } from "./custom-fetch";
 
 export interface ClientSearchResult {
+  clientAccountId: number | null;
   phone: string;
   clientName: string;
   sessionCount: number;

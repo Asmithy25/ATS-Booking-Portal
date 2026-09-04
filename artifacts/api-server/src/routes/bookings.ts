@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { bookingsTable, sessionFeedbackTable, auditLogsTable } from "@workspace/db";
+import { eq, desc, inArray } from "drizzle-orm";
 import { requirePermission } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 import { validateBookingSlot } from "../lib/scheduling";
@@ -61,12 +61,26 @@ function businessHoursConfirmation(
   };
 }
 
-function serializeBooking(b: typeof bookingsTable.$inferSelect & { isReturningClient?: boolean; previousSessionCount?: number }) {
+export type BookingFeedbackData = {
+  id: number;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+} | null;
+
+function serializeBooking(
+  b: typeof bookingsTable.$inferSelect & {
+    isReturningClient?: boolean;
+    previousSessionCount?: number;
+    feedback?: BookingFeedbackData;
+  },
+) {
   return {
     ...b,
     claimedBy: b.claimedBy ?? null,
     sessionNotes: b.sessionNotes ?? null,
     createdAt: b.createdAt.toISOString(),
+    feedback: b.feedback ?? null,
   };
 }
 
@@ -78,12 +92,28 @@ router.get("/", requirePermission("viewClients"), async (req, res) => {
       .from(bookingsTable)
       .orderBy(desc(bookingsTable.createdAt));
 
+    const feedbacks = await db.select().from(sessionFeedbackTable);
+    const feedbackMap = new Map(
+      feedbacks.map((f) => [
+        f.bookingId,
+        {
+          id: f.id,
+          rating: f.rating,
+          comment: f.comment ?? null,
+          createdAt: f.createdAt.toISOString(),
+        },
+      ]),
+    );
+
     const enriched = all.map((b, idx) => {
       const priorCount = all
         .slice(idx + 1)
         .filter((x) => x.phone === b.phone).length;
       return {
-        ...serializeBooking(b),
+        ...serializeBooking({
+          ...b,
+          feedback: feedbackMap.get(b.id) ?? null,
+        }),
         isReturningClient: priorCount > 0,
         previousSessionCount: priorCount,
       };
@@ -204,6 +234,13 @@ router.get("/confirm/:code", async (req, res) => {
       res.status(404).json({ error: "No booking found with that confirmation code." });
       return;
     }
+
+    const [feedback] = await db
+      .select()
+      .from(sessionFeedbackTable)
+      .where(eq(sessionFeedbackTable.bookingId, booking.id))
+      .limit(1);
+
     // Return limited fields to the public (no sessionNotes, no claimedBy details)
     res.json({
       id: booking.id,
@@ -215,6 +252,14 @@ router.get("/confirm/:code", async (req, res) => {
       preferredTime: booking.preferredTime,
       status: booking.status,
       createdAt: booking.createdAt.toISOString(),
+      feedback: feedback
+        ? {
+            id: feedback.id,
+            rating: feedback.rating,
+            comment: feedback.comment ?? null,
+            createdAt: feedback.createdAt.toISOString(),
+          }
+        : null,
     });
   } catch (err) {
     req.log.error({ err }, "Failed to look up booking by code");
@@ -287,6 +332,20 @@ router.patch("/confirm/:code", async (req, res) => {
       .where(eq(bookingsTable.confirmationCode, code))
       .returning();
 
+    if (!updated) {
+      res.status(404).json({ error: "Booking not found." });
+      return;
+    }
+
+    await recordAudit(
+      req,
+      status === "cancelled"
+        ? "cancelled_booking"
+        : "rescheduled_booking",
+      "booking",
+      String(updated.id),
+    );
+
     res.json({
       id: updated.id,
       confirmationCode: updated.confirmationCode,
@@ -300,6 +359,198 @@ router.patch("/confirm/:code", async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Failed to update booking by code");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// GET /bookings/confirm/:code/feedback - public lookup of feedback by confirmation code
+router.get("/confirm/:code/feedback", async (req, res) => {
+  const code = (req.params.code ?? "").toUpperCase().trim();
+  if (!code) {
+    res.status(400).json({ error: "Confirmation code is required." });
+    return;
+  }
+  try {
+    const [booking] = await db
+      .select({ id: bookingsTable.id, status: bookingsTable.status })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.confirmationCode, code))
+      .limit(1);
+
+    if (!booking) {
+      res.status(404).json({ error: "No booking found with that confirmation code." });
+      return;
+    }
+
+    const [feedback] = await db
+      .select()
+      .from(sessionFeedbackTable)
+      .where(eq(sessionFeedbackTable.bookingId, booking.id))
+      .limit(1);
+
+    res.json({
+      feedback: feedback
+        ? {
+            id: feedback.id,
+            bookingId: feedback.bookingId,
+            confirmationCode: feedback.confirmationCode,
+            rating: feedback.rating,
+            comment: feedback.comment ?? null,
+            createdAt: feedback.createdAt.toISOString(),
+          }
+        : null,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to look up feedback by code");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// GET /bookings/confirm/:code/wellness-assignments - public wellness assignments by confirmation code
+router.get("/confirm/:code/wellness-assignments", async (req, res) => {
+  const code = (req.params.code ?? "").toUpperCase().trim();
+
+  if (!code) {
+    res.status(400).json({ error: "Confirmation code is required." });
+    return;
+  }
+
+  try {
+    const [booking] = await db
+      .select({
+        id: bookingsTable.id,
+        clientAccountId: bookingsTable.clientAccountId,
+      })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.confirmationCode, code))
+      .limit(1);
+
+    if (!booking) {
+      res.status(404).json({ error: "No booking found with that confirmation code." });
+      return;
+    }
+
+    if (!booking.clientAccountId) {
+      res.json([]);
+      return;
+    }
+
+    const assignments = await db
+      .select()
+      .from(wellnessAssignmentsTable)
+      .where(
+        and(
+          eq(wellnessAssignmentsTable.clientAccountId, booking.clientAccountId),
+          // Confirmation codes may access assignments tied to this booking
+          // or client-wide assignments that are not tied to a specific booking.
+          // drizzle's SQL null comparison requires an explicit OR condition,
+          // so this is handled below if needed.
+        ),
+      )
+      .orderBy(desc(wellnessAssignmentsTable.createdAt));
+
+    const visibleAssignments = assignments.filter(
+      (assignment) =>
+        assignment.bookingId === null || assignment.bookingId === booking.id,
+    );
+
+    res.json(visibleAssignments);
+  } catch (err) {
+    req.log.error({ err }, "Failed to look up wellness assignments by code");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// POST /bookings/confirm/:code/feedback - public feedback submission by confirmation code
+router.post("/confirm/:code/feedback", async (req, res) => {
+  const code = (req.params.code ?? "").toUpperCase().trim();
+  if (!code) {
+    res.status(400).json({ error: "Confirmation code is required." });
+    return;
+  }
+
+  const { rating, comment } = req.body as { rating?: unknown; comment?: unknown };
+
+  if (
+    typeof rating !== "number" ||
+    !Number.isInteger(rating) ||
+    rating < 1 ||
+    rating > 5
+  ) {
+    res.status(400).json({ error: "Rating must be a whole number between 1 and 5." });
+    return;
+  }
+
+  if (comment !== undefined && comment !== null && typeof comment !== "string") {
+    res.status(400).json({ error: "Comment must be a text string." });
+    return;
+  }
+
+  try {
+    const [booking] = await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.confirmationCode, code))
+      .limit(1);
+
+    if (!booking) {
+      res.status(404).json({ error: "No booking found with that confirmation code." });
+      return;
+    }
+
+    if (booking.status !== "completed") {
+      res.status(400).json({ error: "Feedback can only be submitted for completed sessions." });
+      return;
+    }
+
+    const [existing] = await db
+      .select({ id: sessionFeedbackTable.id })
+      .from(sessionFeedbackTable)
+      .where(eq(sessionFeedbackTable.bookingId, booking.id))
+      .limit(1);
+
+    if (existing) {
+      res.status(409).json({ error: "Feedback has already been submitted for this session." });
+      return;
+    }
+
+    const trimmedComment =
+      typeof comment === "string" && comment.trim()
+        ? comment.trim().slice(0, 2000)
+        : null;
+
+    const [created] = await db
+      .insert(sessionFeedbackTable)
+      .values({
+        bookingId: booking.id,
+        confirmationCode: booking.confirmationCode,
+        clientAccountId: booking.clientAccountId ?? null,
+        clientName: booking.clientName,
+        rating,
+        comment: trimmedComment,
+      })
+      .returning();
+
+    await db.insert(auditLogsTable).values({
+      actorEmail: "public-client",
+      actorName: booking.clientName,
+      action: "submitted_session_feedback",
+      entityType: "session_feedback",
+      entityId: String(created.id),
+      details: `Rating: ${rating}/5 for booking ${booking.confirmationCode}`,
+    });
+
+    res.status(201).json({
+      id: created.id,
+      bookingId: created.bookingId,
+      confirmationCode: created.confirmationCode,
+      clientName: created.clientName,
+      rating: created.rating,
+      comment: created.comment,
+      createdAt: created.createdAt.toISOString(),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to submit feedback by code");
     res.status(500).json({ error: "Internal server error." });
   }
 });
@@ -459,8 +710,24 @@ router.get("/:id", requirePermission("viewClients"), async (req, res) => {
       (b) => b.createdAt < booking.createdAt,
     ).length;
 
+    const [feedback] = await db
+      .select()
+      .from(sessionFeedbackTable)
+      .where(eq(sessionFeedbackTable.bookingId, booking.id))
+      .limit(1);
+
     res.json({
-      ...serializeBooking(booking),
+      ...serializeBooking({
+        ...booking,
+        feedback: feedback
+          ? {
+              id: feedback.id,
+              rating: feedback.rating,
+              comment: feedback.comment ?? null,
+              createdAt: feedback.createdAt.toISOString(),
+            }
+          : null,
+      }),
       isReturningClient: priorCount > 0,
       previousSessionCount: priorCount,
     });

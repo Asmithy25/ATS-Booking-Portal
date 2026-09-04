@@ -1,7 +1,196 @@
+
+export type WellnessAssignmentData = {
+  id: number;
+  clientAccountId: number;
+  bookingId: number | null;
+  type: "wellness_journey" | "notebook" | "homework";
+  title: string;
+  content: string;
+  dueDate: string | null;
+  status: "assigned" | "in_progress" | "completed";
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function useGetPublicWellnessAssignments(
+  code: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<WellnessAssignmentData[], ErrorType<unknown>, WellnessAssignmentData[]>
+    >;
+  },
+) {
+  return useQuery({
+    queryKey: ["/api/bookings/confirm", code, "wellness-assignments"],
+    queryFn: async () =>
+      customFetch<WellnessAssignmentData[]>(
+        `/api/bookings/confirm/${encodeURIComponent(code)}/wellness-assignments`,
+        {
+          method: "GET",
+        },
+      ),
+    enabled: Boolean(code),
+    ...options?.query,
+  });
+}
+
+export function useGetClientWellnessAssignments(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<WellnessAssignmentData[], ErrorType<unknown>, WellnessAssignmentData[]>
+    >;
+  },
+) {
+  return useQuery({
+    queryKey: ["/api/portal/client/wellness-assignments"],
+    queryFn: async () =>
+      customFetch<WellnessAssignmentData[]>(
+        "/api/portal/client/wellness-assignments",
+        {
+          method: "GET",
+        },
+      ),
+    ...options?.query,
+  });
+}
+
+export function useGetWellnessAssignments(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<WellnessAssignmentData[], ErrorType<unknown>, WellnessAssignmentData[]>
+    >;
+  },
+) {
+  return useQuery({
+    queryKey: ["/api/portal/wellness-assignments"],
+    queryFn: async () =>
+      customFetch<WellnessAssignmentData[]>(
+        "/api/portal/wellness-assignments",
+        {
+          method: "GET",
+        },
+      ),
+    ...options?.query,
+  });
+}
+
+export function useCreateWellnessAssignment(options?: {
+  mutation?: UseMutationOptions<
+    WellnessAssignmentData,
+    ErrorType<unknown>,
+    {
+      clientAccountId: number;
+      bookingId?: number | null;
+      type: WellnessAssignmentData["type"];
+      title: string;
+      content: string;
+      dueDate?: string | null;
+    }
+  >;
+}) {
+  return useMutation({
+    mutationFn: async (body) =>
+      customFetch<WellnessAssignmentData>("/api/portal/wellness-assignments", {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }),
+    ...options?.mutation,
+  });
+}
+
+export function useUpdateWellnessAssignment(options?: {
+  mutation?: UseMutationOptions<
+    WellnessAssignmentData,
+    ErrorType<unknown>,
+    {
+      id: number;
+      type?: WellnessAssignmentData["type"];
+      title?: string;
+      content?: string;
+      dueDate?: string | null;
+      status?: WellnessAssignmentData["status"];
+    }
+  >;
+}) {
+  return useMutation({
+    mutationFn: async ({ id, ...body }) =>
+      customFetch<WellnessAssignmentData>(
+        `/api/portal/wellness-assignments/${id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    ...options?.mutation,
+  });
+}
+
+export function useDeleteWellnessAssignment(options?: {
+  mutation?: UseMutationOptions<
+    { success: boolean },
+    ErrorType<unknown>,
+    number
+  >;
+}) {
+  return useMutation({
+    mutationFn: async (id) =>
+      customFetch<{ success: boolean }>(
+        `/api/portal/wellness-assignments/${id}`,
+        {
+          method: "DELETE",
+        },
+      ),
+    ...options?.mutation,
+  });
+}
+
+export function useUpdateClientWellnessAssignment(options?: {
+  mutation?: UseMutationOptions<
+    WellnessAssignmentData,
+    ErrorType<unknown>,
+    {
+      id: number;
+      status: WellnessAssignmentData["status"];
+    }
+  >;
+}) {
+  return useMutation({
+    mutationFn: async ({ id, status }) =>
+      customFetch<WellnessAssignmentData>(
+        `/api/portal/client/wellness-assignments/${id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    ...options?.mutation,
+  });
+}
+
 import { useMutation, useQuery, type UseMutationOptions, type UseQueryOptions } from "@tanstack/react-query";
 import { customFetch, type ErrorType } from "./custom-fetch";
 
 export type Client = { id: number; email: string; name: string; phone?: string; updatesOptIn?: boolean; createdAt?: string };
+export type SessionFeedbackData = {
+  id: number;
+  bookingId: number;
+  confirmationCode: string;
+  clientName?: string;
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+};
+
 export type ClientBooking = {
   id: number;
   confirmationCode: string;
@@ -12,6 +201,7 @@ export type ClientBooking = {
   preferredTime: string;
   status: string;
   sessionNotes?: string | null;
+  feedback?: SessionFeedbackData | null;
   createdAt: string;
 };
 export type Announcement = {
@@ -56,6 +246,8 @@ export type Analytics = {
   popularDay: string;
   peakHour: string;
   monthly: Array<{ month: string; count: number }>;
+  averageRating?: number | null;
+  totalRatings?: number;
 };
 export type ActivityLog = {
   id: number;
@@ -463,6 +655,58 @@ export function useUpdateCollaboration(options?: {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+    ...options?.mutation,
+  });
+}
+
+export function useSubmitPublicFeedback(options?: {
+  mutation?: UseMutationOptions<
+    SessionFeedbackData,
+    ErrorType<unknown>,
+    { code: string; data: { rating: number; comment?: string } }
+  >;
+}) {
+  return useMutation({
+    mutationFn: ({ code, data }: { code: string; data: { rating: number; comment?: string } }) =>
+      customFetch<SessionFeedbackData>(`/api/bookings/confirm/${encodeURIComponent(code)}/feedback`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    ...options?.mutation,
+  });
+}
+
+export const getPublicFeedbackQueryKey = (code: string) =>
+  [`/api/bookings/confirm/${code}/feedback`] as const;
+
+export function useGetPublicFeedback(
+  code: string,
+  options?: { query?: Partial<UseQueryOptions<{ feedback: SessionFeedbackData | null }, ErrorType<unknown>, { feedback: SessionFeedbackData | null }>> }
+) {
+  return useQuery({
+    queryKey: getPublicFeedbackQueryKey(code),
+    queryFn: () =>
+      customFetch<{ feedback: SessionFeedbackData | null }>(
+        `/api/bookings/confirm/${encodeURIComponent(code)}/feedback`
+      ),
+    enabled: !!code,
+    ...options?.query,
+  });
+}
+
+export function useSubmitClientFeedback(options?: {
+  mutation?: UseMutationOptions<
+    SessionFeedbackData,
+    ErrorType<unknown>,
+    { bookingId: number; data: { rating: number; comment?: string } }
+  >;
+}) {
+  return useMutation({
+    mutationFn: ({ bookingId, data }: { bookingId: number; data: { rating: number; comment?: string } }) =>
+      customFetch<SessionFeedbackData>(`/api/portal/client/bookings/${bookingId}/feedback`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     ...options?.mutation,
   });
 }
