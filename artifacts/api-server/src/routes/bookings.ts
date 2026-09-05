@@ -1,14 +1,22 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { bookingsTable, sessionFeedbackTable, auditLogsTable } from "@workspace/db";
-import { eq, desc, inArray } from "drizzle-orm";
-import { requirePermission } from "../middleware/auth";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import {
+  db,
+  auditLogsTable,
+  bookingsTable,
+  sessionFeedbackTable,
+  wellnessAssignmentsTable,
+} from "@workspace/db";
+import { requirePermission, signPayload, verifyPayload } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 import { validateBookingSlot } from "../lib/scheduling";
 import { generateConfirmationCode } from "../lib/booking-utils";
-import { signPayload, verifyPayload } from "../middleware/auth";
+import { findClientAccountByPhone } from "../lib/client-data-repair";
 
 const router = Router();
+
+const normalizeCode = (value: unknown) => String(value ?? "").toUpperCase().trim();
+const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
 type BusinessHoursChallenge = {
   kind: "booking_business_hours";
@@ -20,39 +28,25 @@ type BusinessHoursChallenge = {
   expiresAt: number;
 };
 
-function issueBusinessHoursChallenge(
-  challenge: Omit<BusinessHoursChallenge, "kind" | "expiresAt">,
-) {
-  return signPayload({
-    ...challenge,
-    kind: "booking_business_hours",
-    expiresAt: Date.now() + 5 * 60 * 1000,
-  });
+function issueBusinessHoursChallenge(challenge: Omit<BusinessHoursChallenge, "kind" | "expiresAt">) {
+  return signPayload({ ...challenge, kind: "booking_business_hours", expiresAt: Date.now() + 5 * 60 * 1000 });
 }
 
-function acceptsBusinessHoursChallenge(
-  token: string | undefined,
-  expected: Omit<BusinessHoursChallenge, "kind" | "expiresAt">,
-) {
+function acceptsBusinessHoursChallenge(token: string | undefined, expected: Omit<BusinessHoursChallenge, "kind" | "expiresAt">) {
   if (!token) return false;
   const payload = verifyPayload(token);
-  if (
-    payload?.kind !== "booking_business_hours" ||
-    payload.action !== expected.action ||
-    payload.staffEmail !== expected.staffEmail ||
-    payload.preferredDate !== expected.preferredDate ||
-    payload.preferredTime !== expected.preferredTime ||
-    (expected.bookingId !== undefined && payload.bookingId !== expected.bookingId)
-  ) {
-    return false;
-  }
-  return Number(payload.expiresAt) > Date.now();
+  return Boolean(
+    payload?.kind === "booking_business_hours" &&
+      payload.action === expected.action &&
+      payload.staffEmail === expected.staffEmail &&
+      payload.preferredDate === expected.preferredDate &&
+      payload.preferredTime === expected.preferredTime &&
+      (expected.bookingId === undefined || payload.bookingId === expected.bookingId) &&
+      Number(payload.expiresAt) > Date.now(),
+  );
 }
 
-function businessHoursConfirmation(
-  slot: { error: string },
-  challenge: Omit<BusinessHoursChallenge, "kind" | "expiresAt">,
-) {
+function businessHoursConfirmation(slot: { error: string }, challenge: Omit<BusinessHoursChallenge, "kind" | "expiresAt">) {
   return {
     error: slot.error,
     code: "BUSINESS_HOURS_CONFIRMATION_REQUIRED",
@@ -61,64 +55,45 @@ function businessHoursConfirmation(
   };
 }
 
-export type BookingFeedbackData = {
-  id: number;
-  rating: number;
-  comment: string | null;
-  createdAt: string;
-} | null;
-
-function serializeBooking(
-  b: typeof bookingsTable.$inferSelect & {
-    isReturningClient?: boolean;
-    previousSessionCount?: number;
-    feedback?: BookingFeedbackData;
-  },
-) {
+function serializeBooking(booking: typeof bookingsTable.$inferSelect, feedback: any = null) {
   return {
-    ...b,
-    claimedBy: b.claimedBy ?? null,
-    sessionNotes: b.sessionNotes ?? null,
-    createdAt: b.createdAt.toISOString(),
-    feedback: b.feedback ?? null,
+    ...booking,
+    claimedBy: booking.claimedBy ?? null,
+    sessionNotes: booking.sessionNotes ?? null,
+    createdAt: booking.createdAt.toISOString(),
+    feedback,
   };
 }
 
-// GET /bookings - list all (staff only)
+async function getFeedback(bookingId: number) {
+  const [feedback] = await db.select().from(sessionFeedbackTable).where(eq(sessionFeedbackTable.bookingId, bookingId)).limit(1);
+  return feedback
+    ? { id: feedback.id, rating: feedback.rating, comment: feedback.comment ?? null, createdAt: feedback.createdAt.toISOString() }
+    : null;
+}
+
+async function createConfirmationCode() {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const code = generateConfirmationCode();
+    const [existing] = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!existing) return code;
+  }
+  throw new Error("Unable to generate a unique confirmation code.");
+}
+
+async function resolveClientAccountId(phone: string) {
+  return (await findClientAccountByPhone(phone))?.id ?? null;
+}
+
 router.get("/", requirePermission("viewClients"), async (req, res) => {
   try {
-    const all = await db
-      .select()
-      .from(bookingsTable)
-      .orderBy(desc(bookingsTable.createdAt));
-
+    const bookings = await db.select().from(bookingsTable).orderBy(desc(bookingsTable.createdAt));
     const feedbacks = await db.select().from(sessionFeedbackTable);
-    const feedbackMap = new Map(
-      feedbacks.map((f) => [
-        f.bookingId,
-        {
-          id: f.id,
-          rating: f.rating,
-          comment: f.comment ?? null,
-          createdAt: f.createdAt.toISOString(),
-        },
-      ]),
-    );
-
-    const enriched = all.map((b, idx) => {
-      const priorCount = all
-        .slice(idx + 1)
-        .filter((x) => x.phone === b.phone).length;
-      return {
-        ...serializeBooking({
-          ...b,
-          feedback: feedbackMap.get(b.id) ?? null,
-        }),
-        isReturningClient: priorCount > 0,
-        previousSessionCount: priorCount,
-      };
+    const feedbackMap = new Map(feedbacks.map((f) => [f.bookingId, { id: f.id, rating: f.rating, comment: f.comment ?? null, createdAt: f.createdAt.toISOString() }]));
+    const enriched = bookings.map((booking, index) => {
+      const previous = bookings.slice(index + 1).filter((item) => normalizePhone(item.phone) === normalizePhone(booking.phone)).length;
+      return { ...serializeBooking(booking, feedbackMap.get(booking.id) ?? null), isReturningClient: previous > 0, previousSessionCount: previous };
     });
-
     res.json(enriched);
   } catch (err) {
     req.log.error({ err }, "Failed to list bookings");
@@ -126,715 +101,186 @@ router.get("/", requirePermission("viewClients"), async (req, res) => {
   }
 });
 
-// POST /bookings - create (public)
 router.post("/", async (req, res) => {
-  const { clientName, phone, reason, preferredDate, preferredTime } =
-    req.body as {
-      clientName: string;
-      phone: string;
-      reason: string;
-      preferredDate: string;
-      preferredTime: string;
-    };
-
+  const { clientName, phone, reason, preferredDate, preferredTime } = req.body as Record<string, string>;
   if (!clientName || !phone || !reason || !preferredDate || !preferredTime) {
     res.status(400).json({ error: "All fields are required." });
     return;
   }
-
   try {
     const slot = await validateBookingSlot(preferredDate, preferredTime);
     if (!slot.ok) {
       res.status(409).json({ error: slot.error });
       return;
     }
-
-    // Generate a unique confirmation code
-    let confirmationCode = generateConfirmationCode();
-    let attempts = 0;
-    while (attempts < 5) {
-      const existing = await db
-        .select({ id: bookingsTable.id })
-        .from(bookingsTable)
-        .where(eq(bookingsTable.confirmationCode, confirmationCode));
-      if (existing.length === 0) break;
-      confirmationCode = generateConfirmationCode();
-      attempts++;
-    }
-
-    const [created] = await db
-      .insert(bookingsTable)
-      .values({
-        confirmationCode,
-        clientName,
-        phone,
-        reason,
-        preferredDate,
-        preferredTime,
-        status: "pending",
-      })
-      .returning();
-
-    const prior = await db
-      .select()
-      .from(bookingsTable)
-      .where(eq(bookingsTable.phone, phone));
-    const priorCount = prior.length - 1;
-
-    res.status(201).json({
-      ...serializeBooking(created),
-      isReturningClient: priorCount > 0,
-      previousSessionCount: priorCount > 0 ? priorCount : 0,
-    });
+    const confirmationCode = await createConfirmationCode();
+    const clientAccountId = await resolveClientAccountId(phone);
+    const [created] = await db.insert(bookingsTable).values({ confirmationCode, clientAccountId, clientName, phone, reason, preferredDate, preferredTime, status: "pending" }).returning();
+    const prior = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.phone, phone));
+    res.status(201).json({ ...serializeBooking(created), isReturningClient: prior.length > 1, previousSessionCount: Math.max(0, prior.length - 1) });
   } catch (err) {
     req.log.error({ err }, "Failed to create booking");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// GET /bookings/stats - stats (staff only) — MUST be before /:id
 router.get("/stats", requirePermission("viewAnalytics"), async (req, res) => {
   try {
     const all = await db.select().from(bookingsTable);
-    const total = all.length;
-    const pending = all.filter((b) => b.status === "pending").length;
-    const claimed = all.filter((b) => b.status === "claimed").length;
-    const completed = all.filter((b) => b.status === "completed").length;
-    const cancelled = all.filter((b) => b.status === "cancelled").length;
-    const noShow = all.filter((b) => b.status === "no_show").length;
-
-    const phoneCounts: Record<string, number> = {};
-    for (const b of all) {
-      phoneCounts[b.phone] = (phoneCounts[b.phone] ?? 0) + 1;
-    }
-    const returningClients = Object.values(phoneCounts).filter(
-      (c) => c > 1,
-    ).length;
-
-    res.json({ total, pending, claimed, completed, cancelled, noShow, returningClients });
+    const counts = Object.fromEntries(["pending", "claimed", "completed", "cancelled", "no_show"].map((status) => [status, all.filter((b) => b.status === status).length]));
+    const phoneCounts = new Map<string, number>();
+    for (const booking of all) phoneCounts.set(normalizePhone(booking.phone), (phoneCounts.get(normalizePhone(booking.phone)) ?? 0) + 1);
+    res.json({ total: all.length, ...counts, returningClients: [...phoneCounts.values()].filter((count) => count > 1).length });
   } catch (err) {
-    req.log.error({ err }, "Failed to get stats");
+    req.log.error({ err }, "Failed to get booking stats");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// GET /bookings/confirm/:code - public lookup by confirmation code
 router.get("/confirm/:code", async (req, res) => {
-  const code = (req.params.code ?? "").toUpperCase().trim();
-  if (!code) {
-    res.status(400).json({ error: "Confirmation code is required." });
-    return;
-  }
+  const code = normalizeCode(req.params.code);
+  if (!code) return res.status(400).json({ error: "Confirmation code is required." });
   try {
-    const [booking] = await db
-      .select()
-      .from(bookingsTable)
-      .where(eq(bookingsTable.confirmationCode, code));
-    if (!booking) {
-      res.status(404).json({ error: "No booking found with that confirmation code." });
-      return;
-    }
-
-    const [feedback] = await db
-      .select()
-      .from(sessionFeedbackTable)
-      .where(eq(sessionFeedbackTable.bookingId, booking.id))
-      .limit(1);
-
-    // Return limited fields to the public (no sessionNotes, no claimedBy details)
-    res.json({
-      id: booking.id,
-      confirmationCode: booking.confirmationCode,
-      clientName: booking.clientName,
-      phone: booking.phone,
-      reason: booking.reason,
-      preferredDate: booking.preferredDate,
-      preferredTime: booking.preferredTime,
-      status: booking.status,
-      createdAt: booking.createdAt.toISOString(),
-      feedback: feedback
-        ? {
-            id: feedback.id,
-            rating: feedback.rating,
-            comment: feedback.comment ?? null,
-            createdAt: feedback.createdAt.toISOString(),
-          }
-        : null,
-    });
+    const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    res.json({ ...serializeBooking(booking, await getFeedback(booking.id)) });
   } catch (err) {
     req.log.error({ err }, "Failed to look up booking by code");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// PATCH /bookings/confirm/:code - public update (reschedule / cancel) — no auth, just code
 router.patch("/confirm/:code", async (req, res) => {
-  const code = (req.params.code ?? "").toUpperCase().trim();
-  if (!code) {
-    res.status(400).json({ error: "Confirmation code is required." });
-    return;
-  }
-
-  const { preferredDate, preferredTime, status } = req.body as {
-    preferredDate?: string;
-    preferredTime?: string;
-    status?: string;
-  };
-
-  // Only allow reschedule (date/time) or cancel
-  const allowedStatuses = ["cancelled"];
-  if (status && !allowedStatuses.includes(status)) {
-    res.status(400).json({ error: "Clients may only cancel a booking." });
-    return;
-  }
-
+  const code = normalizeCode(req.params.code);
+  const { preferredDate, preferredTime, status } = req.body as { preferredDate?: string; preferredTime?: string; status?: string };
+  if (!code) return res.status(400).json({ error: "Confirmation code is required." });
+  if (status && status !== "cancelled") return res.status(400).json({ error: "Clients may only cancel a booking." });
   try {
-    const [existing] = await db
-      .select()
-      .from(bookingsTable)
-      .where(eq(bookingsTable.confirmationCode, code));
-
-    if (!existing) {
-      res.status(404).json({ error: "No booking found with that confirmation code." });
-      return;
-    }
-
-    if (existing.status === "completed" || existing.status === "cancelled") {
-      res.status(400).json({ error: `This booking is already ${existing.status} and cannot be changed.` });
-      return;
-    }
-
+    const [current] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!current) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    if (["completed", "cancelled"].includes(current.status)) return res.status(400).json({ error: `This booking is already ${current.status} and cannot be changed.` });
     if (preferredDate || preferredTime) {
-      const slot = await validateBookingSlot(
-        preferredDate ?? existing.preferredDate,
-        preferredTime ?? existing.preferredTime,
-        { excludeBookingId: existing.id },
-      );
-      if (!slot.ok) {
-        res.status(409).json({ error: slot.error });
-        return;
-      }
+      const slot = await validateBookingSlot(preferredDate ?? current.preferredDate, preferredTime ?? current.preferredTime, { excludeBookingId: current.id });
+      if (!slot.ok) return res.status(409).json({ error: slot.error });
     }
-
     const updates: Partial<typeof bookingsTable.$inferInsert> = {};
     if (preferredDate) updates.preferredDate = preferredDate;
     if (preferredTime) updates.preferredTime = preferredTime;
-    if (status === "cancelled") updates.status = "cancelled";
-
-    if (Object.keys(updates).length === 0) {
-      res.status(400).json({ error: "No valid fields to update." });
-      return;
-    }
-
-    const [updated] = await db
-      .update(bookingsTable)
-      .set(updates)
-      .where(eq(bookingsTable.confirmationCode, code))
-      .returning();
-
-    if (!updated) {
-      res.status(404).json({ error: "Booking not found." });
-      return;
-    }
-
-    await recordAudit(
-      req,
-      status === "cancelled"
-        ? "cancelled_booking"
-        : "rescheduled_booking",
-      "booking",
-      String(updated.id),
-    );
-
-    res.json({
-      id: updated.id,
-      confirmationCode: updated.confirmationCode,
-      clientName: updated.clientName,
-      phone: updated.phone,
-      reason: updated.reason,
-      preferredDate: updated.preferredDate,
-      preferredTime: updated.preferredTime,
-      status: updated.status,
-      createdAt: updated.createdAt.toISOString(),
-    });
+    if (status) updates.status = status;
+    if (!Object.keys(updates).length) return res.status(400).json({ error: "No valid fields to update." });
+    const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, current.id)).returning();
+    await recordAudit(req, status === "cancelled" ? "cancelled_booking" : "rescheduled_booking", "booking", String(updated.id));
+    res.json(serializeBooking(updated));
   } catch (err) {
     req.log.error({ err }, "Failed to update booking by code");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// GET /bookings/confirm/:code/feedback - public lookup of feedback by confirmation code
 router.get("/confirm/:code/feedback", async (req, res) => {
-  const code = (req.params.code ?? "").toUpperCase().trim();
-  if (!code) {
-    res.status(400).json({ error: "Confirmation code is required." });
-    return;
-  }
+  const code = normalizeCode(req.params.code);
   try {
-    const [booking] = await db
-      .select({ id: bookingsTable.id, status: bookingsTable.status })
-      .from(bookingsTable)
-      .where(eq(bookingsTable.confirmationCode, code))
-      .limit(1);
-
-    if (!booking) {
-      res.status(404).json({ error: "No booking found with that confirmation code." });
-      return;
-    }
-
-    const [feedback] = await db
-      .select()
-      .from(sessionFeedbackTable)
-      .where(eq(sessionFeedbackTable.bookingId, booking.id))
-      .limit(1);
-
-    res.json({
-      feedback: feedback
-        ? {
-            id: feedback.id,
-            bookingId: feedback.bookingId,
-            confirmationCode: feedback.confirmationCode,
-            rating: feedback.rating,
-            comment: feedback.comment ?? null,
-            createdAt: feedback.createdAt.toISOString(),
-          }
-        : null,
-    });
+    const [booking] = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    res.json({ feedback: await getFeedback(booking.id) });
   } catch (err) {
-    req.log.error({ err }, "Failed to look up feedback by code");
+    req.log.error({ err }, "Failed to get booking feedback");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// GET /bookings/confirm/:code/wellness-assignments - public wellness assignments by confirmation code
-router.get("/confirm/:code/wellness-assignments", async (req, res) => {
-  const code = (req.params.code ?? "").toUpperCase().trim();
-
-  if (!code) {
-    res.status(400).json({ error: "Confirmation code is required." });
-    return;
-  }
-
-  try {
-    const [booking] = await db
-      .select({
-        id: bookingsTable.id,
-        clientAccountId: bookingsTable.clientAccountId,
-      })
-      .from(bookingsTable)
-      .where(eq(bookingsTable.confirmationCode, code))
-      .limit(1);
-
-    if (!booking) {
-      res.status(404).json({ error: "No booking found with that confirmation code." });
-      return;
-    }
-
-    if (!booking.clientAccountId) {
-      res.json([]);
-      return;
-    }
-
-    const assignments = await db
-      .select()
-      .from(wellnessAssignmentsTable)
-      .where(
-        and(
-          eq(wellnessAssignmentsTable.clientAccountId, booking.clientAccountId),
-          // Confirmation codes may access assignments tied to this booking
-          // or client-wide assignments that are not tied to a specific booking.
-          // drizzle's SQL null comparison requires an explicit OR condition,
-          // so this is handled below if needed.
-        ),
-      )
-      .orderBy(desc(wellnessAssignmentsTable.createdAt));
-
-    const visibleAssignments = assignments.filter(
-      (assignment) =>
-        assignment.bookingId === null || assignment.bookingId === booking.id,
-    );
-
-    res.json(visibleAssignments);
-  } catch (err) {
-    req.log.error({ err }, "Failed to look up wellness assignments by code");
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
-
-// POST /bookings/confirm/:code/feedback - public feedback submission by confirmation code
 router.post("/confirm/:code/feedback", async (req, res) => {
-  const code = (req.params.code ?? "").toUpperCase().trim();
-  if (!code) {
-    res.status(400).json({ error: "Confirmation code is required." });
-    return;
-  }
-
+  const code = normalizeCode(req.params.code);
   const { rating, comment } = req.body as { rating?: unknown; comment?: unknown };
-
-  if (
-    typeof rating !== "number" ||
-    !Number.isInteger(rating) ||
-    rating < 1 ||
-    rating > 5
-  ) {
-    res.status(400).json({ error: "Rating must be a whole number between 1 and 5." });
-    return;
-  }
-
-  if (comment !== undefined && comment !== null && typeof comment !== "string") {
-    res.status(400).json({ error: "Comment must be a text string." });
-    return;
-  }
-
+  if (!Number.isInteger(rating) || Number(rating) < 1 || Number(rating) > 5) return res.status(400).json({ error: "Rating must be a whole number between 1 and 5." });
+  if (comment !== undefined && comment !== null && typeof comment !== "string") return res.status(400).json({ error: "Comment must be a text string." });
   try {
-    const [booking] = await db
-      .select()
-      .from(bookingsTable)
-      .where(eq(bookingsTable.confirmationCode, code))
-      .limit(1);
-
-    if (!booking) {
-      res.status(404).json({ error: "No booking found with that confirmation code." });
-      return;
-    }
-
-    if (booking.status !== "completed") {
-      res.status(400).json({ error: "Feedback can only be submitted for completed sessions." });
-      return;
-    }
-
-    const [existing] = await db
-      .select({ id: sessionFeedbackTable.id })
-      .from(sessionFeedbackTable)
-      .where(eq(sessionFeedbackTable.bookingId, booking.id))
-      .limit(1);
-
-    if (existing) {
-      res.status(409).json({ error: "Feedback has already been submitted for this session." });
-      return;
-    }
-
-    const trimmedComment =
-      typeof comment === "string" && comment.trim()
-        ? comment.trim().slice(0, 2000)
-        : null;
-
-    const [created] = await db
-      .insert(sessionFeedbackTable)
-      .values({
-        bookingId: booking.id,
-        confirmationCode: booking.confirmationCode,
-        clientAccountId: booking.clientAccountId ?? null,
-        clientName: booking.clientName,
-        rating,
-        comment: trimmedComment,
-      })
-      .returning();
-
-    await db.insert(auditLogsTable).values({
-      actorEmail: "public-client",
-      actorName: booking.clientName,
-      action: "submitted_session_feedback",
-      entityType: "session_feedback",
-      entityId: String(created.id),
-      details: `Rating: ${rating}/5 for booking ${booking.confirmationCode}`,
-    });
-
-    res.status(201).json({
-      id: created.id,
-      bookingId: created.bookingId,
-      confirmationCode: created.confirmationCode,
-      clientName: created.clientName,
-      rating: created.rating,
-      comment: created.comment,
-      createdAt: created.createdAt.toISOString(),
-    });
+    const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    if (booking.status !== "completed") return res.status(400).json({ error: "Feedback can only be submitted for completed sessions." });
+    const existing = await getFeedback(booking.id);
+    if (existing) return res.status(409).json({ error: "Feedback has already been submitted for this session." });
+    const [created] = await db.insert(sessionFeedbackTable).values({ bookingId: booking.id, confirmationCode: booking.confirmationCode, clientAccountId: booking.clientAccountId ?? null, clientName: booking.clientName, rating: Number(rating), comment: typeof comment === "string" && comment.trim() ? comment.trim().slice(0, 2000) : null }).returning();
+    await db.insert(auditLogsTable).values({ actorEmail: "public-client", actorName: booking.clientName, action: "submitted_session_feedback", entityType: "session_feedback", entityId: String(created.id), details: `Rating: ${rating}/5 for booking ${booking.confirmationCode}` });
+    res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
   } catch (err) {
-    req.log.error({ err }, "Failed to submit feedback by code");
+    req.log.error({ err }, "Failed to submit feedback");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// POST /bookings/staff - staff-initiated booking (auth required)
-router.post("/staff", requirePermission("editAppointments"), async (req, res) => {
-  const {
-    clientName,
-    phone,
-    reason,
-    preferredDate,
-    preferredTime,
-    status = "claimed",
-    priority = 1,
-    sessionNotes,
-    businessHoursConfirmationToken,
-  } = req.body as {
-    clientName: string;
-    phone: string;
-    reason: string;
-    preferredDate: string;
-    preferredTime: string;
-    status?: string;
-    priority?: number;
-    sessionNotes?: string;
-    businessHoursConfirmationToken?: string;
-  };
-
-  if (!clientName || !phone || !reason || !preferredDate || !preferredTime) {
-    res.status(400).json({ error: "clientName, phone, reason, preferredDate and preferredTime are required." });
-    return;
-  }
-
-  const allowedStatuses = ["pending", "claimed", "completed", "waitlisted"];
-  if (!allowedStatuses.includes(status)) {
-    res.status(400).json({ error: "status must be pending, claimed, completed, or waitlisted." });
-    return;
-  }
-  if (!Number.isInteger(priority) || priority < 0 || priority > 3) {
-    res.status(400).json({ error: "priority must be a whole number from 0 to 3." });
-    return;
-  }
-  if (status !== "waitlisted" && priority !== 1) {
-    res.status(400).json({ error: "Only waitlisted bookings may have a custom priority." });
-    return;
-  }
-
+router.get("/confirm/:code/wellness-assignments", async (req, res) => {
+  const code = normalizeCode(req.params.code);
   try {
-    const staffSession = (req as import("../middleware/auth").RequestWithSession).staffSession;
-    const bypassBusinessHours =
-      status !== "waitlisted" &&
-      acceptsBusinessHoursChallenge(businessHoursConfirmationToken, {
-        action: "create",
-        staffEmail: staffSession?.email ?? "",
-        preferredDate,
-        preferredTime,
-      });
-    const slot = await validateBookingSlot(
-      preferredDate,
-      preferredTime,
-      status === "waitlisted"
-        ? { skipAvailability: true, allowPastDate: true }
-        : { bypassBusinessHours, allowPastDate: true },
-    );
+    const [booking] = await db.select({ id: bookingsTable.id, clientAccountId: bookingsTable.clientAccountId }).from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    if (!booking.clientAccountId) return res.json([]);
+    const assignments = await db.select().from(wellnessAssignmentsTable).where(eq(wellnessAssignmentsTable.clientAccountId, booking.clientAccountId)).orderBy(desc(wellnessAssignmentsTable.createdAt));
+    res.json(assignments.filter((item) => item.bookingId === null || item.bookingId === booking.id));
+  } catch (err) {
+    req.log.error({ err }, "Failed to get wellness assignments");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+router.post("/staff", requirePermission("editAppointments"), async (req, res) => {
+  const { clientName, phone, reason, preferredDate, preferredTime, status = "claimed", priority = 1, sessionNotes, businessHoursConfirmationToken } = req.body as Record<string, any>;
+  if (!clientName || !phone || !reason || !preferredDate || !preferredTime) return res.status(400).json({ error: "clientName, phone, reason, preferredDate and preferredTime are required." });
+  const allowed = ["pending", "claimed", "completed", "waitlisted"];
+  if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid status." });
+  if (!Number.isInteger(priority) || priority < 0 || priority > 3) return res.status(400).json({ error: "priority must be a whole number from 0 to 3." });
+  try {
+    const staffSession = (req as any).staffSession;
+    const bypass = status !== "waitlisted" && acceptsBusinessHoursChallenge(businessHoursConfirmationToken, { action: "create", staffEmail: staffSession?.email ?? "", preferredDate, preferredTime });
+    const slot = await validateBookingSlot(preferredDate, preferredTime, status === "waitlisted" ? { skipAvailability: true, allowPastDate: true } : { bypassBusinessHours: bypass, allowPastDate: true });
     if (!slot.ok) {
-      if (slot.code === "BUSINESS_HOURS" && staffSession) {
-        res.status(409).json(
-          businessHoursConfirmation(slot, {
-            action: "create",
-            staffEmail: staffSession.email,
-            preferredDate,
-            preferredTime,
-          }),
-        );
-        return;
-      }
-      res.status(409).json({ error: slot.error });
-      return;
+      if (slot.code === "BUSINESS_HOURS" && staffSession) return res.status(409).json(businessHoursConfirmation(slot, { action: "create", staffEmail: staffSession.email, preferredDate, preferredTime }));
+      return res.status(409).json({ error: slot.error });
     }
-
-    // Generate unique confirmation code
-    let confirmationCode = generateConfirmationCode();
-    for (let i = 0; i < 5; i++) {
-      const existing = await db
-        .select({ id: bookingsTable.id })
-        .from(bookingsTable)
-        .where(eq(bookingsTable.confirmationCode, confirmationCode));
-      if (existing.length === 0) break;
-      confirmationCode = generateConfirmationCode();
-    }
-
-    const session = (req as import("express").Request & { staffSession?: { email: string; name: string } }).staffSession;
-    const claimedBy = status === "claimed" ? (session?.name ?? null) : null;
-
-    const [created] = await db
-      .insert(bookingsTable)
-      .values({
-        confirmationCode,
-        clientName,
-        phone,
-        reason,
-        preferredDate,
-        preferredTime,
-        status,
-        priority: status === "waitlisted" ? priority : 1,
-        claimedBy,
-        sessionNotes: sessionNotes ?? null,
-      })
-      .returning();
-
-    if (bypassBusinessHours) {
-      await recordAudit(
-        req,
-        "created_booking_outside_business_hours",
-        "booking",
-        String(created.id),
-        `Staff confirmation required for ${preferredDate} at ${preferredTime}.`,
-      );
-    }
-
-    const prior = await db.select().from(bookingsTable).where(eq(bookingsTable.phone, phone));
-    const priorCount = prior.length - 1;
-
-    res.status(201).json({
-      ...serializeBooking(created),
-      isReturningClient: priorCount > 0,
-      previousSessionCount: priorCount > 0 ? priorCount : 0,
-    });
+    const [created] = await db.insert(bookingsTable).values({ confirmationCode: await createConfirmationCode(), clientAccountId: await resolveClientAccountId(phone), clientName, phone, reason, preferredDate, preferredTime, status, priority: status === "waitlisted" ? priority : 1, claimedBy: status === "claimed" ? staffSession?.name ?? null : null, sessionNotes: sessionNotes ?? null }).returning();
+    res.status(201).json(serializeBooking(created));
   } catch (err) {
     req.log.error({ err }, "Failed to create staff booking");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// GET /bookings/:id - single booking (staff only)
 router.get("/:id", requirePermission("viewClients"), async (req, res) => {
-  const id = parseInt(String(req.params.id), 10);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid id." });
-    return;
-  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid id." });
   try {
-    const [booking] = await db
-      .select()
-      .from(bookingsTable)
-      .where(eq(bookingsTable.id, id));
-    if (!booking) {
-      res.status(404).json({ error: "Booking not found." });
-      return;
-    }
-
-    const allForPhone = await db
-      .select()
-      .from(bookingsTable)
-      .where(eq(bookingsTable.phone, booking.phone));
-    const priorCount = allForPhone.filter(
-      (b) => b.createdAt < booking.createdAt,
-    ).length;
-
-    const [feedback] = await db
-      .select()
-      .from(sessionFeedbackTable)
-      .where(eq(sessionFeedbackTable.bookingId, booking.id))
-      .limit(1);
-
-    res.json({
-      ...serializeBooking({
-        ...booking,
-        feedback: feedback
-          ? {
-              id: feedback.id,
-              rating: feedback.rating,
-              comment: feedback.comment ?? null,
-              createdAt: feedback.createdAt.toISOString(),
-            }
-          : null,
-      }),
-      isReturningClient: priorCount > 0,
-      previousSessionCount: priorCount,
-    });
+    const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
+    if (!booking) return res.status(404).json({ error: "Booking not found." });
+    const all = await db.select().from(bookingsTable).where(eq(bookingsTable.phone, booking.phone));
+    const previous = all.filter((item) => item.createdAt < booking.createdAt).length;
+    res.json({ ...serializeBooking(booking, await getFeedback(id)), isReturningClient: previous > 0, previousSessionCount: previous });
   } catch (err) {
     req.log.error({ err }, "Failed to get booking");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// PATCH /bookings/:id - update (staff only)
 router.patch("/:id", requirePermission("editAppointments"), async (req, res) => {
-  const id = parseInt(String(req.params.id), 10);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid id." });
-    return;
-  }
-
-  const {
-    status,
-    priority,
-    claimedBy,
-    sessionNotes,
-    preferredDate,
-    preferredTime,
-    businessHoursConfirmationToken,
-  } =
-    req.body as {
-      status?: string;
-      priority?: number;
-      claimedBy?: string;
-      sessionNotes?: string;
-      preferredDate?: string;
-      preferredTime?: string;
-      businessHoursConfirmationToken?: string;
-    };
-
-  const allowedStatuses = ["pending", "claimed", "completed", "cancelled", "no_show", "waitlisted"];
-  if (status && !allowedStatuses.includes(status)) {
-    res.status(400).json({ error: "Invalid status." });
-    return;
-  }
-  if (priority !== undefined && (!Number.isInteger(priority) || priority < 0 || priority > 3)) {
-    res.status(400).json({ error: "priority must be a whole number from 0 to 3." });
-    return;
-  }
-
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid id." });
+  const { status, priority, claimedBy, sessionNotes, preferredDate, preferredTime, businessHoursConfirmationToken } = req.body as Record<string, any>;
+  const allowed = ["pending", "claimed", "completed", "cancelled", "no_show", "waitlisted"];
+  if (status && !allowed.includes(status)) return res.status(400).json({ error: "Invalid status." });
+  if (priority !== undefined && (!Number.isInteger(priority) || priority < 0 || priority > 3)) return res.status(400).json({ error: "priority must be a whole number from 0 to 3." });
   try {
-    const [current] = await db
-      .select()
-      .from(bookingsTable)
-      .where(eq(bookingsTable.id, id));
-    if (!current) {
-      res.status(404).json({ error: "Booking not found." });
-      return;
-    }
-
-    if (current.status === "waitlisted" && status && status !== "waitlisted" && (!preferredDate || !preferredTime)) {
-      res.status(400).json({ error: "Choose a valid date and time when promoting a waitlisted request." });
-      return;
-    }
-
-    const staffSession = (req as import("../middleware/auth").RequestWithSession).staffSession;
+    const [current] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
+    if (!current) return res.status(404).json({ error: "Booking not found." });
     const requestedDate = preferredDate ?? current.preferredDate;
     const requestedTime = preferredTime ?? current.preferredTime;
-    const bypassBusinessHours = acceptsBusinessHoursChallenge(
-      businessHoursConfirmationToken,
-      {
-        action: "update",
-        staffEmail: staffSession?.email ?? "",
-        bookingId: String(id),
-        preferredDate: requestedDate,
-        preferredTime: requestedTime,
-      },
-    );
-
+    const staffSession = (req as any).staffSession;
+    const bypass = acceptsBusinessHoursChallenge(businessHoursConfirmationToken, { action: "update", staffEmail: staffSession?.email ?? "", bookingId: String(id), preferredDate: requestedDate, preferredTime: requestedTime });
     if (preferredDate || preferredTime) {
-      const slot = await validateBookingSlot(
-        requestedDate,
-        requestedTime,
-        {
-          excludeBookingId: id,
-          // A waitlisted request may be held without a valid slot, but promoting
-          // it into an appointment must pass the same availability checks as
-          // every other staff reschedule.
-          skipAvailability: status === "waitlisted",
-          bypassBusinessHours,
-          allowPastDate: true,
-        },
-      );
+      const slot = await validateBookingSlot(requestedDate, requestedTime, { excludeBookingId: id, skipAvailability: status === "waitlisted", bypassBusinessHours: bypass, allowPastDate: true });
       if (!slot.ok) {
-        if (slot.code === "BUSINESS_HOURS" && staffSession) {
-          res.status(409).json(
-            businessHoursConfirmation(slot, {
-              action: "update",
-              staffEmail: staffSession.email,
-              bookingId: String(id),
-              preferredDate: requestedDate,
-              preferredTime: requestedTime,
-            }),
-          );
-          return;
-        }
-        res.status(409).json({ error: slot.error });
-        return;
+        if (slot.code === "BUSINESS_HOURS" && staffSession) return res.status(409).json(businessHoursConfirmation(slot, { action: "update", staffEmail: staffSession.email, bookingId: String(id), preferredDate: requestedDate, preferredTime: requestedTime }));
+        return res.status(409).json({ error: slot.error });
       }
     }
-
     const updates: Partial<typeof bookingsTable.$inferInsert> = {};
     if (status) updates.status = status;
     if (priority !== undefined) updates.priority = status === "waitlisted" || current.status === "waitlisted" ? priority : 1;
@@ -842,73 +288,22 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
     if (sessionNotes !== undefined) updates.sessionNotes = sessionNotes;
     if (preferredDate) updates.preferredDate = preferredDate;
     if (preferredTime) updates.preferredTime = preferredTime;
-
-    const [updated] = await db
-      .update(bookingsTable)
-      .set(updates)
-      .where(eq(bookingsTable.id, id))
-      .returning();
-
-    if (!updated) {
-      res.status(404).json({ error: "Booking not found." });
-      return;
-    }
-
-    await recordAudit(
-      req,
-      bypassBusinessHours
-        ? "rescheduled_booking_outside_business_hours"
-        : status
-          ? `booking_status_${status}`
-          : preferredDate || preferredTime
-            ? "rescheduled_booking"
-            : "updated_booking",
-      "booking",
-      String(updated.id),
-      bypassBusinessHours
-        ? `Staff confirmation required for ${requestedDate} at ${requestedTime}.`
-        : sessionNotes !== undefined
-          ? "Updated session notes"
-          : undefined,
-    );
-
-    const allForPhone = await db
-      .select()
-      .from(bookingsTable)
-      .where(eq(bookingsTable.phone, updated.phone));
-    const priorCount = allForPhone.filter(
-      (b) => b.createdAt < updated.createdAt,
-    ).length;
-
-    res.json({
-      ...serializeBooking(updated),
-      isReturningClient: priorCount > 0,
-      previousSessionCount: priorCount,
-    });
+    const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, id)).returning();
+    await recordAudit(req, status ? `booking_status_${status}` : preferredDate || preferredTime ? "rescheduled_booking" : "updated_booking", "booking", String(id));
+    res.json({ ...serializeBooking(updated, await getFeedback(id)) });
   } catch (err) {
     req.log.error({ err }, "Failed to update booking");
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// DELETE /bookings/:id - delete (staff only)
 router.delete("/:id", requirePermission("editAppointments"), async (req, res) => {
-  const id = parseInt(String(req.params.id), 10);
-  if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid id." });
-    return;
-  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid id." });
   try {
-    const [deleted] = await db
-      .delete(bookingsTable)
-      .where(eq(bookingsTable.id, id))
-      .returning();
-    if (!deleted) {
-      res.status(404).json({ error: "Booking not found." });
-      return;
-    }
-
-    await recordAudit(req, "deleted_booking", "booking", String(deleted.id));
+    const [deleted] = await db.delete(bookingsTable).where(eq(bookingsTable.id, id)).returning();
+    if (!deleted) return res.status(404).json({ error: "Booking not found." });
+    await recordAudit(req, "deleted_booking", "booking", String(id));
     res.json({ message: "Booking deleted." });
   } catch (err) {
     req.log.error({ err }, "Failed to delete booking");
