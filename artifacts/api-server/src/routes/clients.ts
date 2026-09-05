@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, bookingsTable, sessionFeedbackTable } from "@workspace/db";
+import { db, bookingsTable, clientAccountsTable, sessionFeedbackTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requirePermission } from "../middleware/auth";
 
@@ -15,6 +15,7 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
 
   try {
     const all = await db.select().from(bookingsTable).orderBy(asc(bookingsTable.createdAt));
+    const accounts = await db.select().from(clientAccountsTable);
     const allFeedback = await db.select().from(sessionFeedbackTable);
     const feedbackMap = new Map(
       allFeedback.map((f) => [
@@ -41,21 +42,28 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
       byPhone.set(booking.phone, existing);
     }
 
-    const clients = [...byPhone.entries()].map(([phone, bookings]) => ({
-      clientAccountId: bookings[bookings.length - 1]?.clientAccountId ?? null,
-      phone,
-      clientName: bookings[bookings.length - 1]?.clientName ?? "",
-      sessionCount: bookings.length,
-      bookings: bookings.map((b, idx) => ({
-        ...b,
-        claimedBy: b.claimedBy ?? null,
-        sessionNotes: b.sessionNotes ?? null,
-        feedback: feedbackMap.get(b.id) ?? null,
-        isReturningClient: idx > 0,
-        previousSessionCount: idx,
-        createdAt: b.createdAt.toISOString(),
-      })),
-    }));
+    const clients = [...byPhone.entries()].map(([phone, bookings]) => {
+      const latestBooking = bookings[bookings.length - 1];
+      const linkedAccountId = bookings.find((booking) => booking.clientAccountId !== null)?.clientAccountId ?? null;
+      const accountByPhone = accounts.find((account) => account.phone === phone);
+      const clientAccountId = linkedAccountId ?? accountByPhone?.id ?? null;
+
+      return {
+        clientAccountId,
+        phone,
+        clientName: latestBooking?.clientName ?? accountByPhone?.name ?? "",
+        sessionCount: bookings.length,
+        bookings: bookings.map((b, idx) => ({
+          ...b,
+          claimedBy: b.claimedBy ?? null,
+          sessionNotes: b.sessionNotes ?? null,
+          feedback: feedbackMap.get(b.id) ?? null,
+          isReturningClient: idx > 0,
+          previousSessionCount: idx,
+          createdAt: b.createdAt.toISOString(),
+        })),
+      };
+    });
 
     res.json({ clients });
   } catch (err) {
