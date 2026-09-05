@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   db,
   bookingsTable,
@@ -14,8 +14,7 @@ export function normalizePhone(value: string) {
 /**
  * Repairs relationships created by older imports and older booking flows.
  * Phone numbers are the stable client identity used by the booking system.
- * This is intentionally idempotent and safe to run after every client login
- * or staff client lookup.
+ * This is intentionally idempotent and safe to run after every client login.
  */
 export async function repairClientData(clientAccountId: number, phone: string) {
   const normalized = normalizePhone(phone);
@@ -37,10 +36,7 @@ export async function repairClientData(clientAccountId: number, phone: string) {
     (booking) => bookingIds.includes(booking.id) && booking.clientAccountId !== clientAccountId,
   );
   for (const booking of orphanedBookings) {
-    await db
-      .update(bookingsTable)
-      .set({ clientAccountId })
-      .where(eq(bookingsTable.id, booking.id));
+    await db.update(bookingsTable).set({ clientAccountId }).where(eq(bookingsTable.id, booking.id));
   }
 
   const assignments = await db
@@ -67,10 +63,7 @@ export async function repairClientData(clientAccountId: number, phone: string) {
   let repairedFeedback = 0;
   for (const item of feedback) {
     if (item.clientAccountId !== clientAccountId) {
-      await db
-        .update(sessionFeedbackTable)
-        .set({ clientAccountId })
-        .where(eq(sessionFeedbackTable.id, item.id));
+      await db.update(sessionFeedbackTable).set({ clientAccountId }).where(eq(sessionFeedbackTable.id, item.id));
       repairedFeedback += 1;
     }
   }
@@ -107,10 +100,5 @@ export async function repairAllKnownClientLinks() {
     repairedFeedback += result.repairedFeedback;
   }
 
-  return {
-    accountsChecked: accounts.length,
-    repairedBookings,
-    repairedAssignments,
-    repairedFeedback,
-  };
+  return { accountsChecked: accounts.length, repairedBookings, repairedAssignments, repairedFeedback };
 }
