@@ -207,8 +207,9 @@ export default function Wellness() {
                 <Input
                   value={clientSearch}
                   onChange={(event) => setClientSearch(event.target.value)}
-                  placeholder="Search clients by name..."
+                  placeholder="Search by client name, confirmation code, or phone..."
                   className="mb-2"
+                  aria-label="Search clients by name, confirmation code, or phone number"
                 />
 
                 <Select value={clientId} onValueChange={setClientId}>
@@ -216,16 +217,18 @@ export default function Wellness() {
                     <SelectValue placeholder="Choose a client…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients
-                      .filter((client) => client.clientAccountId !== null)
-                      .map((client) => (
+                    {clients.map((client) => {
+                      const latestBooking = client.bookings?.[client.bookings.length - 1];
+                      return (
                         <SelectItem
                           key={client.clientAccountId}
                           value={String(client.clientAccountId)}
                         >
                           {client.clientName} — {client.phone}
+                          {latestBooking?.confirmationCode ? ` — ${latestBooking.confirmationCode}` : ''}
                         </SelectItem>
-                      ))}
+                      );
+                    })}
                   </SelectContent>
                 </Select>
 
