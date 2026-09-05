@@ -87,11 +87,7 @@ async function exportBackup(scope: BackupScope): Promise<BackupPayload> {
   for (const tableName of SCOPE_TABLES[scope]) {
     const table = TABLES[tableName as keyof typeof TABLES] as any;
     const rows = await db.select().from(table).orderBy(asc(table.id));
-    tables[tableName] = rows.map((row: BackupRow) => {
-      const copy = { ...row };
-      delete copy.passwordHash;
-      return copy;
-    });
+    tables[tableName] = rows.map((row: BackupRow) => { const copy = { ...row }; delete copy.passwordHash; return copy; });
     counts[tableName] = rows.length;
   }
   return { format: "ayden-therapy-backup", version: 1, scope, exportedAt: new Date().toISOString(), tables, counts };
@@ -100,17 +96,15 @@ async function exportBackup(scope: BackupScope): Promise<BackupPayload> {
 async function upsertRowsById(tx: any, table: any, rows: BackupRow[]) {
   let count = 0;
   for (const row of rows) {
-    if (row.id === undefined) await tx.insert(table).values(row);
-    else await tx.insert(table).values(row).onConflictDoUpdate({ target: table.id, set: withoutId(row) });
+    if (row.id === undefined) await tx.insert(table).values(row as any);
+    else await tx.insert(table).values(row as any).onConflictDoUpdate({ target: table.id, set: withoutId(row) });
     count += 1;
   }
   return count;
 }
 
 async function resetSequences(tx: any, tableNames: readonly string[]) {
-  for (const tableName of tableNames) {
-    await tx.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('${tableName}', 'id'), COALESCE((SELECT MAX(id) FROM "${tableName}"), 1), (SELECT MAX(id) IS NOT NULL FROM "${tableName}"))`));
-  }
+  for (const tableName of tableNames) await tx.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('${tableName}', 'id'), COALESCE((SELECT MAX(id) FROM "${tableName}"), 1), (SELECT MAX(id) IS NOT NULL FROM "${tableName}"))`));
 }
 
 async function importBackup(payload: BackupPayload) {
@@ -126,8 +120,8 @@ async function importBackup(payload: BackupPayload) {
     if (rowsByTable.settings?.length) {
       const [current] = await tx.select().from(settingsTable).orderBy(asc(settingsTable.id)).limit(1);
       const values = withoutId(rowsByTable.settings[0]);
-      if (current) await tx.update(settingsTable).set(values).where(eq(settingsTable.id, current.id));
-      else await tx.insert(settingsTable).values(values);
+      if (current) await tx.update(settingsTable).set(values as any).where(eq(settingsTable.id, current.id));
+      else await tx.insert(settingsTable).values(values as any);
       imported.settings = 1;
     }
 
@@ -152,9 +146,8 @@ async function importBackup(payload: BackupPayload) {
       if (typeof row.email !== "string" || !row.email.trim()) throw new Error("Every staff account must include an email address.");
       const email = row.email.trim().toLowerCase();
       const [existing] = await tx.select({ id: staffAccountsTable.id }).from(staffAccountsTable).where(eq(staffAccountsTable.email, email)).limit(1);
-      if (existing) {
-        await tx.update(staffAccountsTable).set(withoutKeys({ ...row, email }, ["id", "email"]) as any).where(eq(staffAccountsTable.id, existing.id));
-      } else {
+      if (existing) await tx.update(staffAccountsTable).set(withoutKeys({ ...row, email }, ["id", "email"]) as any).where(eq(staffAccountsTable.id, existing.id));
+      else {
         await tx.insert(staffAccountsTable).values({ ...withoutKeys({ ...row, email }, ["id", "email"]), email, passwordHash: hashPassword(crypto.randomBytes(32).toString("hex")) } as any);
         warnings.push(`Staff account ${email} was restored without its password.`);
       }
@@ -180,7 +173,7 @@ async function importBackup(payload: BackupPayload) {
         id = existing.id;
         await tx.update(bookingsTable).set(withoutKeys(bookingRow, ["id", "confirmationCode"]) as any).where(eq(bookingsTable.id, id));
       } else {
-        const [created] = await tx.insert(bookingsTable).values(bookingRow).returning({ id: bookingsTable.id });
+        const [created] = await tx.insert(bookingsTable).values(bookingRow as any).returning({ id: bookingsTable.id });
         id = created.id;
       }
       if (typeof row.id === "number") bookingIdMap.set(row.id, id);
@@ -195,24 +188,14 @@ async function importBackup(payload: BackupPayload) {
     });
 
     const idTables: Array<[string, any, string[], string[]]> = [
-      ["announcements", announcementsTable, [], []],
-      ["auditLogs", auditLogsTable, [], []],
-      ["supportThreads", supportThreadsTable, ["clientAccountId"], []],
-      ["supportMessages", supportMessagesTable, [], []],
-      ["wellnessResources", wellnessResourcesTable, [], []],
-      ["wellnessAssignments", wellnessAssignmentsTable, ["clientAccountId"], ["bookingId"]],
-      ["collaborationItems", collaborationItemsTable, [], []],
-      ["clientNotifications", clientNotificationsTable, ["clientAccountId"], []],
-      ["sessionFeedback", sessionFeedbackTable, ["clientAccountId"], ["bookingId"]],
+      ["announcements", announcementsTable, [], []], ["auditLogs", auditLogsTable, [], []], ["supportThreads", supportThreadsTable, ["clientAccountId"], []], ["supportMessages", supportMessagesTable, [], []], ["wellnessResources", wellnessResourcesTable, [], []], ["wellnessAssignments", wellnessAssignmentsTable, ["clientAccountId"], ["bookingId"]], ["collaborationItems", collaborationItemsTable, [], []], ["clientNotifications", clientNotificationsTable, ["clientAccountId"], []], ["sessionFeedback", sessionFeedbackTable, ["clientAccountId"], ["bookingId"]],
     ];
-    for (const [name, table, clientFields, bookingFields] of idTables) {
-      if (rowsByTable[name]?.length) imported[name] = await upsertRowsById(tx, table, remapLinkedRows(rowsByTable[name], clientFields, bookingFields));
-    }
+    for (const [name, table, clientFields, bookingFields] of idTables) if (rowsByTable[name]?.length) imported[name] = await upsertRowsById(tx, table, remapLinkedRows(rowsByTable[name], clientFields, bookingFields));
 
     for (const [name, table] of [["messageTemplates", messageTemplatesTable], ["clientTemplates", clientTemplatesTable]] as const) {
       for (const row of rowsByTable[name] ?? []) {
         if (typeof row.key !== "string" || !row.key.trim()) throw new Error(`Every ${name} record must include a key.`);
-        await tx.insert(table).values(row).onConflictDoUpdate({ target: table.key, set: withoutKeys(row, ["id", "key"]) });
+        await tx.insert(table).values(row as any).onConflictDoUpdate({ target: table.key, set: withoutKeys(row, ["id", "key"]) as any });
         imported[name] = (imported[name] ?? 0) + 1;
       }
     }
