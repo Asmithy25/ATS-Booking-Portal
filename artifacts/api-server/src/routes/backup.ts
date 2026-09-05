@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asc, eq, sql } from "drizzle-orm";
+import crypto from "crypto";
 import {
   db,
   settingsTable,
@@ -11,12 +12,14 @@ import {
   supportThreadsTable,
   supportMessagesTable,
   wellnessResourcesTable,
+  wellnessAssignmentsTable,
   messageTemplatesTable,
   collaborationItemsTable,
   clientTemplatesTable,
   clientNotificationsTable,
+  sessionFeedbackTable,
 } from "@workspace/db";
-import { requireAdminAuth } from "../middleware/auth";
+import { requireAdminAuth, hashPassword } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 
 const router = Router();
@@ -42,10 +45,12 @@ const TABLES = {
   supportThreads: supportThreadsTable,
   supportMessages: supportMessagesTable,
   wellnessResources: wellnessResourcesTable,
+  wellnessAssignments: wellnessAssignmentsTable,
   messageTemplates: messageTemplatesTable,
   collaborationItems: collaborationItemsTable,
   clientTemplates: clientTemplatesTable,
   clientNotifications: clientNotificationsTable,
+  sessionFeedback: sessionFeedbackTable,
 } as const;
 
 const SCOPE_TABLES: Record<BackupScope, readonly string[]> = {
@@ -60,10 +65,12 @@ const SCOPE_TABLES: Record<BackupScope, readonly string[]> = {
     "supportThreads",
     "supportMessages",
     "wellnessResources",
+    "wellnessAssignments",
     "messageTemplates",
     "collaborationItems",
     "clientTemplates",
     "clientNotifications",
+    "sessionFeedback",
   ],
   everything: Object.keys(TABLES),
 };
@@ -78,10 +85,12 @@ const DATE_FIELDS: Record<string, readonly string[]> = {
   supportThreads: ["createdAt", "updatedAt"],
   supportMessages: ["createdAt"],
   wellnessResources: ["createdAt"],
+  wellnessAssignments: ["createdAt", "updatedAt"],
   messageTemplates: ["updatedAt"],
   collaborationItems: ["createdAt", "updatedAt"],
   clientTemplates: ["updatedAt"],
   clientNotifications: ["createdAt"],
+  sessionFeedback: ["createdAt"],
 };
 
 const SERIAL_TABLES = [
@@ -94,10 +103,12 @@ const SERIAL_TABLES = [
   "supportThreads",
   "supportMessages",
   "wellnessResources",
+  "wellnessAssignments",
   "messageTemplates",
   "collaborationItems",
   "clientTemplates",
   "clientNotifications",
+  "sessionFeedback",
 ] as const;
 
 function isBackupScope(value: unknown): value is BackupScope {
@@ -213,6 +224,7 @@ async function importBackup(payload: BackupPayload) {
   const skipped: Record<string, number> = {};
   const warnings: string[] = [];
   const rowsByTable: Record<string, BackupRow[]> = {};
+  const clientIdMap = new Map<number, number>();
 
   for (const tableName of SCOPE_TABLES[payload.scope]) {
     rowsByTable[tableName] = projectRows(tableName, tables[tableName] ?? []);
@@ -239,21 +251,42 @@ async function importBackup(payload: BackupPayload) {
         if (typeof row.email !== "string" || !row.email.trim()) {
           throw new Error("Every client account must include an email address.");
         }
-        const [existing] = await tx.select({ id: clientAccountsTable.id })
+        const email = row.email.toLowerCase().trim();
+        const [existingByEmail] = await tx.select({ id: clientAccountsTable.id })
           .from(clientAccountsTable)
-          .where(eq(clientAccountsTable.email, row.email))
+          .where(eq(clientAccountsTable.email, email))
           .limit(1);
-        if (!existing) {
-          skipped.clientAccounts = (skipped.clientAccounts ?? 0) + 1;
-          continue;
+
+        let clientId: number;
+        if (existingByEmail) {
+          clientId = existingByEmail.id;
+          await tx.update(clientAccountsTable)
+            .set(withoutKeys({ ...row, email }, ["id", "email"]) as any)
+            .where(eq(clientAccountsTable.id, clientId));
+        } else {
+          const sourceId = typeof row.id === "number" ? row.id : null;
+          const [existingById] = sourceId
+            ? await tx.select({ id: clientAccountsTable.id }).from(clientAccountsTable).where(eq(clientAccountsTable.id, sourceId)).limit(1)
+            : [];
+
+          const values = {
+            ...withoutKeys({ ...row, email }, ["id", "email"]),
+            email,
+            passwordHash: hashPassword(crypto.randomBytes(32).toString("hex")),
+          } as any;
+
+          if (sourceId && !existingById) {
+            const [created] = await tx.insert(clientAccountsTable).values({ ...values, id: sourceId }).returning({ id: clientAccountsTable.id });
+            clientId = created.id;
+          } else {
+            const [created] = await tx.insert(clientAccountsTable).values(values).returning({ id: clientAccountsTable.id });
+            clientId = created.id;
+          }
+          warnings.push(`Client account ${email} was restored as a profile. Its password was not restored because backup files never contain passwords.`);
         }
-        await tx.update(clientAccountsTable)
-          .set(withoutKeys(row, ["id", "email"]) as any)
-          .where(eq(clientAccountsTable.id, existing.id));
+
+        if (typeof row.id === "number") clientIdMap.set(row.id, clientId);
         imported.clientAccounts = (imported.clientAccounts ?? 0) + 1;
-      }
-      if (skipped.clientAccounts) {
-        warnings.push("New client login accounts were not created because backups never contain passwords. Existing profiles were merged by email.");
       }
     }
 
@@ -262,47 +295,59 @@ async function importBackup(payload: BackupPayload) {
         if (typeof row.email !== "string" || !row.email.trim()) {
           throw new Error("Every staff account must include an email address.");
         }
+        const email = row.email.toLowerCase().trim();
         const [existing] = await tx.select({ id: staffAccountsTable.id })
           .from(staffAccountsTable)
-          .where(eq(staffAccountsTable.email, row.email))
+          .where(eq(staffAccountsTable.email, email))
           .limit(1);
-        if (!existing) {
-          skipped.staffAccounts = (skipped.staffAccounts ?? 0) + 1;
+        if (existing) {
+          await tx.update(staffAccountsTable)
+            .set(withoutKeys({ ...row, email }, ["id", "email"]) as any)
+            .where(eq(staffAccountsTable.id, existing.id));
+          imported.staffAccounts = (imported.staffAccounts ?? 0) + 1;
           continue;
         }
-        await tx.update(staffAccountsTable)
-          .set(withoutKeys(row, ["id", "email"]) as any)
-          .where(eq(staffAccountsTable.id, existing.id));
+        const values = {
+          ...withoutKeys({ ...row, email }, ["id", "email"]),
+          email,
+          passwordHash: hashPassword(crypto.randomBytes(32).toString("hex")),
+        } as any;
+        const sourceId = typeof row.id === "number" ? row.id : null;
+        const [existingById] = sourceId
+          ? await tx.select({ id: staffAccountsTable.id }).from(staffAccountsTable).where(eq(staffAccountsTable.id, sourceId)).limit(1)
+          : [];
+        if (sourceId && !existingById) {
+          await tx.insert(staffAccountsTable).values({ ...values, id: sourceId });
+        } else {
+          await tx.insert(staffAccountsTable).values(values);
+        }
         imported.staffAccounts = (imported.staffAccounts ?? 0) + 1;
-      }
-      if (skipped.staffAccounts) {
-        warnings.push("New staff login accounts were not created because backups never contain passwords. Existing profiles were merged by email.");
+        warnings.push(`Staff account ${email} was restored without its password because backup files never contain passwords.`);
       }
     }
+
+    const resolveClientId = async (sourceId: unknown, phone: unknown) => {
+      if (typeof sourceId === "number") {
+        const mapped = clientIdMap.get(sourceId);
+        if (mapped) return mapped;
+      }
+      if (typeof phone === "string" && phone.trim()) {
+        const normalized = normalizePhone(phone);
+        if (normalized) {
+          const accounts = await tx.select({ id: clientAccountsTable.id, phone: clientAccountsTable.phone }).from(clientAccountsTable);
+          const match = accounts.find((account) => normalizePhone(account.phone) === normalized);
+          if (match) return match.id;
+        }
+      }
+      return null;
+    };
 
     if (rowsByTable.bookings?.length) {
       for (const row of rowsByTable.bookings) {
         if (typeof row.confirmationCode !== "string" || !row.confirmationCode.trim()) {
           throw new Error("Every booking must include a confirmation code.");
         }
-
-        let clientAccountId = typeof row.clientAccountId === "number" ? row.clientAccountId : null;
-        if (clientAccountId !== null) {
-          const [account] = await tx.select({ id: clientAccountsTable.id })
-            .from(clientAccountsTable)
-            .where(eq(clientAccountsTable.id, clientAccountId))
-            .limit(1);
-          if (!account) clientAccountId = null;
-        }
-
-        if (clientAccountId === null && typeof row.phone === "string" && row.phone.trim()) {
-          const normalizedPhone = normalizePhone(row.phone);
-          const accounts = await tx.select({ id: clientAccountsTable.id, phone: clientAccountsTable.phone })
-            .from(clientAccountsTable);
-          const account = accounts.find((candidate) => normalizePhone(candidate.phone) === normalizedPhone);
-          if (account) clientAccountId = account.id;
-        }
-
+        const clientAccountId = await resolveClientId(row.clientAccountId, row.phone);
         const bookingRow = { ...row, clientAccountId };
         const [existing] = await tx.select({ id: bookingsTable.id })
           .from(bookingsTable)
@@ -319,18 +364,31 @@ async function importBackup(payload: BackupPayload) {
       }
     }
 
+    const remappedRows = (rows: BackupRow[], fields: string[]) => rows.map((row) => {
+      const copy = { ...row };
+      for (const field of fields) {
+        if (typeof copy[field] === "number") {
+          const mapped = clientIdMap.get(copy[field] as number);
+          if (mapped) copy[field] = mapped;
+        }
+      }
+      return copy;
+    });
+
     const idTables = [
-      ["announcements", announcementsTable],
-      ["auditLogs", auditLogsTable],
-      ["supportThreads", supportThreadsTable],
-      ["supportMessages", supportMessagesTable],
-      ["wellnessResources", wellnessResourcesTable],
-      ["collaborationItems", collaborationItemsTable],
-      ["clientNotifications", clientNotificationsTable],
+      ["announcements", announcementsTable, []],
+      ["auditLogs", auditLogsTable, []],
+      ["supportThreads", supportThreadsTable, ["clientAccountId"]],
+      ["supportMessages", supportMessagesTable, []],
+      ["wellnessResources", wellnessResourcesTable, []],
+      ["wellnessAssignments", wellnessAssignmentsTable, ["clientAccountId"]],
+      ["collaborationItems", collaborationItemsTable, []],
+      ["clientNotifications", clientNotificationsTable, ["clientAccountId"]],
+      ["sessionFeedback", sessionFeedbackTable, ["clientAccountId"]],
     ] as const;
-    for (const [tableName, table] of idTables) {
+    for (const [tableName, table, fields] of idTables) {
       if (rowsByTable[tableName]?.length) {
-        imported[tableName] = await upsertRowsById(tx, table, rowsByTable[tableName]);
+        imported[tableName] = await upsertRowsById(tx, table, remappedRows(rowsByTable[tableName], fields),);
       }
     }
 
@@ -349,6 +407,13 @@ async function importBackup(payload: BackupPayload) {
         });
         imported[tableName] = (imported[tableName] ?? 0) + 1;
       }
+    }
+
+    if (rowsByTable.bookings?.length === 0 && (payload.scope === "site-data" || payload.scope === "everything")) {
+      warnings.push("This backup contains no bookings, so there were no appointments to restore from it.");
+    }
+    if (rowsByTable.wellnessAssignments?.length === 0 && (payload.scope === "site-data" || payload.scope === "everything")) {
+      warnings.push("This backup contains no wellness assignments, so no Wellness Journey assignments could be restored from it.");
     }
 
     await resetSequences(tx, SCOPE_TABLES[payload.scope].filter((name) => SERIAL_TABLES.includes(name as typeof SERIAL_TABLES[number])));
