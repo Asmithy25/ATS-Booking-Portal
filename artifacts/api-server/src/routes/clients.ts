@@ -5,7 +5,9 @@ import { requirePermission } from "../middleware/auth";
 
 const router = Router();
 
-// GET /clients/search?q=... - search by name, phone, or confirmation code
+const normalizePhone = (value: string) => value.replace(/\D/g, "");
+
+// GET /clients/search?q=... - search by name, phone, confirmation code/number, or client account
 router.get("/search", requirePermission("viewClients"), async (req, res) => {
   const query = String(req.query.q ?? "").trim().toLowerCase();
   if (query.length < 2) {
@@ -29,41 +31,56 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
       ]),
     );
 
+    const normalizedQueryPhone = normalizePhone(query);
+    const matchingAccounts = accounts.filter((account) =>
+      account.name.toLowerCase().includes(query) ||
+      account.email.toLowerCase().includes(query) ||
+      account.phone.toLowerCase().includes(query) ||
+      (normalizedQueryPhone.length >= 2 && normalizePhone(account.phone).includes(normalizedQueryPhone)),
+    );
+
     const matches = all.filter((booking) =>
       booking.clientName.toLowerCase().includes(query) ||
       booking.phone.toLowerCase().includes(query) ||
-      booking.confirmationCode.toLowerCase() === query.toUpperCase(),
+      (normalizedQueryPhone.length >= 2 && normalizePhone(booking.phone).includes(normalizedQueryPhone)) ||
+      booking.confirmationCode.toLowerCase().includes(query),
     );
 
-    const byPhone = new Map<string, typeof all>();
-    for (const booking of matches) {
-      const existing = byPhone.get(booking.phone) ?? [];
-      existing.push(...all.filter((candidate) => candidate.phone === booking.phone && !existing.some((item) => item.id === candidate.id)));
-      byPhone.set(booking.phone, existing);
+    const phones = new Set<string>(matches.map((booking) => normalizePhone(booking.phone)));
+    for (const account of matchingAccounts) {
+      phones.add(normalizePhone(account.phone));
     }
 
-    const clients = [...byPhone.entries()].map(([phone, bookings]) => {
-      const latestBooking = bookings[bookings.length - 1];
-      const linkedAccountId = bookings.find((booking) => booking.clientAccountId !== null)?.clientAccountId ?? null;
-      const accountByPhone = accounts.find((account) => account.phone === phone);
-      const clientAccountId = linkedAccountId ?? accountByPhone?.id ?? null;
+    const byPhone = new Map<string, typeof all>();
+    for (const phone of phones) {
+      const bookings = all.filter((booking) => normalizePhone(booking.phone) === phone);
+      byPhone.set(phone, bookings);
+    }
 
-      return {
-        clientAccountId,
-        phone,
-        clientName: latestBooking?.clientName ?? accountByPhone?.name ?? "",
-        sessionCount: bookings.length,
-        bookings: bookings.map((b, idx) => ({
-          ...b,
-          claimedBy: b.claimedBy ?? null,
-          sessionNotes: b.sessionNotes ?? null,
-          feedback: feedbackMap.get(b.id) ?? null,
-          isReturningClient: idx > 0,
-          previousSessionCount: idx,
-          createdAt: b.createdAt.toISOString(),
-        })),
-      };
-    });
+    const clients = [...byPhone.entries()]
+      .map(([normalizedPhone, bookings]) => {
+        const accountByPhone = accounts.find((account) => normalizePhone(account.phone) === normalizedPhone);
+        const latestBooking = bookings[bookings.length - 1];
+        const linkedAccountId = bookings.find((booking) => booking.clientAccountId !== null)?.clientAccountId ?? null;
+        const clientAccountId = linkedAccountId ?? accountByPhone?.id ?? null;
+
+        return {
+          clientAccountId,
+          phone: latestBooking?.phone ?? accountByPhone?.phone ?? normalizedPhone,
+          clientName: latestBooking?.clientName ?? accountByPhone?.name ?? "",
+          sessionCount: bookings.length,
+          bookings: bookings.map((b, idx) => ({
+            ...b,
+            claimedBy: b.claimedBy ?? null,
+            sessionNotes: b.sessionNotes ?? null,
+            feedback: feedbackMap.get(b.id) ?? null,
+            isReturningClient: idx > 0,
+            previousSessionCount: idx,
+            createdAt: b.createdAt.toISOString(),
+          })),
+        };
+      })
+      .filter((client) => client.clientAccountId !== null);
 
     res.json({ clients });
   } catch (err) {
@@ -88,7 +105,7 @@ router.get("/:phone", requirePermission("viewClients"), async (req, res) => {
       return;
     }
 
-    const clientName = all[all.length - 1].clientName; // most recent name
+    const clientName = all[all.length - 1].clientName;
 
     const allFeedback = await db.select().from(sessionFeedbackTable);
     const feedbackMap = new Map(
