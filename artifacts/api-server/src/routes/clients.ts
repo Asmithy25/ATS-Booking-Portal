@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, bookingsTable, clientAccountsTable, sessionFeedbackTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { requirePermission } from "../middleware/auth";
+import { repairClientData } from "../lib/client-data-repair";
 
 const router = Router();
 
@@ -22,12 +23,7 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
     const feedbackMap = new Map(
       allFeedback.map((f) => [
         f.bookingId,
-        {
-          id: f.id,
-          rating: f.rating,
-          comment: f.comment ?? null,
-          createdAt: f.createdAt.toISOString(),
-        },
+        { id: f.id, rating: f.rating, comment: f.comment ?? null, createdAt: f.createdAt.toISOString() },
       ]),
     );
 
@@ -39,6 +35,11 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
       (normalizedQueryPhone.length >= 2 && normalizePhone(account.phone).includes(normalizedQueryPhone)),
     );
 
+    // Repair legacy/imported orphan bookings before building the client list.
+    for (const account of matchingAccounts) {
+      await repairClientData(account.id, account.phone);
+    }
+
     const matches = all.filter((booking) =>
       booking.clientName.toLowerCase().includes(query) ||
       booking.phone.toLowerCase().includes(query) ||
@@ -47,9 +48,7 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
     );
 
     const phones = new Set<string>(matches.map((booking) => normalizePhone(booking.phone)));
-    for (const account of matchingAccounts) {
-      phones.add(normalizePhone(account.phone));
-    }
+    for (const account of matchingAccounts) phones.add(normalizePhone(account.phone));
 
     const byPhone = new Map<string, typeof all>();
     for (const phone of phones) {
@@ -106,17 +105,11 @@ router.get("/:phone", requirePermission("viewClients"), async (req, res) => {
     }
 
     const clientName = all[all.length - 1].clientName;
-
     const allFeedback = await db.select().from(sessionFeedbackTable);
     const feedbackMap = new Map(
       allFeedback.map((f) => [
         f.bookingId,
-        {
-          id: f.id,
-          rating: f.rating,
-          comment: f.comment ?? null,
-          createdAt: f.createdAt.toISOString(),
-        },
+        { id: f.id, rating: f.rating, comment: f.comment ?? null, createdAt: f.createdAt.toISOString() },
       ]),
     );
 
@@ -130,12 +123,7 @@ router.get("/:phone", requirePermission("viewClients"), async (req, res) => {
       createdAt: b.createdAt.toISOString(),
     }));
 
-    res.json({
-      phone,
-      clientName,
-      sessionCount: all.length,
-      bookings: enriched,
-    });
+    res.json({ phone, clientName, sessionCount: all.length, bookings: enriched });
   } catch (err) {
     req.log.error({ err }, "Failed to get client history");
     res.status(500).json({ error: "Internal server error." });
