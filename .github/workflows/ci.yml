@@ -1,0 +1,48 @@
+name: ATS Portal CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck workspace
+        run: pnpm run typecheck
+
+      - name: Build API server
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Build therapy portal
+        working-directory: artifacts/therapy-portal
+        env:
+          PORT: 5173
+          BASE_PATH: /
+          VITE_API_URL: https://7210c7a1-83ba-4abf-bb2d-f2f440cb7223-00-1tcp7lxuw6y70.riker.replit.dev
+          NODE_ENV: production
+        run: pnpm run build
