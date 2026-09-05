@@ -1,0 +1,58 @@
+name: Deploy ATS Therapy Portal to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build therapy portal
+        working-directory: artifacts/therapy-portal
+        env:
+          PORT: 5173
+          BASE_PATH: /ATS-Booking-Portal/
+          VITE_API_URL: https://7210c7a1-83ba-4abf-bb2d-f2f440cb7223-00-1tcp7lxuw6y70.riker.replit.dev
+          NODE_ENV: production
+        run: pnpm run build
+      - name: Add SPA fallback
+        run: cp artifacts/therapy-portal/dist/public/index.html artifacts/therapy-portal/dist/public/404.html
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: artifacts/therapy-portal/dist/public
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
