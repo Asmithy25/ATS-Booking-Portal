@@ -5,6 +5,7 @@ import { db } from "@workspace/db";
 import { staffAccountsTable, clientAccountsTable, bookingsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "../middleware/auth";
+import { repairClientData } from "../lib/client-data-repair";
 
 const router = Router();
 
@@ -17,7 +18,6 @@ router.post("/login", async (req, res) => {
 
   const key = (email ?? "").toLowerCase().trim();
 
-  // 1. Check hardcoded admin account first
   const hardcoded = STAFF_ACCOUNTS[key];
   if (hardcoded) {
     if (hardcoded.password !== password) {
@@ -29,7 +29,6 @@ router.post("/login", async (req, res) => {
     return;
   }
 
-  // 2. Check DB staff accounts
   const rows = await db
     .select()
     .from(staffAccountsTable)
@@ -63,7 +62,6 @@ router.get("/me", async (req, res) => {
     return;
   }
 
-  // Accept hardcoded admin OR any DB account
   const isHardcoded = Boolean(STAFF_ACCOUNTS[session.email]);
   let isValid = isHardcoded;
 
@@ -135,6 +133,8 @@ router.post("/client/signup", async (req, res) => {
     updatesOptIn: clientAccountsTable.updatesOptIn,
     createdAt: clientAccountsTable.createdAt,
   });
+
+  await repairClientData(client.id, client.phone);
   issueClientSession(res, { id: String(client.id), email: client.email, name: client.name }, true);
   res.status(201).json({
     authenticated: true,
@@ -150,6 +150,8 @@ router.post("/client/login", async (req, res) => {
     res.status(401).json({ error: "Invalid email or password." });
     return;
   }
+
+  await repairClientData(client.id, client.phone);
   issueClientSession(res, { id: String(client.id), email: client.email, name: client.name }, Boolean(keepSignedIn));
   res.json({
     authenticated: true,
@@ -183,7 +185,8 @@ router.get("/client/me", requireClientAuth, async (req, res) => {
     res.status(401).json({ error: "Account not found." });
     return;
   }
-   res.json({ authenticated: true, client: { ...client, createdAt: client.createdAt.toISOString() } });
+  await repairClientData(client.id, client.phone);
+  res.json({ authenticated: true, client: { ...client, createdAt: client.createdAt.toISOString() } });
 });
 
 router.patch("/client/preferences", requireClientAuth, async (req, res): Promise<void> => {
@@ -230,7 +233,7 @@ function issueSession(res: import('express').Response, email: string, name: stri
   const cookieOptions: CookieOptions = {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === 'production',
     path: "/",
   };
 
