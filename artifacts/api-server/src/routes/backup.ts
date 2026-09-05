@@ -52,6 +52,7 @@ const SCOPE_TABLES: Record<BackupScope, readonly string[]> = {
   bookings: ["bookings"],
   settings: ["settings"],
   "site-data": [
+    "bookings",
     "clientAccounts",
     "staffAccounts",
     "announcements",
@@ -101,6 +102,10 @@ const SERIAL_TABLES = [
 
 function isBackupScope(value: unknown): value is BackupScope {
   return value === "bookings" || value === "settings" || value === "site-data" || value === "everything";
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "");
 }
 
 function toExportRow(tableName: string, row: Record<string, unknown>): BackupRow {
@@ -280,16 +285,35 @@ async function importBackup(payload: BackupPayload) {
         if (typeof row.confirmationCode !== "string" || !row.confirmationCode.trim()) {
           throw new Error("Every booking must include a confirmation code.");
         }
+
+        let clientAccountId = typeof row.clientAccountId === "number" ? row.clientAccountId : null;
+        if (clientAccountId !== null) {
+          const [account] = await tx.select({ id: clientAccountsTable.id })
+            .from(clientAccountsTable)
+            .where(eq(clientAccountsTable.id, clientAccountId))
+            .limit(1);
+          if (!account) clientAccountId = null;
+        }
+
+        if (clientAccountId === null && typeof row.phone === "string" && row.phone.trim()) {
+          const normalizedPhone = normalizePhone(row.phone);
+          const accounts = await tx.select({ id: clientAccountsTable.id, phone: clientAccountsTable.phone })
+            .from(clientAccountsTable);
+          const account = accounts.find((candidate) => normalizePhone(candidate.phone) === normalizedPhone);
+          if (account) clientAccountId = account.id;
+        }
+
+        const bookingRow = { ...row, clientAccountId };
         const [existing] = await tx.select({ id: bookingsTable.id })
           .from(bookingsTable)
           .where(eq(bookingsTable.confirmationCode, row.confirmationCode))
           .limit(1);
         if (existing) {
           await tx.update(bookingsTable)
-            .set(withoutKeys(row, ["id", "confirmationCode"]) as any)
+            .set(withoutKeys(bookingRow, ["id", "confirmationCode"]) as any)
             .where(eq(bookingsTable.id, existing.id));
         } else {
-          await tx.insert(bookingsTable).values(row as any);
+          await tx.insert(bookingsTable).values(bookingRow as any);
         }
         imported.bookings = (imported.bookings ?? 0) + 1;
       }
