@@ -45,7 +45,9 @@ export default function Wellness() {
 
   const { data: assignments = [], isLoading } = useGetWellnessAssignments();
   const [clientSearch, setClientSearch] = useState('');
-  const { data: searchResults } = useSearchClients(clientSearch);
+  const { data: searchResults } = useSearchClients(clientSearch, {
+    query: { retry: false },
+  });
   const clients = searchResults?.clients ?? [];
 
   const createAssignment = useCreateWellnessAssignment();
@@ -66,6 +68,7 @@ export default function Wellness() {
     setTitle('');
     setContent('');
     setDueDate('');
+    setClientSearch('');
   };
 
   const refresh = () => {
@@ -220,7 +223,7 @@ export default function Wellness() {
                           key={client.clientAccountId}
                           value={String(client.clientAccountId)}
                         >
-                          {client.clientName}
+                          {client.clientName} — {client.phone}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -228,7 +231,7 @@ export default function Wellness() {
 
                 {selectedClient && (
                   <p className="text-xs text-muted-foreground">
-                    {selectedClient.phone}
+                    Selected: {selectedClient.clientName} · {selectedClient.phone}
                   </p>
                 )}
               </div>
@@ -325,7 +328,7 @@ export default function Wellness() {
                 {assignments.map((assignment: any) => {
                   const Icon = typeIcons[assignment.type as AssignmentType] ?? BookOpen;
                   const client = clients.find(
-                    (item) => item.id === assignment.clientAccountId,
+                    (item) => item.clientAccountId === assignment.clientAccountId,
                   );
 
                   return (
@@ -348,7 +351,7 @@ export default function Wellness() {
                             </div>
 
                             <p className="mt-1 text-sm text-muted-foreground">
-                              {client?.name ?? `Client #${assignment.clientAccountId}`}
+                              {client?.clientName ?? `Client #${assignment.clientAccountId}`}
                             </p>
 
                             <p className="mt-3 whitespace-pre-wrap text-sm leading-6">
