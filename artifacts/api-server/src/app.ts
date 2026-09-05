@@ -2,6 +2,8 @@ import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
+import { eq } from "drizzle-orm";
+import { db, clientAccountsTable } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { extractClientSession } from "./middleware/auth";
@@ -47,8 +49,6 @@ app.use(async (req, _res, next) => {
   try {
     const clientId = Number(clientSession.id);
     if (Number.isInteger(clientId) && clientId > 0) {
-      const { db, clientAccountsTable } = await import("@workspace/db");
-      const { eq } = await import("drizzle-orm");
       const [client] = await db
         .select({ id: clientAccountsTable.id, phone: clientAccountsTable.phone })
         .from(clientAccountsTable)
