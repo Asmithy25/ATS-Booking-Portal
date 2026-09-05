@@ -1,0 +1,2 @@
+// Relationship-fix reference: backup imports must remap source clientAccountId and bookingId values to destination IDs before restoring wellness assignments and session feedback.
+// Implemented directly in backup.ts in the next deployment.
