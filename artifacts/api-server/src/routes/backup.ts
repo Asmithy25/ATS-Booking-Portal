@@ -225,6 +225,7 @@ async function importBackup(payload: BackupPayload) {
   const warnings: string[] = [];
   const rowsByTable: Record<string, BackupRow[]> = {};
   const clientIdMap = new Map<number, number>();
+  const bookingIdMap = new Map<number, number>();
 
   for (const tableName of SCOPE_TABLES[payload.scope]) {
     rowsByTable[tableName] = projectRows(tableName, tables[tableName] ?? []);
@@ -353,13 +354,17 @@ async function importBackup(payload: BackupPayload) {
           .from(bookingsTable)
           .where(eq(bookingsTable.confirmationCode, row.confirmationCode))
           .limit(1);
+        let bookingId: number;
         if (existing) {
+          bookingId = existing.id;
           await tx.update(bookingsTable)
             .set(withoutKeys(bookingRow, ["id", "confirmationCode"]) as any)
             .where(eq(bookingsTable.id, existing.id));
         } else {
-          await tx.insert(bookingsTable).values(bookingRow as any);
+          const [created] = await tx.insert(bookingsTable).values(bookingRow as any).returning({ id: bookingsTable.id });
+          bookingId = created.id;
         }
+        if (typeof row.id === "number") bookingIdMap.set(row.id, bookingId);
         imported.bookings = (imported.bookings ?? 0) + 1;
       }
     }
@@ -375,20 +380,37 @@ async function importBackup(payload: BackupPayload) {
       return copy;
     });
 
+    const remappedLinkedRows = (rows: BackupRow[], clientFields: string[], bookingFields: string[]) => rows.map((row) => {
+      const copy = { ...row };
+      for (const field of clientFields) {
+        if (typeof copy[field] === "number") {
+          const mapped = clientIdMap.get(copy[field] as number);
+          if (mapped) copy[field] = mapped;
+        }
+      }
+      for (const field of bookingFields) {
+        if (typeof copy[field] === "number") {
+          const mapped = bookingIdMap.get(copy[field] as number);
+          if (mapped) copy[field] = mapped;
+        }
+      }
+      return copy;
+    });
+
     const idTables = [
-      ["announcements", announcementsTable, []],
-      ["auditLogs", auditLogsTable, []],
-      ["supportThreads", supportThreadsTable, ["clientAccountId"]],
-      ["supportMessages", supportMessagesTable, []],
-      ["wellnessResources", wellnessResourcesTable, []],
-      ["wellnessAssignments", wellnessAssignmentsTable, ["clientAccountId"]],
-      ["collaborationItems", collaborationItemsTable, []],
-      ["clientNotifications", clientNotificationsTable, ["clientAccountId"]],
-      ["sessionFeedback", sessionFeedbackTable, ["clientAccountId"]],
+      ["announcements", announcementsTable, [], []],
+      ["auditLogs", auditLogsTable, [], []],
+      ["supportThreads", supportThreadsTable, ["clientAccountId"], []],
+      ["supportMessages", supportMessagesTable, [], []],
+      ["wellnessResources", wellnessResourcesTable, [], []],
+      ["wellnessAssignments", wellnessAssignmentsTable, ["clientAccountId"], ["bookingId"]],
+      ["collaborationItems", collaborationItemsTable, [], []],
+      ["clientNotifications", clientNotificationsTable, ["clientAccountId"], []],
+      ["sessionFeedback", sessionFeedbackTable, ["clientAccountId"], ["bookingId"]],
     ] as const;
-    for (const [tableName, table, fields] of idTables) {
+    for (const [tableName, table, clientFields, bookingFields] of idTables) {
       if (rowsByTable[tableName]?.length) {
-        imported[tableName] = await upsertRowsById(tx, table, remappedRows(rowsByTable[tableName], fields),);
+        imported[tableName] = await upsertRowsById(tx, table, remappedLinkedRows(rowsByTable[tableName], clientFields, bookingFields));
       }
     }
 
