@@ -121,9 +121,7 @@ export default function Wellness() {
       return;
     }
 
-    const payload = {
-      ...(selectedBookingId ? { bookingId: selectedBookingId } : {}),
-      ...(selectedClient?.clientAccountId ? { clientAccountId: Number(selectedClient.clientAccountId) } : {}),
+    const assignmentFields = {
       type,
       title: title.trim(),
       content: content.trim(),
@@ -132,7 +130,7 @@ export default function Wellness() {
 
     if (editingId !== null) {
       updateAssignment.mutate(
-        { id: editingId, type: payload.type, title: payload.title, content: payload.content, dueDate: payload.dueDate },
+        { id: editingId, ...assignmentFields },
         {
           onSuccess: () => {
             refresh();
@@ -143,7 +141,13 @@ export default function Wellness() {
         },
       );
     } else {
-      createAssignment.mutate(payload, {
+      const bookingId = selectedBookingId;
+      if (!bookingId) return;
+      createAssignment.mutate({
+        bookingId,
+        ...(selectedClient?.clientAccountId ? { clientAccountId: Number(selectedClient.clientAccountId) } : {}),
+        ...assignmentFields,
+      }, {
         onSuccess: () => {
           refresh();
           resetForm();
