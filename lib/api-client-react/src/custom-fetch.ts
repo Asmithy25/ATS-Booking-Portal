@@ -61,13 +61,23 @@ function isUrl(input: RequestInfo | URL): input is URL {
   return typeof URL !== "undefined" && input instanceof URL;
 }
 
+function getConfiguredBaseUrl(): string | null {
+  if (_baseUrl) return _baseUrl;
+  if (typeof import.meta !== "undefined") {
+    const envBaseUrl = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_API_URL;
+    if (envBaseUrl) return envBaseUrl.replace(/\/+$/, "");
+  }
+  return null;
+}
+
 function applyBaseUrl(input: RequestInfo | URL): RequestInfo | URL {
-  if (!_baseUrl) return input;
+  const baseUrl = getConfiguredBaseUrl();
+  if (!baseUrl) return input;
   const url = resolveUrl(input);
   // Only prepend to relative paths (starting with /)
   if (!url.startsWith("/")) return input;
 
-  const absolute = `${_baseUrl}${url}`;
+  const absolute = `${baseUrl}${url}`;
   if (typeof input === "string") return absolute;
   if (isUrl(input)) return new URL(absolute);
   return new Request(absolute, input as Request);
@@ -354,12 +364,13 @@ export async function customFetch<T = unknown>(
   // Authorization header has been explicitly provided.
   if (_authTokenGetter && !headers.has("authorization")) {
     const token = await _authTokenGetter();
-    if (token) {
-      headers.set("authorization", `Bearer ${token}`);
-    }
+    if (token) headers.set("authorization", `Bearer ${token}`);
   }
 
-  if (!_authTokenGetter && typeof window !== "undefined" && !headers.has("authorization")) {
+  // Client web sessions use a bearer token stored in localStorage because
+  // the API and frontend are separate Railway origins. Always fall back to
+  // this token when a configured getter does not provide one.
+  if (typeof window !== "undefined" && !headers.has("authorization")) {
     const clientToken = window.localStorage.getItem(CLIENT_TOKEN_KEY);
     if (clientToken) headers.set("authorization", `Bearer ${clientToken}`);
   }
