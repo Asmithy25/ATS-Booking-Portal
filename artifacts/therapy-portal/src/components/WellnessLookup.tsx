@@ -51,6 +51,7 @@ export function WellnessLookup() {
   const [result, setResult] = useState<LookupResponse | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   const lookup = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -75,6 +76,34 @@ export function WellnessLookup() {
       setError("We couldn't find a booking matching that information. Please check your confirmation code and phone number and try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateStatus = async (assignmentId: number, status: 'in_progress' | 'completed') => {
+    if (!result) return;
+    setUpdatingId(assignmentId);
+    try {
+      const updated = await customFetch<WellnessAssignment>(
+        `/api/bookings/confirm/${encodeURIComponent(result.booking.confirmationCode)}/wellness-assignments/${assignmentId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ phone: phoneLast4, status }),
+        },
+      );
+      setResult((current) =>
+        current
+          ? {
+              ...current,
+              assignments: current.assignments.map((assignment) =>
+                assignment.id === assignmentId ? updated : assignment,
+              ),
+            }
+          : current,
+      );
+    } catch {
+      setError('We could not update that assignment. Please try again.');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -187,11 +216,35 @@ export function WellnessLookup() {
                       <div className="mt-4 rounded-xl bg-muted/30 p-4">
                         <p className="whitespace-pre-wrap text-sm leading-6">{assignment.content}</p>
                       </div>
-                      {assignment.status === 'completed' && (
-                        <p className="mt-3 text-xs font-medium text-primary">
-                          <CheckCircle2 className="mr-1 inline h-4 w-4" /> Completed
-                        </p>
-                      )}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {assignment.status === 'assigned' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => updateStatus(assignment.id, 'in_progress')}
+                            disabled={updatingId === assignment.id}
+                          >
+                            {updatingId === assignment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                            Start activity
+                          </Button>
+                        )}
+                        {assignment.status === 'in_progress' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => updateStatus(assignment.id, 'completed')}
+                            disabled={updatingId === assignment.id}
+                          >
+                            {updatingId === assignment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                            Mark completed
+                          </Button>
+                        )}
+                        {assignment.status === 'completed' && (
+                          <p className="text-xs font-medium text-primary">
+                            <CheckCircle2 className="mr-1 inline h-4 w-4" /> Completed
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
