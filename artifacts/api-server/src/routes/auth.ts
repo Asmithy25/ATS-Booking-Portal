@@ -232,8 +232,8 @@ function issueSession(res: import('express').Response, email: string, name: stri
 
   const cookieOptions: CookieOptions = {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: "none",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
   };
 
