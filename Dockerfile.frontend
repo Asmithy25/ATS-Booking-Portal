@@ -1,0 +1,14 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
+
+COPY . .
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @workspace/therapy-portal build
+
+EXPOSE 3000
+
+CMD ["pnpm", "--filter", "@workspace/therapy-portal", "serve", "--host", "0.0.0.0"]
