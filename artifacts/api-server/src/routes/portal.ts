@@ -1368,18 +1368,27 @@ router.patch("/client/wellness-assignments/:id", requireClientAuth, async (req, 
     return;
   }
 
+  const clientBookings = await db
+    .select({ id: bookingsTable.id })
+    .from(bookingsTable)
+    .where(eq(bookingsTable.clientAccountId, clientId));
+
+  const bookingIds = clientBookings.map((booking) => booking.id);
+
+  const ownership = bookingIds.length
+    ? or(
+        eq(wellnessAssignmentsTable.clientAccountId, clientId),
+        inArray(wellnessAssignmentsTable.bookingId, bookingIds),
+      )
+    : eq(wellnessAssignmentsTable.clientAccountId, clientId);
+
   const [updated] = await db
     .update(wellnessAssignmentsTable)
     .set({
       status,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(wellnessAssignmentsTable.id, assignmentId),
-        eq(wellnessAssignmentsTable.clientAccountId, clientId),
-      ),
-    )
+    .where(and(eq(wellnessAssignmentsTable.id, assignmentId), ownership))
     .returning();
 
   if (!updated) {
