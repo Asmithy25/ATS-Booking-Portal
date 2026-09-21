@@ -10,7 +10,7 @@ export type ClientSearchBooking = {
 };
 
 export type ClientSearchResult = {
-  clientAccountId: number;
+  clientAccountId: number | null;
   phone: string;
   clientName: string;
   sessionCount: number;
