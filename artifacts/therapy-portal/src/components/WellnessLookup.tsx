@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CalendarDays, CheckCircle2, ClipboardCheck, Heart, Loader2, NotebookPen, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
-import { customFetch } from '@workspace/api-client-react/custom-fetch';
+import { customFetch } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -70,6 +70,7 @@ export function WellnessLookup() {
     try {
       const data = await customFetch<LookupResponse>(
         `/api/bookings/confirm/${encodeURIComponent(normalizedCode)}/wellness-assignments?phone=${normalizedPhone}`,
+        { responseType: 'json' },
       );
       setResult(data);
     } catch {
@@ -87,6 +88,7 @@ export function WellnessLookup() {
         `/api/bookings/confirm/${encodeURIComponent(result.booking.confirmationCode)}/wellness-assignments/${assignmentId}`,
         {
           method: 'PATCH',
+          responseType: 'json',
           body: JSON.stringify({ phone: phoneLast4, status }),
         },
       );
