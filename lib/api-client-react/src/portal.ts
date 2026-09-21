@@ -13,24 +13,38 @@ export type WellnessAssignmentData = {
   updatedAt: string;
 };
 
+export type PublicWellnessLookupResponse = {
+  booking: {
+    clientName: string;
+    confirmationCode: string;
+    preferredDate: string;
+    preferredTime: string;
+    status: string;
+    therapist: string | null;
+  };
+  assignments: WellnessAssignmentData[];
+};
+
 export function useGetPublicWellnessAssignments(
   code: string,
+  phoneLast4: string,
   options?: {
     query?: Partial<
-      UseQueryOptions<WellnessAssignmentData[], ErrorType<unknown>, WellnessAssignmentData[]>
+      UseQueryOptions<PublicWellnessLookupResponse, ErrorType<unknown>, PublicWellnessLookupResponse>
     >;
   },
 ) {
   return useQuery({
-    queryKey: ["/api/bookings/confirm", code, "wellness-assignments"],
+    queryKey: ["/api/bookings/confirm", code, "wellness-assignments", phoneLast4],
     queryFn: async () =>
-      customFetch<WellnessAssignmentData[]>(
-        `/api/bookings/confirm/${encodeURIComponent(code)}/wellness-assignments`,
+      customFetch<PublicWellnessLookupResponse>(
+        `/api/bookings/confirm/${encodeURIComponent(code)}/wellness-assignments?phone=${encodeURIComponent(phoneLast4)}`,
         {
           method: "GET",
+          responseType: "json",
         },
       ),
-    enabled: Boolean(code),
+    enabled: Boolean(code && /^\\d{4}$/.test(phoneLast4)),
     ...options?.query,
   });
 }
