@@ -211,14 +211,69 @@ router.post("/confirm/:code/feedback", async (req, res) => {
 
 router.get("/confirm/:code/wellness-assignments", async (req, res) => {
   const code = normalizeCode(req.params.code);
+  const phoneLast4 = String(req.query.phone ?? "").trim();
+
+  if (!code || !/^\d{4}$/.test(phoneLast4)) {
+    res.status(400).json({ error: "Confirmation code and the last 4 digits of the booking phone number are required." });
+    return;
+  }
+
   try {
-    const [booking] = await db.select({ id: bookingsTable.id, clientAccountId: bookingsTable.clientAccountId }).from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
-    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
-    if (!booking.clientAccountId) return res.json([]);
-    const assignments = await db.select().from(wellnessAssignmentsTable).where(eq(wellnessAssignmentsTable.clientAccountId, booking.clientAccountId)).orderBy(desc(wellnessAssignmentsTable.createdAt));
-    res.json(assignments.filter((item) => item.bookingId === null || item.bookingId === booking.id));
+    const [booking] = await db
+      .select({
+        id: bookingsTable.id,
+        clientName: bookingsTable.clientName,
+        phone: bookingsTable.phone,
+        confirmationCode: bookingsTable.confirmationCode,
+        preferredDate: bookingsTable.preferredDate,
+        preferredTime: bookingsTable.preferredTime,
+        status: bookingsTable.status,
+        claimedBy: bookingsTable.claimedBy,
+      })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.confirmationCode, code))
+      .limit(1);
+
+    if (!booking || normalizePhone(booking.phone).slice(-4) !== phoneLast4) {
+      res.status(404).json({
+        error: "We couldn't find a booking matching that information. Please check your confirmation code and phone number and try again.",
+      });
+      return;
+    }
+
+    const assignments = await db
+      .select({
+        id: wellnessAssignmentsTable.id,
+        bookingId: wellnessAssignmentsTable.bookingId,
+        type: wellnessAssignmentsTable.type,
+        title: wellnessAssignmentsTable.title,
+        content: wellnessAssignmentsTable.content,
+        dueDate: wellnessAssignmentsTable.dueDate,
+        status: wellnessAssignmentsTable.status,
+        createdAt: wellnessAssignmentsTable.createdAt,
+        updatedAt: wellnessAssignmentsTable.updatedAt,
+      })
+      .from(wellnessAssignmentsTable)
+      .where(eq(wellnessAssignmentsTable.bookingId, booking.id))
+      .orderBy(desc(wellnessAssignmentsTable.createdAt));
+
+    res.json({
+      booking: {
+        clientName: booking.clientName,
+        confirmationCode: booking.confirmationCode,
+        preferredDate: booking.preferredDate,
+        preferredTime: booking.preferredTime,
+        status: booking.status,
+        therapist: booking.claimedBy ?? null,
+      },
+      assignments: assignments.map((assignment) => ({
+        ...assignment,
+        createdAt: assignment.createdAt.toISOString(),
+        updatedAt: assignment.updatedAt.toISOString(),
+      })),
+    });
   } catch (err) {
-    req.log.error({ err }, "Failed to get wellness assignments");
+    req.log.error({ err }, "Failed to get public wellness assignments");
     res.status(500).json({ error: "Internal server error." });
   }
 });
