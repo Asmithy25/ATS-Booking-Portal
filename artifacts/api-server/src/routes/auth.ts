@@ -249,3 +249,5 @@ function issueSession(res: import('express').Response, email: string, name: stri
 }
 
 export default router;
+
+// Railway refresh marker.
