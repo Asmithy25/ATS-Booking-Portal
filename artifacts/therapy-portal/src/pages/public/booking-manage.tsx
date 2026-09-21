@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useGetSettings } from '@workspace/api-client-react';
+import { customFetch, useGetSettings } from '@workspace/api-client-react';
 import { Loader2, Calendar, Clock, Phone, CheckCircle2, XCircle, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface BookingPublic {
@@ -24,21 +24,21 @@ interface BookingPublic {
 }
 
 async function fetchByCode(code: string): Promise<BookingPublic> {
-  const res = await fetch(`/api/bookings/confirm/${encodeURIComponent(code)}`);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Booking not found.');
-  return data as BookingPublic;
+  return customFetch<BookingPublic>(
+    `/api/bookings/confirm/${encodeURIComponent(code)}`,
+    { responseType: 'json' },
+  );
 }
 
 async function patchByCode(code: string, body: Record<string, string>): Promise<BookingPublic> {
-  const res = await fetch(`/api/bookings/confirm/${encodeURIComponent(code)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error((data as { error?: string }).error || 'Update failed.');
-  return data as BookingPublic;
+  return customFetch<BookingPublic>(
+    `/api/bookings/confirm/${encodeURIComponent(code)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      responseType: 'json',
+    },
+  );
 }
 
 const STATUS_COLORS: Record<string, string> = {
