@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BookOpen, ClipboardCheck, Heart, NotebookPen, Pencil, Plus, Trash2 } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Heart, Loader2, NotebookPen, Pencil, Plus, Trash2, X } from 'lucide-react';
 
 import {
   useCreateWellnessAssignment,
@@ -15,13 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,14 +33,24 @@ const typeIcons = {
   homework: ClipboardCheck,
 };
 
+function formatBooking(booking: any) {
+  const date = booking?.preferredDate ? new Date(`${booking.preferredDate}T12:00:00`) : null;
+  const dateLabel = date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : booking?.preferredDate ?? 'Date unavailable';
+  return `${booking.confirmationCode} · ${dateLabel} at ${booking.preferredTime}`;
+}
+
 export default function Wellness() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const { data: assignments = [], isLoading } = useGetWellnessAssignments();
   const [clientSearch, setClientSearch] = useState('');
-  const { data: searchResults } = useSearchClients(clientSearch, {
-    query: { retry: false },
+  const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const { data: searchResults, isFetching: isSearching } = useSearchClients(clientSearch, {
+    query: { retry: false, enabled: clientSearch.trim().length >= 2 },
   });
   const clients = searchResults?.clients ?? [];
 
@@ -55,15 +59,20 @@ export default function Wellness() {
   const deleteAssignment = useDeleteWellnessAssignment();
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [clientId, setClientId] = useState('');
   const [type, setType] = useState<AssignmentType>('homework');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [dueDate, setDueDate] = useState('');
 
+  const selectedBooking = useMemo(
+    () => selectedClient?.bookings?.find((booking: any) => booking.id === selectedBookingId) ?? null,
+    [selectedClient, selectedBookingId],
+  );
+
   const resetForm = () => {
     setEditingId(null);
-    setClientId('');
+    setSelectedClient(null);
+    setSelectedBookingId(null);
     setType('homework');
     setTitle('');
     setContent('');
@@ -72,19 +81,18 @@ export default function Wellness() {
   };
 
   const refresh = () => {
-    queryClient.invalidateQueries({
-      queryKey: ['/api/portal/wellness-assignments'],
-    });
+    queryClient.invalidateQueries({ queryKey: ['/api/portal/wellness-assignments'] });
   };
 
-  const selectedClient = useMemo(
-    () => clients.find((client) => String(client.clientAccountId) === clientId),
-    [clients, clientId],
-  );
+  const chooseBooking = (client: any, booking: any) => {
+    setSelectedClient(client);
+    setSelectedBookingId(booking.id);
+    setClientSearch(booking.confirmationCode);
+  };
 
   const startEdit = (assignment: any) => {
     setEditingId(assignment.id);
-    setClientId(String(assignment.clientAccountId));
+    setSelectedBookingId(assignment.bookingId ?? null);
     setType(assignment.type);
     setTitle(assignment.title);
     setContent(assignment.content);
@@ -95,17 +103,27 @@ export default function Wellness() {
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!clientId || !title.trim() || !content.trim()) {
+    if (!editingId && !selectedBookingId) {
+      toast({
+        variant: 'destructive',
+        title: 'Choose a booking',
+        description: 'Search by client name, confirmation code, or phone, then select the booking you want to assign this to.',
+      });
+      return;
+    }
+
+    if (!title.trim() || !content.trim()) {
       toast({
         variant: 'destructive',
         title: 'Missing information',
-        description: 'Choose a client and enter a title and assignment.',
+        description: 'Enter a title and assignment.',
       });
       return;
     }
 
     const payload = {
-      clientAccountId: Number(clientId),
+      ...(selectedBookingId ? { bookingId: selectedBookingId } : {}),
+      ...(selectedClient?.clientAccountId ? { clientAccountId: Number(selectedClient.clientAccountId) } : {}),
       type,
       title: title.trim(),
       content: content.trim(),
@@ -114,25 +132,14 @@ export default function Wellness() {
 
     if (editingId !== null) {
       updateAssignment.mutate(
-        {
-          id: editingId,
-          type: payload.type,
-          title: payload.title,
-          content: payload.content,
-          dueDate: payload.dueDate,
-        },
+        { id: editingId, type: payload.type, title: payload.title, content: payload.content, dueDate: payload.dueDate },
         {
           onSuccess: () => {
             refresh();
             resetForm();
             toast({ title: 'Assignment updated' });
           },
-          onError: () =>
-            toast({
-              variant: 'destructive',
-              title: 'Update failed',
-              description: 'Please try again.',
-            }),
+          onError: (error: any) => toast({ variant: 'destructive', title: 'Update failed', description: error?.data?.error ?? 'Please try again.' }),
         },
       );
     } else {
@@ -142,31 +149,20 @@ export default function Wellness() {
           resetForm();
           toast({ title: 'Assignment created' });
         },
-        onError: () =>
-          toast({
-            variant: 'destructive',
-            title: 'Creation failed',
-            description: 'Please try again.',
-          }),
+        onError: (error: any) => toast({ variant: 'destructive', title: 'Creation failed', description: error?.data?.error ?? 'Please try again.' }),
       });
     }
   };
 
   const remove = (id: number) => {
     if (!window.confirm('Delete this wellness assignment?')) return;
-
     deleteAssignment.mutate(id, {
       onSuccess: () => {
         refresh();
         if (editingId === id) resetForm();
         toast({ title: 'Assignment deleted' });
       },
-      onError: () =>
-        toast({
-          variant: 'destructive',
-          title: 'Delete failed',
-          description: 'Please try again.',
-        }),
+      onError: (error: any) => toast({ variant: 'destructive', title: 'Delete failed', description: error?.data?.error ?? 'Please try again.' }),
     });
   };
 
@@ -174,80 +170,96 @@ export default function Wellness() {
     <div className="space-y-7">
       <div>
         <p className="text-sm text-muted-foreground">Client care tools</p>
-        <h1 className="text-3xl font-serif font-bold text-foreground">
-          Wellness Journey
-        </h1>
+        <h1 className="text-3xl font-serif font-bold text-foreground">Wellness Journey</h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          Assign personalized wellness journeys, notebook prompts, and homework
-          for clients to complete between sessions.
+          Assign personalized wellness journeys, notebook prompts, and homework for a specific booking.
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Card className="rounded-2xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {editingId !== null ? (
-                <Pencil className="h-5 w-5 text-primary" />
-              ) : (
-                <Plus className="h-5 w-5 text-primary" />
-              )}
+              {editingId !== null ? <Pencil className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
               {editingId !== null ? 'Edit assignment' : 'Create assignment'}
             </CardTitle>
             <CardDescription>
-              Assignments are created by staff and are visible to the selected client.
+              Each new assignment is attached to the exact booking you select. A client portal account is optional.
             </CardDescription>
           </CardHeader>
 
           <CardContent>
             <form className="space-y-5" onSubmit={submit}>
-              <div className="space-y-2">
-                <Label>Client</Label>
+              {editingId === null && (
+                <div className="space-y-2">
+                  <Label htmlFor="wellness-client-search">Client / booking</Label>
+                  <div className="relative">
+                    <Input
+                      id="wellness-client-search"
+                      value={clientSearch}
+                      onChange={(event) => {
+                        setClientSearch(event.target.value);
+                        setSelectedClient(null);
+                        setSelectedBookingId(null);
+                      }}
+                      placeholder="Search name, confirmation code, or phone..."
+                      autoComplete="off"
+                    />
+                    {isSearching && <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />}
+                  </div>
 
-                <Input
-                  value={clientSearch}
-                  onChange={(event) => setClientSearch(event.target.value)}
-                  placeholder="Search by client name, confirmation code, or phone..."
-                  className="mb-2"
-                  aria-label="Search clients by name, confirmation code, or phone number"
-                />
+                  {clientSearch.trim().length >= 2 && !selectedBookingId && (
+                    <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border bg-background p-2">
+                      {clients.length === 0 && !isSearching ? (
+                        <p className="p-3 text-sm text-muted-foreground">No matching clients or bookings.</p>
+                      ) : (
+                        clients.flatMap((client: any) =>
+                          (client.bookings ?? []).map((booking: any) => (
+                            <button
+                              key={`${client.clientAccountId ?? 'no-account'}-${booking.id}`}
+                              type="button"
+                              onClick={() => chooseBooking(client, booking)}
+                              className="w-full rounded-xl border p-3 text-left transition hover:bg-muted"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="font-medium">{client.clientName || booking.clientName}</p>
+                                  <p className="text-xs text-muted-foreground">{formatBooking(booking)}</p>
+                                  <p className="mt-1 text-xs text-muted-foreground">{client.phone || booking.phone}</p>
+                                </div>
+                                <Badge variant="secondary">{booking.status.replace('_', ' ')}</Badge>
+                              </div>
+                            </button>
+                          )),
+                        )
+                      )}
+                    </div>
+                  )}
 
-                <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a client…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => {
-                      const latestBooking = client.bookings?.[client.bookings.length - 1];
-                      return (
-                        <SelectItem
-                          key={client.clientAccountId}
-                          value={String(client.clientAccountId)}
-                        >
-                          {client.clientName} — {client.phone}
-                          {latestBooking?.confirmationCode ? ` — ${latestBooking.confirmationCode}` : ''}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-
-                {selectedClient && (
-                  <p className="text-xs text-muted-foreground">
-                    Selected: {selectedClient.clientName} · {selectedClient.phone}
-                  </p>
-                )}
-              </div>
+                  {selectedBooking && (
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{selectedClient?.clientName || selectedBooking.clientName}</p>
+                          <p className="text-sm text-muted-foreground">{formatBooking(selectedBooking)}</p>
+                          <p className="text-sm text-muted-foreground">{selectedBooking.phone}</p>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {selectedClient?.clientAccountId ? 'Portal account linked' : 'No portal account — assignment will still work'}
+                          </p>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => { setSelectedClient(null); setSelectedBookingId(null); setClientSearch(''); }} aria-label="Change booking">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Assignment type</Label>
-                <Select
-                  value={type}
-                  onValueChange={(value) => setType(value as AssignmentType)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={type} onValueChange={(value) => setType(value as AssignmentType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="wellness_journey">Wellness Journey</SelectItem>
                     <SelectItem value="notebook">Notebook</SelectItem>
@@ -258,50 +270,25 @@ export default function Wellness() {
 
               <div className="space-y-2">
                 <Label>Title</Label>
-                <Input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="e.g. Evening reflection"
-                />
+                <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Evening reflection" />
               </div>
 
               <div className="space-y-2">
                 <Label>Instructions / content</Label>
-                <Textarea
-                  value={content}
-                  onChange={(event) => setContent(event.target.value)}
-                  placeholder="Write the activity, reflection prompt, or homework instructions…"
-                  className="min-h-40"
-                />
+                <Textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="Write the activity, reflection prompt, or homework instructions…" className="min-h-40" />
               </div>
 
               <div className="space-y-2">
                 <Label>Due date <span className="text-muted-foreground">(optional)</span></Label>
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                />
+                <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button
-                  type="submit"
-                  disabled={createAssignment.isPending || updateAssignment.isPending}
-                >
-                  {editingId !== null ? (
-                    <Pencil className="h-4 w-4" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  {editingId !== null ? 'Save changes' : 'Assign to client'}
+                <Button type="submit" disabled={createAssignment.isPending || updateAssignment.isPending}>
+                  {editingId !== null ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {editingId !== null ? 'Save changes' : 'Assign to booking'}
                 </Button>
-
-                {editingId !== null && (
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancel editing
-                  </Button>
-                )}
+                {editingId !== null && <Button type="button" variant="outline" onClick={resetForm}>Cancel editing</Button>}
               </div>
             </form>
           </CardContent>
@@ -310,11 +297,8 @@ export default function Wellness() {
         <Card className="rounded-2xl">
           <CardHeader>
             <CardTitle>Assigned activities</CardTitle>
-            <CardDescription>
-              {assignments.length} assignment{assignments.length === 1 ? '' : 's'} across your clients.
-            </CardDescription>
+            <CardDescription>{assignments.length} assignment{assignments.length === 1 ? '' : 's'} across your clients.</CardDescription>
           </CardHeader>
-
           <CardContent>
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading assignments…</p>
@@ -322,79 +306,37 @@ export default function Wellness() {
               <div className="rounded-2xl border border-dashed p-8 text-center">
                 <BookOpen className="mx-auto h-8 w-8 text-muted-foreground" />
                 <p className="mt-3 font-medium">No assignments yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Create the first wellness activity using the form.
-                </p>
+                <p className="mt-1 text-sm text-muted-foreground">Create the first wellness activity using the form.</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {assignments.map((assignment: any) => {
                   const Icon = typeIcons[assignment.type as AssignmentType] ?? BookOpen;
-                  const client = clients.find(
-                    (item) => item.clientAccountId === assignment.clientAccountId,
-                  );
-
+                  const linkedClient = clients.find((item: any) => item.clientAccountId === assignment.clientAccountId);
                   return (
-                    <div
-                      key={assignment.id}
-                      className="rounded-2xl border p-4"
-                    >
+                    <div key={assignment.id} className="rounded-2xl border p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 gap-3">
-                          <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-                            <Icon className="h-5 w-5" />
-                          </div>
-
+                          <div className="rounded-xl bg-primary/10 p-2.5 text-primary"><Icon className="h-5 w-5" /></div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="font-semibold">{assignment.title}</h3>
-                              <Badge variant="secondary">
-                                {typeLabels[assignment.type as AssignmentType] ?? assignment.type}
-                              </Badge>
+                              <Badge variant="secondary">{typeLabels[assignment.type as AssignmentType] ?? assignment.type}</Badge>
                             </div>
-
                             <p className="mt-1 text-sm text-muted-foreground">
-                              {client?.clientName ?? `Client #${assignment.clientAccountId}`}
+                              {linkedClient?.clientName ?? (assignment.bookingId ? `Booking #${assignment.bookingId}` : assignment.clientAccountId ? `Client #${assignment.clientAccountId}` : 'Booking-linked client')}
                             </p>
-
-                            <p className="mt-3 whitespace-pre-wrap text-sm leading-6">
-                              {assignment.content}
-                            </p>
-
+                            {assignment.bookingId && <p className="text-xs text-muted-foreground">Booking #{assignment.bookingId}</p>}
+                            <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{assignment.content}</p>
                             <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              <span className="rounded-full bg-muted px-2.5 py-1 capitalize">
-                                {assignment.status.replace('_', ' ')}
-                              </span>
-                              {assignment.dueDate && (
-                                <span className="rounded-full bg-muted px-2.5 py-1">
-                                  Due {assignment.dueDate}
-                                </span>
-                              )}
+                              <span className="rounded-full bg-muted px-2.5 py-1 capitalize">{assignment.status.replace('_', ' ')}</span>
+                              {assignment.dueDate && <span className="rounded-full bg-muted px-2.5 py-1">Due {assignment.dueDate}</span>}
                             </div>
                           </div>
                         </div>
-
                         <div className="flex shrink-0 gap-1">
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => startEdit(assignment)}
-                            aria-label="Edit assignment"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="text-destructive"
-                            onClick={() => remove(assignment.id)}
-                            aria-label="Delete assignment"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Button type="button" size="icon" variant="ghost" onClick={() => startEdit(assignment)} aria-label="Edit assignment"><Pencil className="h-4 w-4" /></Button>
+                          <Button type="button" size="icon" variant="ghost" className="text-destructive" onClick={() => remove(assignment.id)} aria-label="Delete assignment"><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </div>
                     </div>
