@@ -21,7 +21,7 @@ export interface ClientSearchResponse {
 export const getSearchClientsQueryKey = (query: string) =>
   ["/api/clients/search", query] as const;
 
-export function useSearchClients<TData = ClientSearchResponse>(query: string, options?: {
+export function useEmployeeSearchClients<TData = ClientSearchResponse>(query: string, options?: {
   query?: Partial<UseQueryOptions<ClientSearchResponse, ErrorType<unknown>, TData>>;
 }) {
   return useQuery<ClientSearchResponse, ErrorType<unknown>, TData>({
