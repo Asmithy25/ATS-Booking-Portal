@@ -30,23 +30,9 @@ app.use(
     },
   }),
 );
-const allowedOrigins = [
-  "https://ats-frontend-production-81bd.up.railway.app",
-  "https://atsbookingsportal.netlify.app",
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:5173",
-];
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: true,
     credentials: true,
   }),
 );
