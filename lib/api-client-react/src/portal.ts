@@ -1,7 +1,7 @@
 
 export type WellnessAssignmentData = {
   id: number;
-  clientAccountId: number;
+  clientAccountId: number | null;
   bookingId: number | null;
   type: "wellness_journey" | "notebook" | "homework";
   title: string;
@@ -80,8 +80,8 @@ export function useCreateWellnessAssignment(options?: {
     WellnessAssignmentData,
     ErrorType<unknown>,
     {
-      clientAccountId: number;
-      bookingId?: number | null;
+      clientAccountId?: number | null;
+      bookingId: number;
       type: WellnessAssignmentData["type"];
       title: string;
       content: string;
