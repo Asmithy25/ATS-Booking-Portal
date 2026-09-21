@@ -37,6 +37,9 @@ export function PublicNavbar() {
           <button data-testid="button-nav-book" onClick={() => handleScrollTo('book')} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
             How to begin
           </button>
+          <button data-testid="button-nav-wellness" onClick={() => handleScrollTo('wellness-lookup')} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
+            Wellness Journey
+          </button>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-4">
@@ -59,6 +62,7 @@ export function PublicNavbar() {
         <div className="container mx-auto grid gap-1">
           <button data-testid="button-mobile-about" onClick={() => { handleScrollTo('about'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">Our approach</button>
           <button data-testid="button-mobile-book" onClick={() => { handleScrollTo('book'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">How to begin</button>
+          <button data-testid="button-mobile-wellness" onClick={() => { handleScrollTo('wellness-lookup'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">Wellness Journey</button>
           <Link href="/staff/login" data-testid="link-mobile-staff" onClick={() => setMenuOpen(false)} className="border-b border-border py-3 text-sm font-semibold">Staff portal</Link>
           <Link href="/portal/login" data-testid="link-mobile-client" onClick={() => setMenuOpen(false)} className="py-3 text-sm font-semibold">Client portal</Link>
         </div>
