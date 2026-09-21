@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { getThemeStyle } from '@/lib/theme';
 import { getDailyQuote } from '@/lib/motivationalQuotes';
+import { WellnessLookup } from '@/components/WellnessLookup';
 
 import terracottaLogoUrl from '@assets/ATS_FALL_1786003864019.png';
 import oliveLogoUrl from '@assets/ATS_FALL_1786003864019.png';
@@ -330,6 +331,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <WellnessLookup />
 
         {/* BOOKING SECTION */}
          <section id="book" className="py-24 relative bg-[hsl(35_44%_94%)]">
