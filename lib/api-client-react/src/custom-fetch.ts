@@ -10,6 +10,7 @@ export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+const CLIENT_TOKEN_KEY = "ats_client_session_token";
 
 // ---------------------------------------------------------------------------
 // Module-level configuration
@@ -356,6 +357,11 @@ export async function customFetch<T = unknown>(
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
     }
+  }
+
+  if (!_authTokenGetter && typeof window !== "undefined" && !headers.has("authorization")) {
+    const clientToken = window.localStorage.getItem(CLIENT_TOKEN_KEY);
+    if (clientToken) headers.set("authorization", `Bearer ${clientToken}`);
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
