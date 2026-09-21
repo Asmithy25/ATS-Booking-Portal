@@ -219,9 +219,8 @@ function issueClientSession(
 ) {
   const cookieOptions: CookieOptions = {
     httpOnly: true,
-    sameSite: "none",
+    sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    partitioned: true,
     path: "/",
   };
   if (keepSignedIn) cookieOptions.maxAge = 30 * 24 * 60 * 60 * 1000;
