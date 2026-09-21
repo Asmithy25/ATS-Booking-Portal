@@ -219,7 +219,7 @@ function issueClientSession(
 ) {
   const cookieOptions: CookieOptions = {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "none",
     secure: process.env.NODE_ENV === "production",
     path: "/",
   };
