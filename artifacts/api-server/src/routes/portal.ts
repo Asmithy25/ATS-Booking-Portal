@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import {
   announcementsTable,
   auditLogsTable,
@@ -1319,11 +1319,29 @@ router.get("/client/wellness-assignments", requireClientAuth, async (req, res): 
     return;
   }
 
-  const assignments = await db
-    .select()
-    .from(wellnessAssignmentsTable)
-    .where(eq(wellnessAssignmentsTable.clientAccountId, clientId))
-    .orderBy(desc(wellnessAssignmentsTable.createdAt));
+  const clientBookings = await db
+    .select({ id: bookingsTable.id })
+    .from(bookingsTable)
+    .where(eq(bookingsTable.clientAccountId, clientId));
+
+  const bookingIds = clientBookings.map((booking) => booking.id);
+
+  const assignments = bookingIds.length
+    ? await db
+        .select()
+        .from(wellnessAssignmentsTable)
+        .where(
+          or(
+            eq(wellnessAssignmentsTable.clientAccountId, clientId),
+            inArray(wellnessAssignmentsTable.bookingId, bookingIds),
+          ),
+        )
+        .orderBy(desc(wellnessAssignmentsTable.createdAt))
+    : await db
+        .select()
+        .from(wellnessAssignmentsTable)
+        .where(eq(wellnessAssignmentsTable.clientAccountId, clientId))
+        .orderBy(desc(wellnessAssignmentsTable.createdAt));
 
   res.json(assignments);
 });
