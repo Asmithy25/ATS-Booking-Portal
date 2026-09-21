@@ -50,17 +50,32 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
     const phones = new Set<string>(matches.map((booking) => normalizePhone(booking.phone)));
     for (const account of matchingAccounts) phones.add(normalizePhone(account.phone));
 
+    // A client account is authoritative even when an older booking has a different
+    // phone format/number. Include all bookings already linked to a matching account.
+    const accountIds = new Set<number>(matchingAccounts.map((account) => account.id));
+    const accountLinkedBookings = all.filter(
+      (booking) => booking.clientAccountId !== null && accountIds.has(booking.clientAccountId),
+    );
+
     const byPhone = new Map<string, typeof all>();
     for (const phone of phones) {
       const bookings = all.filter((booking) => normalizePhone(booking.phone) === phone);
       byPhone.set(phone, bookings);
     }
+    for (const booking of accountLinkedBookings) {
+      const phone = normalizePhone(booking.phone);
+      const existing = byPhone.get(phone) ?? [];
+      if (!existing.some((item) => item.id === booking.id)) existing.push(booking);
+      byPhone.set(phone, existing);
+    }
 
     const clients = [...byPhone.entries()]
       .map(([normalizedPhone, bookings]) => {
         const accountByPhone = accounts.find((account) => normalizePhone(account.phone) === normalizedPhone);
-        const latestBooking = bookings[bookings.length - 1];
-        const linkedAccountId = bookings.find((booking) => booking.clientAccountId !== null)?.clientAccountId ?? null;
+        const linkedAccountId =
+          bookings.find((booking) => booking.clientAccountId !== null)?.clientAccountId ??
+          matchingAccounts.find((account) => account.phone && normalizePhone(account.phone) === normalizedPhone)?.id ??
+          null;
         const clientAccountId = linkedAccountId ?? accountByPhone?.id ?? null;
 
         return {
