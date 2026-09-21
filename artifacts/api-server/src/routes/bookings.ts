@@ -137,78 +137,6 @@ router.get("/stats", requirePermission("viewAnalytics"), async (req, res) => {
   }
 });
 
-router.get("/confirm/:code", async (req, res) => {
-  const code = normalizeCode(req.params.code);
-  if (!code) return res.status(400).json({ error: "Confirmation code is required." });
-  try {
-    const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
-    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
-    res.json({ ...serializeBooking(booking, await getFeedback(booking.id)) });
-  } catch (err) {
-    req.log.error({ err }, "Failed to look up booking by code");
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
-
-router.patch("/confirm/:code", async (req, res) => {
-  const code = normalizeCode(req.params.code);
-  const { preferredDate, preferredTime, status } = req.body as { preferredDate?: string; preferredTime?: string; status?: string };
-  if (!code) return res.status(400).json({ error: "Confirmation code is required." });
-  if (status && status !== "cancelled") return res.status(400).json({ error: "Clients may only cancel a booking." });
-  try {
-    const [current] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
-    if (!current) return res.status(404).json({ error: "No booking found with that confirmation code." });
-    if (["completed", "cancelled"].includes(current.status)) return res.status(400).json({ error: `This booking is already ${current.status} and cannot be changed.` });
-    if (preferredDate || preferredTime) {
-      const slot = await validateBookingSlot(preferredDate ?? current.preferredDate, preferredTime ?? current.preferredTime, { excludeBookingId: current.id });
-      if (!slot.ok) return res.status(409).json({ error: slot.error });
-    }
-    const updates: Partial<typeof bookingsTable.$inferInsert> = {};
-    if (preferredDate) updates.preferredDate = preferredDate;
-    if (preferredTime) updates.preferredTime = preferredTime;
-    if (status) updates.status = status;
-    if (!Object.keys(updates).length) return res.status(400).json({ error: "No valid fields to update." });
-    const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, current.id)).returning();
-    await recordAudit(req, status === "cancelled" ? "cancelled_booking" : "rescheduled_booking", "booking", String(updated.id));
-    res.json(serializeBooking(updated));
-  } catch (err) {
-    req.log.error({ err }, "Failed to update booking by code");
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
-
-router.get("/confirm/:code/feedback", async (req, res) => {
-  const code = normalizeCode(req.params.code);
-  try {
-    const [booking] = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
-    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
-    res.json({ feedback: await getFeedback(booking.id) });
-  } catch (err) {
-    req.log.error({ err }, "Failed to get booking feedback");
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
-
-router.post("/confirm/:code/feedback", async (req, res) => {
-  const code = normalizeCode(req.params.code);
-  const { rating, comment } = req.body as { rating?: unknown; comment?: unknown };
-  if (!Number.isInteger(rating) || Number(rating) < 1 || Number(rating) > 5) return res.status(400).json({ error: "Rating must be a whole number between 1 and 5." });
-  if (comment !== undefined && comment !== null && typeof comment !== "string") return res.status(400).json({ error: "Comment must be a text string." });
-  try {
-    const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
-    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
-    if (booking.status !== "completed") return res.status(400).json({ error: "Feedback can only be submitted for completed sessions." });
-    const existing = await getFeedback(booking.id);
-    if (existing) return res.status(409).json({ error: "Feedback has already been submitted for this session." });
-    const [created] = await db.insert(sessionFeedbackTable).values({ bookingId: booking.id, confirmationCode: booking.confirmationCode, clientAccountId: booking.clientAccountId ?? null, clientName: booking.clientName, rating: Number(rating), comment: typeof comment === "string" && comment.trim() ? comment.trim().slice(0, 2000) : null }).returning();
-    await db.insert(auditLogsTable).values({ actorEmail: "public-client", actorName: booking.clientName, action: "submitted_session_feedback", entityType: "session_feedback", entityId: String(created.id), details: `Rating: ${rating}/5 for booking ${booking.confirmationCode}` });
-    res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
-  } catch (err) {
-    req.log.error({ err }, "Failed to submit feedback");
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
-
 router.get("/confirm/:code/wellness-assignments", async (req, res) => {
   const code = normalizeCode(req.params.code);
   const phoneLast4 = String(req.query.phone ?? "").trim();
@@ -278,6 +206,20 @@ router.get("/confirm/:code/wellness-assignments", async (req, res) => {
   }
 });
 
+
+router.get("/confirm/:code", async (req, res) => {
+  const code = normalizeCode(req.params.code);
+  if (!code) return res.status(400).json({ error: "Confirmation code is required." });
+  try {
+    const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    res.json({ ...serializeBooking(booking, await getFeedback(booking.id)) });
+  } catch (err) {
+    req.log.error({ err }, "Failed to look up booking by code");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 router.patch("/confirm/:code/wellness-assignments/:id", async (req, res) => {
   const code = normalizeCode(req.params.code);
   const assignmentId = Number(req.params.id);
@@ -337,6 +279,66 @@ router.patch("/confirm/:code/wellness-assignments/:id", async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Failed to update public wellness assignment");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+
+router.patch("/confirm/:code", async (req, res) => {
+  const code = normalizeCode(req.params.code);
+  const { preferredDate, preferredTime, status } = req.body as { preferredDate?: string; preferredTime?: string; status?: string };
+  if (!code) return res.status(400).json({ error: "Confirmation code is required." });
+  if (status && status !== "cancelled") return res.status(400).json({ error: "Clients may only cancel a booking." });
+  try {
+    const [current] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!current) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    if (["completed", "cancelled"].includes(current.status)) return res.status(400).json({ error: `This booking is already ${current.status} and cannot be changed.` });
+    if (preferredDate || preferredTime) {
+      const slot = await validateBookingSlot(preferredDate ?? current.preferredDate, preferredTime ?? current.preferredTime, { excludeBookingId: current.id });
+      if (!slot.ok) return res.status(409).json({ error: slot.error });
+    }
+    const updates: Partial<typeof bookingsTable.$inferInsert> = {};
+    if (preferredDate) updates.preferredDate = preferredDate;
+    if (preferredTime) updates.preferredTime = preferredTime;
+    if (status) updates.status = status;
+    if (!Object.keys(updates).length) return res.status(400).json({ error: "No valid fields to update." });
+    const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, current.id)).returning();
+    await recordAudit(req, status === "cancelled" ? "cancelled_booking" : "rescheduled_booking", "booking", String(updated.id));
+    res.json(serializeBooking(updated));
+  } catch (err) {
+    req.log.error({ err }, "Failed to update booking by code");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+router.get("/confirm/:code/feedback", async (req, res) => {
+  const code = normalizeCode(req.params.code);
+  try {
+    const [booking] = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    res.json({ feedback: await getFeedback(booking.id) });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get booking feedback");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+router.post("/confirm/:code/feedback", async (req, res) => {
+  const code = normalizeCode(req.params.code);
+  const { rating, comment } = req.body as { rating?: unknown; comment?: unknown };
+  if (!Number.isInteger(rating) || Number(rating) < 1 || Number(rating) > 5) return res.status(400).json({ error: "Rating must be a whole number between 1 and 5." });
+  if (comment !== undefined && comment !== null && typeof comment !== "string") return res.status(400).json({ error: "Comment must be a text string." });
+  try {
+    const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
+    if (!booking) return res.status(404).json({ error: "No booking found with that confirmation code." });
+    if (booking.status !== "completed") return res.status(400).json({ error: "Feedback can only be submitted for completed sessions." });
+    const existing = await getFeedback(booking.id);
+    if (existing) return res.status(409).json({ error: "Feedback has already been submitted for this session." });
+    const [created] = await db.insert(sessionFeedbackTable).values({ bookingId: booking.id, confirmationCode: booking.confirmationCode, clientAccountId: booking.clientAccountId ?? null, clientName: booking.clientName, rating: Number(rating), comment: typeof comment === "string" && comment.trim() ? comment.trim().slice(0, 2000) : null }).returning();
+    await db.insert(auditLogsTable).values({ actorEmail: "public-client", actorName: booking.clientName, action: "submitted_session_feedback", entityType: "session_feedback", entityId: String(created.id), details: `Rating: ${rating}/5 for booking ${booking.confirmationCode}` });
+    res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
+  } catch (err) {
+    req.log.error({ err }, "Failed to submit feedback");
     res.status(500).json({ error: "Internal server error." });
   }
 });
