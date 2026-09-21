@@ -71,6 +71,7 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
 
     const clients = [...byPhone.entries()]
       .map(([normalizedPhone, bookings]) => {
+        const latestBooking = bookings[bookings.length - 1];
         const accountByPhone = accounts.find((account) => normalizePhone(account.phone) === normalizedPhone);
         const linkedAccountId =
           bookings.find((booking) => booking.clientAccountId !== null)?.clientAccountId ??
