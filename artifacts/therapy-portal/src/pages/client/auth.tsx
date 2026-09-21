@@ -27,7 +27,7 @@ export default function ClientAuth() {
     setLocation('/portal');
   };
   const login = useClientLogin({ mutation: { onSuccess: (data) => finish(data.client.name, (data as any).clientSessionToken), onError: (error) => toast({ variant: 'destructive', title: 'Could not sign in', description: (error as any)?.data?.error ?? 'Please check your details.' }) } });
-  const signup = useClientSignup({ mutation: { onSuccess: (data) => finish(data.client.name), onError: (error) => toast({ variant: 'destructive', title: 'Could not create account', description: (error as any)?.data?.error ?? 'Please check your details.' }) } });
+  const signup = useClientSignup({ mutation: { onSuccess: (data) => finish(data.client.name, (data as any).clientSessionToken), onError: (error) => toast({ variant: 'destructive', title: 'Could not create account', description: (error as any)?.data?.error ?? 'Please check your details.' }) } });
   const pending = login.isPending || signup.isPending;
 
   return (
