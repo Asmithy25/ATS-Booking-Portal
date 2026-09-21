@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BookOpen, ClipboardCheck, Heart, Loader2, NotebookPen, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronUp, ClipboardCheck, Heart, Loader2, NotebookPen, Pencil, Plus, Trash2, X } from 'lucide-react';
 
 import {
   useCreateWellnessAssignment,
@@ -59,6 +59,7 @@ export default function Wellness() {
   const deleteAssignment = useDeleteWellnessAssignment();
 
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [expandedBookingId, setExpandedBookingId] = useState<number | null>(null);
   const [type, setType] = useState<AssignmentType>('homework');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -316,7 +317,9 @@ export default function Wellness() {
               <div className="space-y-3">
                 {assignments.map((assignment: any) => {
                   const Icon = typeIcons[assignment.type as AssignmentType] ?? BookOpen;
-                  const linkedClient = clients.find((item: any) => item.clientAccountId === assignment.clientAccountId);
+                  const clientName = assignment.clientName ?? 'Client';
+                  const bookingInfo = assignment.booking;
+                  const isBookingExpanded = bookingInfo?.id === expandedBookingId;
                   return (
                     <div key={assignment.id} className="rounded-2xl border p-4">
                       <div className="flex items-start justify-between gap-4">
@@ -327,10 +330,23 @@ export default function Wellness() {
                               <h3 className="font-semibold">{assignment.title}</h3>
                               <Badge variant="secondary">{typeLabels[assignment.type as AssignmentType] ?? assignment.type}</Badge>
                             </div>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {linkedClient?.clientName ?? (assignment.bookingId ? `Booking #${assignment.bookingId}` : assignment.clientAccountId ? `Client #${assignment.clientAccountId}` : 'Booking-linked client')}
-                            </p>
-                            {assignment.bookingId && <p className="text-xs text-muted-foreground">Booking #{assignment.bookingId}</p>}
+                            <p className="mt-1 text-sm font-medium text-foreground">{clientName}</p>
+                            {bookingInfo && (
+                              <div className="mt-2">
+                                <Button type="button" size="sm" variant="outline" className="h-8 rounded-full" onClick={() => setExpandedBookingId(isBookingExpanded ? null : bookingInfo.id)}>
+                                  {isBookingExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                  {isBookingExpanded ? 'Hide booking information' : 'Show booking information'}
+                                </Button>
+                                {isBookingExpanded && (
+                                  <div className="mt-3 grid gap-3 rounded-xl bg-muted/40 p-4 text-sm sm:grid-cols-2">
+                                    <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone number</p><p className="mt-1">{bookingInfo.phone}</p></div>
+                                    <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Confirmation code</p><p className="mt-1 font-mono">{bookingInfo.confirmationCode}</p></div>
+                                    <div className="sm:col-span-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reason for calling</p><p className="mt-1 whitespace-pre-wrap">{bookingInfo.reason}</p></div>
+                                    <div className="sm:col-span-2"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session notes</p><p className="mt-1 whitespace-pre-wrap">{bookingInfo.sessionNotes || 'No session notes recorded.'}</p></div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{assignment.content}</p>
                             <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                               <span className="rounded-full bg-muted px-2.5 py-1 capitalize">{assignment.status.replace('_', ' ')}</span>
@@ -345,8 +361,7 @@ export default function Wellness() {
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                })}              </div>
             )}
           </CardContent>
         </Card>
