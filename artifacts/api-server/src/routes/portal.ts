@@ -1008,7 +1008,48 @@ router.get("/wellness-assignments", requireAuth, async (req, res): Promise<void>
     .from(wellnessAssignmentsTable)
     .orderBy(desc(wellnessAssignmentsTable.createdAt));
 
-  res.json(assignments);
+  const enrichedAssignments = await Promise.all(
+    assignments.map(async (assignment) => {
+      const [booking] = assignment.bookingId
+        ? await db
+            .select({
+              id: bookingsTable.id,
+              clientName: bookingsTable.clientName,
+              phone: bookingsTable.phone,
+              reason: bookingsTable.reason,
+              sessionNotes: bookingsTable.sessionNotes,
+              confirmationCode: bookingsTable.confirmationCode,
+            })
+            .from(bookingsTable)
+            .where(eq(bookingsTable.id, assignment.bookingId))
+            .limit(1)
+        : [];
+
+      const [clientAccount] = !booking && assignment.clientAccountId
+        ? await db
+            .select({ name: clientAccountsTable.name })
+            .from(clientAccountsTable)
+            .where(eq(clientAccountsTable.id, assignment.clientAccountId))
+            .limit(1)
+        : [];
+
+      return {
+        ...assignment,
+        clientName: booking?.clientName ?? clientAccount?.name ?? "Client",
+        booking: booking
+          ? {
+              id: booking.id,
+              phone: booking.phone,
+              reason: booking.reason,
+              sessionNotes: booking.sessionNotes ?? null,
+              confirmationCode: booking.confirmationCode,
+            }
+          : null,
+      };
+    }),
+  );
+
+  res.json(enrichedAssignments);
 });
 
 // Staff: create a wellness assignment
