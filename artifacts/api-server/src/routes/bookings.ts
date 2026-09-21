@@ -278,6 +278,69 @@ router.get("/confirm/:code/wellness-assignments", async (req, res) => {
   }
 });
 
+router.patch("/confirm/:code/wellness-assignments/:id", async (req, res) => {
+  const code = normalizeCode(req.params.code);
+  const assignmentId = Number(req.params.id);
+  const phoneLast4 = String((req.body as { phone?: unknown }).phone ?? "").trim();
+  const status = String((req.body as { status?: unknown }).status ?? "").trim();
+
+  if (!code || !Number.isInteger(assignmentId) || !/^\d{4}$/.test(phoneLast4)) {
+    res.status(400).json({ error: "Invalid assignment request." });
+    return;
+  }
+
+  if (!["assigned", "in_progress", "completed"].includes(status)) {
+    res.status(400).json({ error: "Invalid assignment status." });
+    return;
+  }
+
+  try {
+    const [booking] = await db
+      .select({ id: bookingsTable.id, phone: bookingsTable.phone })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.confirmationCode, code))
+      .limit(1);
+
+    if (!booking || normalizePhone(booking.phone).slice(-4) !== phoneLast4) {
+      res.status(404).json({
+        error: "We couldn't find a booking matching that information. Please check your confirmation code and phone number and try again.",
+      });
+      return;
+    }
+
+    const [updated] = await db
+      .update(wellnessAssignmentsTable)
+      .set({ status, updatedAt: new Date() })
+      .where(
+        and(
+          eq(wellnessAssignmentsTable.id, assignmentId),
+          eq(wellnessAssignmentsTable.bookingId, booking.id),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Wellness assignment not found." });
+      return;
+    }
+
+    res.json({
+      id: updated.id,
+      bookingId: updated.bookingId,
+      type: updated.type,
+      title: updated.title,
+      content: updated.content,
+      dueDate: updated.dueDate,
+      status: updated.status,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to update public wellness assignment");
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 router.post("/staff", requirePermission("editAppointments"), async (req, res) => {
   const { clientName, phone, reason, preferredDate, preferredTime, status = "claimed", priority = 1, sessionNotes, businessHoursConfirmationToken } = req.body as Record<string, any>;
   if (!clientName || !phone || !reason || !preferredDate || !preferredTime) return res.status(400).json({ error: "clientName, phone, reason, preferredDate and preferredTime are required." });
