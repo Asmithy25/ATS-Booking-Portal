@@ -1013,108 +1013,156 @@ router.get("/wellness-assignments", requireAuth, async (req, res): Promise<void>
 
 // Staff: create a wellness assignment
 router.post("/wellness-assignments", requireAuth, async (req, res): Promise<void> => {
-  const access = await getStaffAccess(req);
+  try {
+    const access = await getStaffAccess(req);
 
-  if (
-    !access ||
-    !hasPermission(access, "viewClients") ||
-    !["founder", "manager"].includes(access.role)
-  ) {
-    res.status(403).json({ error: "You do not have permission to create wellness assignments." });
-    return;
-  }
+    if (
+      !access ||
+      !hasPermission(access, "viewClients") ||
+      !["founder", "manager"].includes(access.role)
+    ) {
+      res.status(403).json({
+        error: "You do not have permission to create wellness assignments.",
+      });
+      return;
+    }
 
-  const {
-    clientAccountId,
-    bookingId,
-    type,
-    title,
-    content,
-    dueDate,
-  } = req.body as {
-    clientAccountId?: unknown;
-    bookingId?: unknown;
-    type?: unknown;
-    title?: unknown;
-    content?: unknown;
-    dueDate?: unknown;
-  };
-
-  const clientId = Number(clientAccountId);
-
-  if (!Number.isInteger(clientId) || clientId <= 0) {
-    res.status(400).json({ error: "A valid client is required." });
-    return;
-  }
-
-  const validTypes = ["wellness_journey", "notebook", "homework"];
-
-  if (typeof type !== "string" || !validTypes.includes(type)) {
-    res.status(400).json({
-      error: "Assignment type must be wellness_journey, notebook, or homework.",
-    });
-    return;
-  }
-
-  if (typeof title !== "string" || !title.trim()) {
-    res.status(400).json({ error: "A title is required." });
-    return;
-  }
-
-  if (typeof content !== "string" || !content.trim()) {
-    res.status(400).json({ error: "Assignment content is required." });
-    return;
-  }
-
-  const [client] = await db
-    .select({ id: clientAccountsTable.id })
-    .from(clientAccountsTable)
-    .where(eq(clientAccountsTable.id, clientId))
-    .limit(1);
-
-  if (!client) {
-    res.status(404).json({ error: "Client not found." });
-    return;
-  }
-
-  const parsedBookingId =
-    bookingId === undefined || bookingId === null || bookingId === ""
-      ? null
-      : Number(bookingId);
-
-  if (
-    parsedBookingId !== null &&
-    (!Number.isInteger(parsedBookingId) || parsedBookingId <= 0)
-  ) {
-    res.status(400).json({ error: "Invalid booking ID." });
-    return;
-  }
-
-  const [created] = await db
-    .insert(wellnessAssignmentsTable)
-    .values({
-      clientAccountId: clientId,
-      bookingId: parsedBookingId,
+    const {
+      clientAccountId,
+      bookingId,
       type,
-      title: title.trim().slice(0, 200),
-      content: content.trim().slice(0, 10000),
-      dueDate:
-        typeof dueDate === "string" && dueDate.trim()
-          ? dueDate.trim().slice(0, 40)
-          : null,
-      status: "assigned",
-      createdBy: access.email,
-    })
-    .returning();
+      title,
+      content,
+      dueDate,
+    } = req.body as {
+      clientAccountId?: unknown;
+      bookingId?: unknown;
+      type?: unknown;
+      title?: unknown;
+      content?: unknown;
+      dueDate?: unknown;
+    };
 
-  await recordAudit(
-    req,
-    "created_wellness_assignment",
-    "wellness_assignment",
-    String(created.id),
-  );
+    const validTypes = ["wellness_journey", "notebook", "homework"];
 
-  res.status(201).json(created);
+    if (typeof type !== "string" || !validTypes.includes(type)) {
+      res.status(400).json({
+        error: "Assignment type must be wellness_journey, notebook, or homework.",
+      });
+      return;
+    }
+
+    if (typeof title !== "string" || !title.trim()) {
+      res.status(400).json({ error: "A title is required." });
+      return;
+    }
+
+    if (typeof content !== "string" || !content.trim()) {
+      res.status(400).json({ error: "Assignment content is required." });
+      return;
+    }
+
+    const parsedBookingId =
+      bookingId === undefined || bookingId === null || bookingId === ""
+        ? null
+        : Number(bookingId);
+
+    if (
+      parsedBookingId !== null &&
+      (!Number.isInteger(parsedBookingId) || parsedBookingId <= 0)
+    ) {
+      res.status(400).json({ error: "Invalid booking ID." });
+      return;
+    }
+
+    const parsedClientAccountId =
+      clientAccountId === undefined ||
+      clientAccountId === null ||
+      clientAccountId === ""
+        ? null
+        : Number(clientAccountId);
+
+    if (
+      parsedClientAccountId !== null &&
+      (!Number.isInteger(parsedClientAccountId) ||
+        parsedClientAccountId <= 0)
+    ) {
+      res.status(400).json({ error: "Invalid client account ID." });
+      return;
+    }
+
+    if (parsedBookingId === null && parsedClientAccountId === null) {
+      res.status(400).json({
+        error: "A booking or client account is required.",
+      });
+      return;
+    }
+
+    let resolvedClientAccountId: number | null = parsedClientAccountId;
+    const resolvedBookingId: number | null = parsedBookingId;
+
+    if (parsedBookingId !== null) {
+      const [booking] = await db
+        .select()
+        .from(bookingsTable)
+        .where(eq(bookingsTable.id, parsedBookingId))
+        .limit(1);
+
+      if (!booking) {
+        res.status(404).json({ error: "Booking not found." });
+        return;
+      }
+
+      if (
+        resolvedClientAccountId === null &&
+        booking.clientAccountId !== null
+      ) {
+        resolvedClientAccountId = booking.clientAccountId;
+      }
+    } else if (parsedClientAccountId !== null) {
+      const [clientAccount] = await db
+        .select({ id: clientAccountsTable.id })
+        .from(clientAccountsTable)
+        .where(eq(clientAccountsTable.id, parsedClientAccountId))
+        .limit(1);
+
+      if (!clientAccount) {
+        res.status(404).json({ error: "Client account not found." });
+        return;
+      }
+    }
+
+    const [created] = await db
+      .insert(wellnessAssignmentsTable)
+      .values({
+        clientAccountId: resolvedClientAccountId,
+        bookingId: resolvedBookingId,
+        type,
+        title: title.trim().slice(0, 200),
+        content: content.trim().slice(0, 10000),
+        dueDate:
+          typeof dueDate === "string" && dueDate.trim()
+            ? dueDate.trim().slice(0, 40)
+            : null,
+        status: "assigned",
+        createdBy: access.email,
+      })
+      .returning();
+
+    await recordAudit(
+      req,
+      "created_wellness_assignment",
+      "wellness_assignment",
+      String(created.id),
+    );
+
+    res.status(201).json(created);
+  } catch (err) {
+    req.log.error({ err }, "Failed to create wellness assignment");
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Internal server error.",
+    });
+  }
 });
 
 // Staff: edit a wellness assignment
