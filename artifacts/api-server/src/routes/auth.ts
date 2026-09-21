@@ -135,9 +135,11 @@ router.post("/client/signup", async (req, res) => {
   });
 
   await repairClientData(client.id, client.phone);
+  const clientSessionToken = signPayload({ id: String(client.id), email: client.email, name: client.name });
   issueClientSession(res, { id: String(client.id), email: client.email, name: client.name }, true);
   res.status(201).json({
     authenticated: true,
+    clientSessionToken,
     client: { ...client, createdAt: client.createdAt.toISOString() },
   });
 });
@@ -152,9 +154,11 @@ router.post("/client/login", async (req, res) => {
   }
 
   await repairClientData(client.id, client.phone);
+  const clientSessionToken = signPayload({ id: String(client.id), email: client.email, name: client.name });
   issueClientSession(res, { id: String(client.id), email: client.email, name: client.name }, Boolean(keepSignedIn));
   res.json({
     authenticated: true,
+    clientSessionToken,
     client: {
       id: client.id,
       email: client.email,
