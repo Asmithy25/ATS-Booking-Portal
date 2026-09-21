@@ -78,8 +78,7 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
             createdAt: b.createdAt.toISOString(),
           })),
         };
-      })
-      .filter((client) => client.clientAccountId !== null);
+      });
 
     res.json({ clients });
   } catch (err) {
