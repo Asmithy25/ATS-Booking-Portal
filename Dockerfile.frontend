@@ -16,3 +16,5 @@ RUN pnpm --filter @workspace/therapy-portal build
 EXPOSE 3000
 
 CMD ["pnpm", "--filter", "@workspace/therapy-portal", "serve", "--host", "0.0.0.0"]
+
+# source refresh: client auth bearer fallback
