@@ -11,6 +11,14 @@ export type WellnessAssignmentData = {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  clientName?: string;
+  booking?: {
+    id: number;
+    phone: string;
+    reason: string;
+    sessionNotes: string | null;
+    confirmationCode: string;
+  } | null;
 };
 
 export type PublicWellnessLookupResponse = {
