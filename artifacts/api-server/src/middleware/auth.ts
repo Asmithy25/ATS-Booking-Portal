@@ -211,7 +211,8 @@ export function requirePermission(permission: string) {
 }
 
 export function extractClientSession(req: Request): ClientSession | null {
-  const raw = req.cookies?.[CLIENT_SESSION_COOKIE] as string | undefined;
+  const bearer = req.headers.authorization;
+  const raw = bearer?.startsWith("Bearer ") ? bearer.slice(7) : (req.cookies?.[CLIENT_SESSION_COOKIE] as string | undefined);
   if (!raw) return null;
   const session = verifyPayload(raw);
   if (!session?.id || !session.email || !session.name) return null;
