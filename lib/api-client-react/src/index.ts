@@ -3,5 +3,5 @@ export * from "./generated/api.schemas";
 export * from "./portal";
 export * from "./employees";
 export * from "./client-search";
-export { setBaseUrl, setAuthTokenGetter } from "./custom-fetch";
+export { customFetch, setBaseUrl, setAuthTokenGetter } from "./custom-fetch";
 export type { AuthTokenGetter } from "./custom-fetch";
