@@ -85,13 +85,13 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         }`}
       >
         {icon}
-        {label}
+        <span className={portalPrefs.navigation === "rail" ? "hidden md:inline-block md:sr-only" : ""}>{label}</span>
       </Link>
     );
   };
 
   return (
-      <div className={`ats-staff-shell min-h-screen flex bg-[#edf0eb] text-foreground dark:bg-background ats-paper ${portalPrefs.layout === "relaxed" ? "staff-relaxed" : portalPrefs.layout === "focused" ? "staff-focused" : portalPrefs.layout === "minimal" ? "staff-minimal" : "staff-composed"}`}>
+      <div className={`ats-staff-shell min-h-screen flex text-foreground dark:bg-background ats-paper ${portalPrefs.layout === "relaxed" ? "bg-[#f4f0ea]" : portalPrefs.layout === "focused" ? "bg-[#eef1f5]" : portalPrefs.layout === "minimal" ? "bg-background" : "bg-[#edf0eb]"}`}>
       {/* Sidebar */}
       <aside className={`${portalPrefs.navigation === "rail" ? "w-20" : portalPrefs.navigation === "compact" ? "w-56" : "w-64"} bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col fixed h-full z-30 transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="border-b border-sidebar-border p-5">
@@ -162,7 +162,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </Button>
         </div>
-        <div className="mx-auto max-w-7xl ats-rise">
+        <div className={`mx-auto ats-rise ${portalPrefs.dashboard === "cards" ? "max-w-6xl" : portalPrefs.dashboard === "flow" ? "max-w-5xl" : "max-w-7xl"}`}>
           <div className="mb-9 flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Today’s rhythm</p>
