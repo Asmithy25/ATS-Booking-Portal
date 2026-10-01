@@ -640,7 +640,8 @@ export default function Settings() {
                         <div className="flex items-center justify-between gap-3">
                           <FormMessage />
                           {field.value && (
-                            <Button type="button" variant="outline" size="sm" onClick={() => uploadHomepageImage('logoUrl', (value) => form.setValue('logoUrl', value))}>Upload image</Button>
+                            <>
+                              <Button type="button" variant="outline" size="sm" onClick={() => uploadHomepageImage('logoUrl', (value) => form.setValue('logoUrl', value))}>Upload image</Button>
                             <Button
                               type="button"
                               variant="outline"
@@ -649,6 +650,7 @@ export default function Settings() {
                             >
                               Use built-in logo
                             </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -766,7 +768,7 @@ export default function Settings() {
             </CardContent>
           </Card>}
 
-           {/* Ayden's booking schedule is retained for the primary public schedule. */
+           {/* Ayden's booking schedule is retained for the primary public schedule. */}
            {session?.isAdmin && <Card>
             <CardHeader>
                <CardTitle>Ayden&apos;s Hours / Booking Schedule</CardTitle>
