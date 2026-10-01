@@ -17,7 +17,7 @@ export default function Clients() {
     query: { retry: false },
   });
 
-  const clients = (searchResults?.clients ?? []) as Array<{ clientName: string; phone: string; sessionCount: number; bookings: Array<{ id: number | string; preferredDate: string; status: string; confirmationCode: string; preferredTime: string }> }>;
+  const clients = searchResults?.clients ?? [];
 
   const { data: clientHistory, isLoading, isError, error } = useGetClientHistory(selectedPhone, {
     query: {
@@ -100,11 +100,7 @@ export default function Clients() {
                   <div className="mt-4 space-y-2">
                     {client.bookings.slice(-3).reverse().map((booking) => (
                       <button key={booking.id} onClick={() => setSelectedPhone(client.phone)} className="w-full text-left rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-primary" />{format(parseISO(booking.preferredDate), 'MMM d, yyyy')}</span>
-                          <Badge variant="outline" className="capitalize text-[10px]">{booking.status}</Badge>
-                        </div>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1"><Hash className="w-3 h-3" />{booking.confirmationCode} · {booking.preferredTime}</span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Hash className="w-3 h-3" />{booking.confirmationCode}</span>
                       </button>
                     ))}
                   </div>
