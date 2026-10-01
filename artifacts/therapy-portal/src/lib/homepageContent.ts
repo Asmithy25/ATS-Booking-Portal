@@ -1,4 +1,4 @@
-export type HomepageContent = Record<string, string | boolean>;
+export type HomepageContent = typeof DEFAULT_HOMEPAGE_CONTENT & Record<string, unknown>;
 
 export const DEFAULT_HOMEPAGE_CONTENT = {
   heroGreeting: "Good morning",
@@ -76,5 +76,5 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
 
 export function getHomepageContent(settings: unknown) {
   const value = (settings as { homepageContent?: Record<string, unknown> } | undefined)?.homepageContent;
-  return { ...DEFAULT_HOMEPAGE_CONTENT, ...(value ?? {}) };
+  return { ...DEFAULT_HOMEPAGE_CONTENT, ...(value ?? {}) } as HomepageContent;
 }
