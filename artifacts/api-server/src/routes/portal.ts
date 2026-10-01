@@ -136,31 +136,59 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
 
 router.get("/announcements", async (req, res) => {
   const audience = req.query.audience === "staff" ? "staff" : "client";
-  if (audience === "staff") {
+  const staffView = audience === "staff";
+  if (staffView) {
     const access = await getStaffAccess(req);
-    if (!access) {
-      res.status(401).json({ error: "Staff authentication required." });
-      return;
-    }
+    if (!access) { res.status(401).json({ error: "Staff authentication required." }); return; }
   }
-  const announcements = await db.select().from(announcementsTable).where(and(eq(announcementsTable.audience, audience), eq(announcementsTable.active, true))).orderBy(desc(announcementsTable.createdAt));
-  res.json(announcements.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })));
+  const rows = await db.select().from(announcementsTable)
+    .where(and(eq(announcementsTable.audience, audience), eq(announcementsTable.active, true)))
+    .orderBy(desc(announcementsTable.createdAt));
+  const now = Date.now();
+  const visible = staffView ? rows : rows.filter((item) => {
+    const meta = item.metadata ?? {};
+    if (meta.status && meta.status !== "published") return false;
+    if (meta.startsAt && new Date(meta.startsAt).getTime() > now) return false;
+    if (meta.endsAt && new Date(meta.endsAt).getTime() < now) return false;
+    return true;
+  });
+  res.json(visible.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })));
 });
 
 router.post("/announcements", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
-  if (!access || !hasPermission(access, "postAnnouncements")) {
-    res.status(403).json({ error: "Manager access required." });
-    return;
-  }
-  const { title, body, audience = "staff" } = req.body as { title?: string; body?: string; audience?: string };
-  if (!title?.trim() || !body?.trim() || !["staff", "client"].includes(audience)) {
-    res.status(400).json({ error: "Title, body, and a valid audience are required." });
-    return;
-  }
-  const [created] = await db.insert(announcementsTable).values({ title: title.trim(), body: body.trim(), audience, publishedBy: access.name }).returning();
+  if (!access || !hasPermission(access, "postAnnouncements")) { res.status(403).json({ error: "Manager access required." }); return; }
+  const { title, body, audience = "staff", metadata = {} } = req.body as { title?: string; body?: string; audience?: string; metadata?: Record<string, unknown> };
+  if (!title?.trim() || !body?.trim() || !["staff", "client"].includes(audience)) { res.status(400).json({ error: "Title, body, and a valid audience are required." }); return; }
+  const [created] = await db.insert(announcementsTable).values({ title: title.trim().slice(0, 180), body: body.trim().slice(0, 5000), audience, publishedBy: access.name, metadata }).returning();
   await recordAudit(req, "posted_announcement", "announcement", String(created.id), audience);
   res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
+});
+
+router.patch("/announcements/:id", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "postAnnouncements")) { res.status(403).json({ error: "Manager access required." }); return; }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) { res.status(400).json({ error: "Invalid announcement ID." }); return; }
+  const body = req.body as { title?: string; body?: string; audience?: string; metadata?: Record<string, unknown>; active?: boolean };
+  const updates: Partial<typeof announcementsTable.$inferInsert> = {};
+  if (body.title !== undefined) updates.title = body.title.trim().slice(0, 180);
+  if (body.body !== undefined) updates.body = body.body.trim().slice(0, 5000);
+  if (body.audience !== undefined && ["staff", "client"].includes(body.audience)) updates.audience = body.audience;
+  if (body.metadata !== undefined) updates.metadata = body.metadata;
+  if (body.active !== undefined) updates.active = body.active;
+  const [updated] = await db.update(announcementsTable).set(updates).where(eq(announcementsTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "Announcement not found." }); return; }
+  res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
+});
+
+router.delete("/announcements/:id", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || access.role !== "founder") { res.status(403).json({ error: "Founder access required." }); return; }
+  const id = Number(req.params.id);
+  const [deleted] = await db.delete(announcementsTable).where(eq(announcementsTable.id, id)).returning();
+  if (!deleted) { res.status(404).json({ error: "Announcement not found." }); return; }
+  res.json({ success: true });
 });
 
 router.get("/resources", async (_req, res) => {
