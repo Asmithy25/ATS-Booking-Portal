@@ -133,6 +133,19 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const IMAGE_URL = /^(https?:\/\/[^\s]+|data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+)$/i;
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
+function mergeHomepageContent(value: unknown) {
+  const saved = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const savedVisibility = saved.sectionVisibility;
+  return {
+    ...DEFAULT_HOMEPAGE_CONTENT,
+    ...saved,
+    sectionVisibility: {
+      ...(DEFAULT_HOMEPAGE_CONTENT as Record<string, unknown>).sectionVisibility as Record<string, boolean> ?? {},
+      ...(savedVisibility && typeof savedVisibility === "object" ? savedVisibility as Record<string, boolean> : {}),
+    },
+  };
+}
+
 function isOfficeHours(value: unknown): value is OfficeHours {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -198,7 +211,7 @@ router.get("/", async (req, res) => {
       primaryColor: settings.primaryColor,
       secondaryColor: settings.secondaryColor,
       accentColor: settings.accentColor,
-      homepageContent: { ...DEFAULT_HOMEPAGE_CONTENT, ...(settings.homepageContent ?? {}) },
+      homepageContent: mergeHomepageContent(settings.homepageContent),
       featureFlags: settings.featureFlags ?? DEFAULT_SETTINGS.featureFlags,
       therapistHours: [
         {
@@ -401,7 +414,7 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
         res.status(400).json({ error: "Homepage content must be an object." });
         return;
       }
-      const mergedHomepage = { ...DEFAULT_HOMEPAGE_CONTENT, ...body.homepageContent };
+      const mergedHomepage = mergeHomepageContent(body.homepageContent);
       updates.homepageContent = mergedHomepage;
     }
     if (body.featureFlags !== undefined) {
@@ -444,7 +457,7 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       primaryColor: updated.primaryColor,
       secondaryColor: updated.secondaryColor,
       accentColor: updated.accentColor,
-      homepageContent: { ...DEFAULT_HOMEPAGE_CONTENT, ...(updated.homepageContent ?? {}) },
+      homepageContent: mergeHomepageContent(updated.homepageContent),
       featureFlags: updated.featureFlags ?? DEFAULT_SETTINGS.featureFlags,
       therapistHours: [
         {
