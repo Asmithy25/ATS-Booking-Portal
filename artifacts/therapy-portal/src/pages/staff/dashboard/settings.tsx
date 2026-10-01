@@ -153,6 +153,23 @@ export default function Settings() {
   const [homepageSaving, setHomepageSaving] = useState(false);
   const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced' });
   const [portalPrefsSaving, setPortalPrefsSaving] = useState(false);
+  const savePortalPreferences = async () => {
+    setPortalPrefsSaving(true);
+    try {
+      const response = await fetch('/api/settings/staff-preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(portalPrefs),
+      });
+      if (!response.ok) throw new Error('Failed to save preferences');
+      toast({ title: 'Workspace saved', description: 'Your staff portal preferences were updated.' });
+    } catch {
+      toast({ title: 'Could not save workspace', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setPortalPrefsSaving(false);
+    }
+  };
   const hoursForm = useForm<{ officeHours: SettingsFormValues['officeHours'] }>({
     resolver: zodResolver(z.object({
       officeHours: settingsSchema.shape.officeHours,
