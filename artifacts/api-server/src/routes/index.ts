@@ -7,6 +7,8 @@ import clientsRouter from "./clients";
 import employeesRouter from "./employees";
 import portalRouter from "./portal";
 import backupRouter from "./backup";
+import mobileRouter from "./mobile";
+import staffPreferencesRouter from "./staffPreferences";
 
 const router: IRouter = Router();
 
@@ -18,5 +20,7 @@ router.use("/clients", clientsRouter);
 router.use("/employees", employeesRouter);
 router.use("/portal", portalRouter);
 router.use("/backup", backupRouter);
+router.use("/mobile", mobileRouter);
+router.use("/settings/staff-preferences", staffPreferencesRouter);
 
 export default router;
