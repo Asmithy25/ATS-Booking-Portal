@@ -2,6 +2,6 @@ export * from "./generated/api";
 export * from "./generated/api.schemas";
 export * from "./portal";
 export * from "./employees";
-export * from "./client-search";
+export { useSearchClients } from "./client-search";
 export { customFetch, setBaseUrl, setAuthTokenGetter } from "./custom-fetch";
 export type { AuthTokenGetter } from "./custom-fetch";
