@@ -38,7 +38,7 @@ router.get("/notifications", requireAuth, async (req, res) => {
     read boolean NOT NULL DEFAULT false,
     created_at timestamp NOT NULL DEFAULT now()
   )`);
-  const result = await db.execute(sql`SELECT id, title, body, read, created_at FROM staff_notifications WHERE staff_email = ${access.email} ORDER BY created_at DESC LIMIT 50`);
+  const result = await db.execute(sql`SELECT id, title, body, read, created_at AS "createdAt" FROM staff_notifications WHERE staff_email = ${access.email} ORDER BY created_at DESC LIMIT 50`);
   const rows = Array.isArray(result) ? result : (result as any).rows ?? [];
   res.json(rows);
 });
