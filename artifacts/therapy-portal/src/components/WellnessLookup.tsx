@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { getHomepageContent } from '@/lib/homepageContent';
 
 type WellnessAssignment = {
   id: number;
@@ -45,7 +46,7 @@ function AssignmentIcon({ type }: { type: string }) {
   return <ClipboardCheck className="h-5 w-5" />;
 }
 
-export function WellnessLookup() {
+export function WellnessLookup() {\n  const content = getHomepageContent(undefined);
   const [code, setCode] = useState('');
   const [phoneLast4, setPhoneLast4] = useState('');
   const [result, setResult] = useState<LookupResponse | null>(null);
@@ -62,7 +63,7 @@ export function WellnessLookup() {
     const normalizedPhone = phoneLast4.replace(/\D/g, '');
 
     if (!normalizedCode || !/^\d{4}$/.test(normalizedPhone)) {
-      setError('Enter your confirmation code and the last 4 digits of the phone number used for your booking.');
+      setError('{content.wellnessLookupError}');
       return;
     }
 
@@ -74,7 +75,7 @@ export function WellnessLookup() {
       );
       setResult(data);
     } catch {
-      setError("We couldn't find a booking matching that information. Please check your confirmation code and phone number and try again.");
+      setError("{content.wellnessNotFoundError}");
     } finally {
       setLoading(false);
     }
@@ -103,7 +104,7 @@ export function WellnessLookup() {
           : current,
       );
     } catch {
-      setError('We could not update that assignment. Please try again.');
+      setError('{content.wellnessUpdateError}');
     } finally {
       setUpdatingId(null);
     }
@@ -113,38 +114,38 @@ export function WellnessLookup() {
     <section id="wellness-lookup" className="border-y border-border/50 bg-card py-20">
       <div className="container mx-auto max-w-5xl px-4">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">Your care between sessions</p>
-          <h2 className="mt-3 text-4xl font-serif font-bold">Find Your Wellness Assignments</h2>
+          <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">{content.wellnessEyebrow}</p>
+          <h2 className="mt-3 text-4xl font-serif font-bold">{content.wellnessTitle}</h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Already have a booking? Enter your confirmation code and the last 4 digits of the phone number used for that booking.
+            {content.wellnessDescription}
           </p>
         </div>
 
         <Card className="mx-auto mt-10 max-w-2xl rounded-[1.75rem] border-primary/15 shadow-lg">
           <CardHeader>
-            <CardTitle>Look up your booking</CardTitle>
-            <CardDescription>Your information is verified together before any assignment details are shown.</CardDescription>
+            <CardTitle>{content.wellnessLookupTitle}</CardTitle>
+            <CardDescription>{content.wellnessLookupDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={lookup} className="grid gap-5 sm:grid-cols-[1fr_180px_auto] sm:items-end">
               <div className="space-y-2">
-                <Label htmlFor="wellness-confirmation-code">Confirmation code</Label>
+                <Label htmlFor="wellness-confirmation-code">{content.wellnessCodeLabel}</Label>
                 <Input
                   id="wellness-confirmation-code"
                   value={code}
                   onChange={(event) => setCode(event.target.value.toUpperCase())}
-                  placeholder="ABC12345"
+                  placeholder={content.wellnessCodePlaceholder}
                   autoComplete="off"
                   className="font-mono uppercase tracking-wider"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="wellness-phone-last4">Phone last 4</Label>
+                <Label htmlFor="wellness-phone-last4">{content.wellnessPhoneLabel}</Label>
                 <Input
                   id="wellness-phone-last4"
                   value={phoneLast4}
                   onChange={(event) => setPhoneLast4(event.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="1234"
+                  placeholder={content.wellnessPhonePlaceholder}
                   inputMode="numeric"
                   maxLength={4}
                   autoComplete="off"
@@ -153,7 +154,7 @@ export function WellnessLookup() {
               </div>
               <Button type="submit" disabled={loading} className="rounded-full">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                {loading ? 'Finding…' : 'Find assignments'}
+                {loading ? content.wellnessFindingText : content.wellnessFindButton}
               </Button>
             </form>
 
@@ -170,9 +171,9 @@ export function WellnessLookup() {
             <CardHeader className="bg-primary/5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle>Welcome, {result.booking.clientName}</CardTitle>
+                  <CardTitle>{content.wellnessWelcomeText.replace('{name}', result.booking.clientName)}</CardTitle>
                   <CardDescription className="mt-2">
-                    Confirmation {result.booking.confirmationCode}
+                    {content.wellnessConfirmationPrefix} {result.booking.confirmationCode}
                   </CardDescription>
                 </div>
                 <Badge variant="secondary" className="w-fit capitalize">{result.booking.status.replace('_', ' ')}</Badge>
@@ -180,15 +181,15 @@ export function WellnessLookup() {
               <div className="grid gap-3 pt-3 text-sm text-muted-foreground sm:grid-cols-3">
                 <span><CalendarDays className="mr-1 inline h-4 w-4" />{format(parseISO(result.booking.preferredDate), 'MMMM d, yyyy')}</span>
                 <span>Appointment: {result.booking.preferredTime}</span>
-                <span>Therapist: {result.booking.therapist || 'Not assigned yet'}</span>
+                <span>Therapist: {result.booking.therapist || '{content.wellnessNotAssignedText}'}</span>
               </div>
             </CardHeader>
             <CardContent className="p-6">
               {result.assignments.length === 0 ? (
                 <div className="rounded-2xl border border-dashed p-8 text-center">
                   <Heart className="mx-auto h-8 w-8 text-primary/60" />
-                  <p className="mt-3 font-medium">No wellness assignments yet</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Your care team will add activities here when they are ready.</p>
+                  <p className="mt-3 font-medium">{content.wellnessNoAssignmentsTitle}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{content.wellnessNoAssignmentsDescription}</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -206,7 +207,7 @@ export function WellnessLookup() {
                             </div>
                             {assignment.dueDate && (
                               <p className="mt-1 text-xs text-muted-foreground">
-                                Due {format(parseISO(assignment.dueDate), 'MMMM d, yyyy')}
+                                {content.wellnessDuePrefix} {format(parseISO(assignment.dueDate), 'MMMM d, yyyy')}
                               </p>
                             )}
                           </div>
@@ -227,7 +228,7 @@ export function WellnessLookup() {
                             disabled={updatingId === assignment.id}
                           >
                             {updatingId === assignment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                            Start activity
+                            {content.wellnessStartActivityText}
                           </Button>
                         )}
                         {assignment.status === 'in_progress' && (
@@ -238,7 +239,7 @@ export function WellnessLookup() {
                             disabled={updatingId === assignment.id}
                           >
                             {updatingId === assignment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                            Mark completed
+                            {content.wellnessMarkCompletedText}
                           </Button>
                         )}
                         {assignment.status === 'completed' && (
