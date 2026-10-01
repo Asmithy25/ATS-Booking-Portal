@@ -63,7 +63,8 @@ export default function Home() {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    if (content.faviconUrl) {
+    const favicon = content.faviconUrl || settings?.logoUrl;
+    if (favicon) {
       let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
       if (!link) {
         link = document.createElement('link');
