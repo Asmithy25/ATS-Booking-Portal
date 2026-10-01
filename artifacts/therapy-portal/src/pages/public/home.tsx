@@ -476,7 +476,7 @@ export default function Home() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">{content.bookingCodeDescription}</p>
                         <a
-                          href={`/booking/${confirmationCode}`}
+                          href={`${content.bookingManageLinkUrl || "/booking"}/${confirmationCode}`}
                           className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
                         >
                           {content.bookingManageBookingText}
