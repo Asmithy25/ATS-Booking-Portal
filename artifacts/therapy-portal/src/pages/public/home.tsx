@@ -236,11 +236,11 @@ export default function Home() {
                 )}
                 
                 <motion.h1 variants={fadeUp} className="text-[3.4rem] sm:text-6xl lg:text-7xl font-serif font-bold text-foreground leading-[.98] mb-6">
-                  {settings?.heroTitle ?? 'A safe space for healing and growth.'}
+                  {content.heroTitle}
                 </motion.h1>
                 
                 <motion.p variants={fadeUp} className="text-lg lg:text-xl text-muted-foreground mb-8 leading-relaxed max-w-xl">
-                  {settings?.heroDescription ?? 'A warm, grounded space to explore your thoughts and feelings without judgment.'}
+                  {content.heroDescription}
                   <span className="block mt-2 font-medium text-foreground">{content.heroSecondaryText}</span>
                 </motion.p>
                 
@@ -354,7 +354,7 @@ export default function Home() {
           </div>
         </section>}
 
-        <WellnessLookup />
+        {content.sectionVisibility?.wellness !== false && <WellnessLookup content={content} />}
 
         {/* BOOKING SECTION */}
         {content.sectionVisibility?.booking !== false && <section id="book" className="py-24 relative bg-[hsl(35_44%_94%)]">
@@ -399,9 +399,9 @@ export default function Home() {
                        <p className="font-bold mb-4">{content.bookingHoursTitle}</p>
                        <div className="space-y-1.5 text-sm opacity-90">
                          {[
-                           { label: 'M-F', hours: settings?.officeHours?.mon },
-                           { label: 'Sat', hours: settings?.officeHours?.sat },
-                           { label: 'Sun', hours: settings?.officeHours?.sun },
+                           { label: content.bookingWeekdayLabel, hours: settings?.officeHours?.mon },
+                           { label: content.bookingSaturdayLabel, hours: settings?.officeHours?.sat },
+                           { label: content.bookingSundayLabel, hours: settings?.officeHours?.sun },
                          ].map(({ label, hours }) => (
                            <div key={label} className="flex justify-between gap-3">
                              <span>{label}</span>
@@ -413,7 +413,7 @@ export default function Home() {
                        <div className="space-y-5 text-sm opacity-90">
                          {(settings?.therapistHours ?? []).map((therapist) => (
                            <div key={therapist.name} className="space-y-2">
-                             <p className="font-semibold text-primary-foreground">{therapist.name}&apos;s Hours:</p>
+                             <p className="font-semibold text-primary-foreground">{therapist.name}{content.bookingTherapistHoursSuffix}</p>
                              <div className="space-y-1.5 pl-2 border-l border-primary-foreground/20">
                                {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
                                  const h = therapist.officeHours?.[day as keyof typeof therapist.officeHours];
@@ -441,7 +441,7 @@ export default function Home() {
                           {settings.holidayHours.map((h, i) => (
                             <div key={i} className="flex flex-col mb-2">
                               <span className="font-medium">{h.name} ({h.date})</span>
-                              <span>{h.closed ? 'Closed' : `${h.open} - ${h.close}`}</span>
+                              <span>{h.closed ? content.bookingHolidayClosedText : `${h.open} - ${h.close}`}</span>
                             </div>
                           ))}
                         </div>
@@ -479,7 +479,7 @@ export default function Home() {
                           href={`/booking/${confirmationCode}`}
                           className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
                         >
-                          Manage your booking →
+                          {content.bookingManageBookingText}
                         </a>
                       </div>
                     )}
@@ -514,7 +514,7 @@ export default function Home() {
                           <FormItem>
                             <FormLabel>{content.bookingNameLabel}</FormLabel>
                             <FormControl>
-                              <Input placeholder="{content.bookingNamePlaceholder}" {...field} />
+                              <Input placeholder={content.bookingNamePlaceholder} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -605,9 +605,9 @@ export default function Home() {
                       <Clock className="mr-2 inline h-4 w-4 text-primary" />
                       {selectedHours
                         ? selectedHours.closed
-                          ? 'The practice is closed on this date.'
-                          : `Choose any start time from ${formatOfficeTime(selectedHours.open)} to ${formatOfficeTime(selectedHours.close)}, leaving one hour for your phone session.`
-                        : 'Choose a date to see available business hours. Sessions are 60 minutes and must fit within the practice hours.'}
+                          ? content.bookingClosedDateText
+                          : content.bookingTimeHelpText.replace('{open}', formatOfficeTime(selectedHours.open)).replace('{close}', formatOfficeTime(selectedHours.close))
+                        : content.bookingSelectDateHelpText}
                     </div>
           </div>
         </section>}
