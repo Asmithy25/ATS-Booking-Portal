@@ -213,7 +213,7 @@ export default function Home() {
                className="mb-10 max-w-2xl border-l-4 border-primary bg-card/75 px-5 py-4 shadow-sm backdrop-blur sm:px-6"
             >
               <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">
-                {now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'}
+                {content.heroGreeting}
               </p>
               <p className="mt-1 font-serif text-xl font-semibold text-foreground">
                 {content.heroWelcome}
