@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
   primaryColor: "#7B4A2F",
   secondaryColor: "#C38A4A",
   accentColor: "#D9B7A2",
+  homepageContent: DEFAULT_HOMEPAGE_CONTENT,
   featureFlags: {
     clientBooking: true,
     clientNotifications: true,
@@ -49,6 +50,81 @@ const DEFAULT_SETTINGS = {
     clientPortalCountdown: true,
     clientTemplates: true,
   },
+};
+
+const DEFAULT_HOMEPAGE_CONTENT = {
+  announcementHeading: "What’s new",
+  announcementSubheading: "Updates from Aydens Wellness Services",
+  announcementDescription: "",
+  announcementImageUrl: "",
+  heroGreeting: "Good morning",
+  heroWelcome: "Welcome — this is a space for you.",
+  heroQuoteEnabled: true,
+  heroAcceptingText: "Now Accepting New Clients",
+  heroPhoneBadge: "100% Phone-Based",
+  heroPrimaryButton: "Begin Your First Session",
+  heroSecondaryText: "Support that meets you where you are.",
+  heroCardTitle: "Phone consultation",
+  heroCardSubtitle: "A calm place to begin",
+  heroCardDescription: "Support that meets you where you are.",
+  aboutEyebrow: "A grounded space for your next chapter",
+  aboutTitle: "Healing begins with being heard.",
+  aboutParagraph1: "Aydens Wellness Services offers a warm, judgment-free space to slow down, reflect, and feel supported.",
+  aboutParagraph2: "With phone-based consultations, you can connect from the place that already feels safe — no commute, no waiting room, and no pressure to have everything figured out before you begin.",
+  aboutParagraph3: "Whether you’re navigating a life transition, managing anxiety, or looking for a grounded presence to talk through the week, you deserve support that honors your pace. Reset, rebuild, and thrive on your own terms.",
+  aboutQuote: "Your story deserves space.",
+  bookingEyebrow: "Let’s connect",
+  bookingTitle: "Make room for your wellbeing.",
+  bookingDescription: "Request a brief phone consultation to see if we’re a good fit.",
+  bookingInfoTitle: "A gentle place to start",
+  bookingPhoneLabel: "Phone consultations",
+  bookingPhone: "+1 (561) 291-8556",
+  bookingOfficeBadge: "No Physical Office",
+  bookingEmailLabel: "Email",
+  bookingEmail: "aydenstherapyservices@gmail.com",
+  bookingHoursTitle: "Main Office Hours:",
+  bookingTherapistHoursTitle: "Therapist Hours:",
+  bookingHolidaysTitle: "Upcoming Holidays",
+  bookingFormTitle: "Request a consultation",
+  bookingManageLink: "Already booked? Manage with your code →",
+  bookingNameLabel: "Full Name",
+  bookingNamePlaceholder: "Jane Doe",
+  bookingPhoneFieldLabel: "Phone Number",
+  bookingPhonePlaceholder: "(555) 123-4567",
+  bookingReasonLabel: "What would you like support with?",
+  bookingReasonPlaceholder: "Share a little about what brings you here...",
+  bookingDateLabel: "Preferred Date",
+  bookingTimeLabel: "Preferred Time",
+  bookingDisclaimer: "This first step is simply a request. All consultations are held by phone.",
+  bookingSubmitText: "Request consultation",
+  bookingSendingText: "Sending",
+  bookingSuccessTitle: "Request Sent!",
+  bookingSuccessDescription: "Your booking request has been received. I'll contact you shortly to confirm your session.",
+  bookingCodeLabel: "Your Confirmation Code",
+  bookingCodeDescription: "Save this code — you can use it to reschedule or cancel your appointment.",
+  bookingAnotherButton: "Book Another Session",
+  bookingClosedTitle: "Currently Fully Booked",
+  bookingClosedDescription: "We are not accepting new session requests at this moment. Please check back later.",
+  bookingDateHelp: "Choose a date to see available business hours. Sessions are 60 minutes and must fit within the practice hours.",
+  navPrivateSupport: "Private, phone-based support",
+  navRegion: "South Florida and beyond",
+  navAbout: "Our approach",
+  navBook: "How to begin",
+  navWellness: "Wellness Journey",
+  navStaff: "Staff",
+  navClientPortal: "Client portal",
+  navRequestCall: "Request a call",
+  footerContactHeading: "Contact",
+  footerPracticeHeading: "Our practice",
+  footerPracticeDescription: "We provide strictly over-the-phone consultations. There is no physical office, allowing you to access support from the comfort of your own space.",
+  footerCopyrightText: "Phone consultations only · no physical office",
+  footerLegalText: "",
+  logoAlt: "Aydens Wellness Services botanical logo",
+  heroImageUrl: "",
+  aboutImageUrl: "",
+  faviconUrl: "",
+  contactPhone: "+1 (561) 291-8556",
+  contactEmail: "aydenstherapyservices@gmail.com",
 };
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -120,6 +196,7 @@ router.get("/", async (req, res) => {
       primaryColor: settings.primaryColor,
       secondaryColor: settings.secondaryColor,
       accentColor: settings.accentColor,
+      homepageContent: { ...DEFAULT_HOMEPAGE_CONTENT, ...(settings.homepageContent ?? {}) },
       featureFlags: settings.featureFlags ?? DEFAULT_SETTINGS.featureFlags,
       therapistHours: [
         {
@@ -229,6 +306,7 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
     primaryColor: string;
     secondaryColor: string;
     accentColor: string;
+    homepageContent: Partial<typeof DEFAULT_HOMEPAGE_CONTENT>;
     featureFlags: typeof DEFAULT_SETTINGS.featureFlags;
   }>;
 
@@ -252,6 +330,7 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       primaryColor: string;
       secondaryColor: string;
       accentColor: string;
+      homepageContent: typeof DEFAULT_HOMEPAGE_CONTENT;
       featureFlags: typeof DEFAULT_SETTINGS.featureFlags;
     }> = {};
 
@@ -310,6 +389,19 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       }
       updates.accentColor = body.accentColor.toUpperCase();
     }
+    if (body.homepageContent !== undefined) {
+      const access = await getStaffAccess(req);
+      if (!access || access.role !== "founder") {
+        res.status(403).json({ error: "Only the founder can edit homepage content." });
+        return;
+      }
+      if (!body.homepageContent || typeof body.homepageContent !== "object") {
+        res.status(400).json({ error: "Homepage content must be an object." });
+        return;
+      }
+      const mergedHomepage = { ...DEFAULT_HOMEPAGE_CONTENT, ...body.homepageContent };
+      updates.homepageContent = mergedHomepage;
+    }
     if (body.featureFlags !== undefined) {
       const access = await getStaffAccess(req);
       if (!access || access.role !== "founder") {
@@ -350,6 +442,7 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       primaryColor: updated.primaryColor,
       secondaryColor: updated.secondaryColor,
       accentColor: updated.accentColor,
+      homepageContent: { ...DEFAULT_HOMEPAGE_CONTENT, ...(updated.homepageContent ?? {}) },
       featureFlags: updated.featureFlags ?? DEFAULT_SETTINGS.featureFlags,
       therapistHours: [
         {
