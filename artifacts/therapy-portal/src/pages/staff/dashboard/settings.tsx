@@ -640,6 +640,7 @@ export default function Settings() {
                         <div className="flex items-center justify-between gap-3">
                           <FormMessage />
                           {field.value && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => uploadHomepageImage('logoUrl', (value) => form.setValue('logoUrl', value))}>Upload image</Button>
                             <Button
                               type="button"
                               variant="outline"
