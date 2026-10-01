@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { prepareNotificationStorage, processScheduledNotifications } from "./lib/notification-service";
 
 const rawPort = process.env["PORT"];
 
@@ -21,6 +22,7 @@ async function prepareDatabase() {
   // Keep existing deployments compatible without requiring a manual migration step.
   await db.execute(sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS homepage_content jsonb NOT NULL DEFAULT '{}'::jsonb`);
   await db.execute(sql`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb`);
+  await prepareNotificationStorage();
 }
 
 prepareDatabase().then(() => app.listen(port, (err) => {
@@ -30,6 +32,9 @@ prepareDatabase().then(() => app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  const runNotifications = () => processScheduledNotifications().catch((err) => logger.warn({ err }, "Scheduled notification pass failed"));
+  void runNotifications();
+  setInterval(runNotifications, 60_000);
 })).catch((err) => {
   logger.error({ err }, "Database preparation failed");
   process.exit(1);
