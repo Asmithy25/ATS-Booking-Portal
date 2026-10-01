@@ -12,6 +12,7 @@ import { recordAudit } from "../lib/audit";
 import { validateBookingSlot } from "../lib/scheduling";
 import { generateConfirmationCode } from "../lib/booking-utils";
 import { findClientAccountByPhone } from "../lib/client-data-repair";
+import { notifyBooking } from "../lib/notification-service";
 
 const router = Router();
 
@@ -116,6 +117,7 @@ router.post("/", async (req, res) => {
     const confirmationCode = await createConfirmationCode();
     const clientAccountId = await resolveClientAccountId(phone);
     const [created] = await db.insert(bookingsTable).values({ confirmationCode, clientAccountId, clientName, phone, reason, preferredDate, preferredTime, status: "pending" }).returning();
+    await notifyBooking(created, "booking_confirmation");
     const prior = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.phone, phone));
     res.status(201).json({ ...serializeBooking(created), isReturningClient: prior.length > 1, previousSessionCount: Math.max(0, prior.length - 1) });
   } catch (err) {
@@ -409,7 +411,8 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
     if (preferredDate) updates.preferredDate = preferredDate;
     if (preferredTime) updates.preferredTime = preferredTime;
     const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, id)).returning();
-    await recordAudit(req, status ? `booking_status_${status}` : preferredDate || preferredTime ? "rescheduled_booking" : "updated_booking", "booking", String(id));
+    if (status === "cancelled") await notifyBooking(updated, "cancellation");
+    else if (preferredDate || preferredTime) await notifyBooking(updated, "reschedule");
     res.json({ ...serializeBooking(updated, await getFeedback(id)) });
   } catch (err) {
     req.log.error({ err }, "Failed to update booking");
