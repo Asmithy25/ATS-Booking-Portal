@@ -37,6 +37,7 @@ import { Switch as SwitchComponent } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { DatabaseBackup, Download, FileJson, Loader2, Plus, Save, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import defaultLogoUrl from '@assets/ATS_FALL_1786003864019.png';
+import { getHomepageContent } from '@/lib/homepageContent';
 
 // Using the same structure as the API
 const daySchema = z.object({
@@ -50,15 +51,15 @@ const settingsSchema = z.object({
   sessionRequestsOpen: z.boolean(),
   siteName: z.string().min(1).max(100),
   siteTagline: z.string().min(1).max(120),
-  logoUrl: z.string().max(2048).refine((value) => {
-    if (value === '') return true;
+  logoUrl: z.string().max(7_000_000).refine((value) => {
+    if (value === '' || /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value)) return true;
     try {
       const url = new URL(value);
       return url.protocol === 'http:' || url.protocol === 'https:';
     } catch {
       return false;
     }
-  }, 'Use a valid HTTP or HTTPS image URL, or clear the field to use the default logo.'),
+  }, 'Use an image URL or upload a JPG, PNG, WebP, or GIF.'),
   heroTitle: z.string().min(1).max(180),
   heroDescription: z.string().min(1).max(300),
   primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
@@ -148,6 +149,8 @@ export default function Settings() {
   const [backupFileName, setBackupFileName] = useState('');
   const [backupPayload, setBackupPayload] = useState<BackupExport | null>(null);
   const [lastImport, setLastImport] = useState<BackupImportResult | null>(null);
+  const [homepageDraft, setHomepageDraft] = useState<Record<string, any>>({});
+  const [homepageSaving, setHomepageSaving] = useState(false);
   const hoursForm = useForm<{ officeHours: SettingsFormValues['officeHours'] }>({
     resolver: zodResolver(z.object({
       officeHours: settingsSchema.shape.officeHours,
@@ -217,6 +220,8 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
+      setHomepageDraft(getHomepageContent(settings));
+      form.reset({
       form.reset({
         ...settings,
         featureFlags: {
@@ -237,6 +242,55 @@ export default function Settings() {
       hoursForm.reset({ officeHours: myHours.officeHours });
     }
   }, [myHours, hoursForm]);
+
+
+  const updateHomepageField = (key: string, value: string | boolean) => {
+    setHomepageDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const uploadHomepageImage = (key: string, onValue?: (value: string) => void) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/webp,image/gif';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ variant: 'destructive', title: 'Image is too large', description: 'Please choose an image smaller than 5 MB.' });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const value = String(reader.result ?? '');
+        if (onValue) onValue(value);
+        else updateHomepageField(key, value);
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+
+  const saveHomepageContent = async () => {
+    setHomepageSaving(true);
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ homepageContent: homepageDraft }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? 'Homepage content could not be saved.');
+      }
+      await queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
+      toast({ title: 'Homepage saved', description: 'Every editable homepage field is now live.' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Homepage save failed', description: err instanceof Error ? err.message : 'Try again.' });
+    } finally {
+      setHomepageSaving(false);
+    }
+  };
 
   const onSubmit = (values: SettingsFormValues) => {
     const { officeHours: _officeHours, ...siteSettings } = values;
@@ -653,7 +707,66 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-           {/* Ayden's booking schedule is retained for the primary public schedule. */}
+
+          {session?.isAdmin && <Card className="border-primary/20 shadow-sm">
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>Homepage Content Command Center</CardTitle>
+                <CardDescription>Edit the public homepage without touching source code. Text, labels, buttons, contact copy, images, and the favicon all live here.</CardDescription>
+              </div>
+              <Button type="button" onClick={saveHomepageContent} disabled={homepageSaving}>
+                {homepageSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Homepage
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {[
+                ['Hero', ['heroGreeting','heroWelcome','heroAcceptingText','heroPhoneBadge','heroPrimaryButton','heroSecondaryText','heroCardTitle','heroCardSubtitle','heroCardDescription']],
+                ['About section', ['aboutEyebrow','aboutTitle','aboutParagraph1','aboutParagraph2','aboutParagraph3','aboutQuote']],
+                ['Booking section', ['bookingEyebrow','bookingTitle','bookingDescription','bookingInfoTitle','bookingPhoneLabel','bookingPhone','bookingOfficeBadge','bookingEmailLabel','bookingEmail','bookingHoursTitle','bookingTherapistHoursTitle','bookingHolidaysTitle','bookingFormTitle','bookingManageLink','bookingNameLabel','bookingNamePlaceholder','bookingPhoneFieldLabel','bookingPhonePlaceholder','bookingReasonLabel','bookingReasonPlaceholder','bookingDateLabel','bookingTimeLabel','bookingDisclaimer','bookingSubmitText','bookingSendingText','bookingSuccessTitle','bookingSuccessDescription','bookingCodeLabel','bookingCodeDescription','bookingAnotherButton','bookingClosedTitle','bookingClosedDescription','bookingDateHelp']],
+                ['Navigation & footer', ['navPrivateSupport','navRegion','navAbout','navBook','navWellness','navStaff','navClientPortal','navRequestCall','footerContactHeading','footerPracticeHeading','footerPracticeDescription','footerCopyrightText','footerLegalText','contactPhone','contactEmail']],
+              ].map(([section, keys]) => (
+                <div key={String(section)} className="space-y-4">
+                  <div><h3 className="text-lg font-semibold">{section}</h3><p className="text-xs text-muted-foreground">Every field in this group is shown on the public site.</p></div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {(keys as string[]).map((key) => (
+                      <div key={key} className={/Paragraph|Description|Disclaimer|Help/.test(key) ? 'md:col-span-2 space-y-2' : 'space-y-2'}>
+                        <label className="text-sm font-medium">{key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</label>
+                        {/Paragraph|Description|Disclaimer|Help/.test(key) ? (
+                          <textarea value={String(homepageDraft[key] ?? '')} onChange={(e) => updateHomepageField(key, e.target.value)} className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm" />
+                        ) : (
+                          <Input value={String(homepageDraft[key] ?? '')} onChange={(e) => updateHomepageField(key, e.target.value)} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div className="space-y-4">
+                <div><h3 className="text-lg font-semibold">Homepage media</h3><p className="text-xs text-muted-foreground">Use a URL or upload a JPG, PNG, WebP, or GIF. Uploads are stored with the site settings so they survive host changes.</p></div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {[
+                    ['heroImageUrl','Hero image'],
+                    ['aboutImageUrl','About image'],
+                    ['faviconUrl','Favicon'],
+                  ].map(([key,label]) => (
+                    <div key={key} className="space-y-2">
+                      <label className="text-sm font-medium">{label}</label>
+                      <Input value={String(homepageDraft[key] ?? '')} onChange={(e) => updateHomepageField(key, e.target.value)} placeholder="https://..." />
+                      <Button type="button" variant="outline" size="sm" onClick={() => uploadHomepageImage(key)}>Upload image</Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between rounded-xl border bg-background p-4">
+                  <div><p className="font-medium">Show the daily quote</p><p className="text-xs text-muted-foreground">Toggle the rotating quote in the welcome panel.</p></div>
+                  <SwitchComponent checked={Boolean(homepageDraft.heroQuoteEnabled)} onCheckedChange={(value) => updateHomepageField('heroQuoteEnabled', value)} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>}
+
+           {/* Ayden's booking schedule is retained for the primary public schedule. */
            {session?.isAdmin && <Card>
             <CardHeader>
                <CardTitle>Ayden&apos;s Hours / Booking Schedule</CardTitle>
