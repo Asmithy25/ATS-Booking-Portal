@@ -113,7 +113,28 @@ export default function Announcements() {
     await load();
   };
 
-  const duplicate = async (item: Announcement) => {\n    try {\n      const response = await fetch('/api/portal/announcements', {\n        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ title: item.title + ' — Copy', body: item.body, audience: item.audience, metadata: { ...(item.metadata ?? {}), status: 'draft', startsAt: undefined, endsAt: undefined } }),\n      });\n      if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? 'Could not duplicate announcement.');\n      toast({ title: 'Announcement duplicated', description: 'The copy was saved as a draft.' });\n      await load();\n    } catch (err) {\n      toast({ variant: 'destructive', title: 'Could not duplicate announcement', description: err instanceof Error ? err.message : 'Try again.' });\n    }\n  };\n\n  const remove = async (item: Announcement) => {
+  const duplicate = async (item: Announcement) => {
+    try {
+      const response = await fetch('/api/portal/announcements', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title + ' — Copy',
+          body: item.body,
+          audience: item.audience,
+          metadata: { ...(item.metadata ?? {}), status: 'draft' },
+        }),
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? 'Could not duplicate announcement.');
+      toast({ title: 'Announcement duplicated', description: 'The copy was saved as a draft.' });
+      await load();
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Could not duplicate announcement', description: err instanceof Error ? err.message : 'Try again.' });
+    }
+  };
+
+  const remove = async (item: Announcement) => {
     if (!window.confirm('Delete this announcement permanently?')) return;
     await fetch(`/api/portal/announcements/${item.id}`, { method: 'DELETE', credentials: 'include' });
     await load();
