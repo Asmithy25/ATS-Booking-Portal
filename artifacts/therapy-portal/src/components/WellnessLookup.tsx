@@ -237,7 +237,7 @@ export function WellnessLookup({ content }: { content: Record<string, any> }) {
                         )}
                         {assignment.status === 'completed' && (
                           <p className="text-xs font-medium text-primary">
-                            <CheckCircle2 className="mr-1 inline h-4 w-4" /> Completed
+                            <CheckCircle2 className="mr-1 inline h-4 w-4" /> {content.wellnessStatusCompletedText}
                           </p>
                         )}
                       </div>
