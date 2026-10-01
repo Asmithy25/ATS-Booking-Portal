@@ -202,10 +202,10 @@ export default function Home() {
   return (
       <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(settings)}>
       <PublicNavbar />
-      {announcements.length > 0 && <section className="border-b border-primary/10 bg-card"><div className="container mx-auto px-4 py-5">{announcements.map((announcement) => <article key={announcement.id} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{announcement.metadata?.imageUrl && <img src={announcement.metadata.imageUrl} alt="" className="h-24 w-24 rounded-2xl object-cover" />}<div className="flex-1"><p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">{announcement.metadata?.subheading ?? content.announcementSubheading}</p><h2 className="font-serif text-xl font-bold">{announcement.title}</h2><p className="text-sm text-muted-foreground">{announcement.body}</p>{announcement.metadata?.showSignature !== false && <div className="mt-4 flex items-center gap-3 border-t pt-3"><img src={announcement.metadata?.signatureImageUrl || settings?.logoUrl || terracottaLogoUrl} alt="" className="h-10 w-10 rounded-full object-cover" /><div><p className="font-serif italic">{announcement.metadata?.signatureName || 'Ayden Smith'}</p><p className="text-xs text-muted-foreground">{announcement.metadata?.signatureTitle || 'Founder & CEO of Aydens Wellness Services'}</p></div></div>}</div>{announcement.metadata?.buttonText && announcement.metadata?.buttonUrl && <a href={announcement.metadata.buttonUrl} className="inline-flex rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">{announcement.metadata.buttonText}</a>}</article>)}</div></section>}
+      {content.sectionVisibility?.announcements !== false && announcements.length > 0 && <section className="border-b border-primary/10 bg-card"><div className="container mx-auto px-4 py-5">{announcements.map((announcement) => <article key={announcement.id} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{announcement.metadata?.imageUrl && <img src={announcement.metadata.imageUrl} alt="" className="h-24 w-24 rounded-2xl object-cover" />}<div className="flex-1"><p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">{announcement.metadata?.subheading ?? content.announcementSubheading}</p><h2 className="font-serif text-xl font-bold">{announcement.title}</h2><p className="text-sm text-muted-foreground">{announcement.body}</p>{announcement.metadata?.showSignature !== false && <div className="mt-4 flex items-center gap-3 border-t pt-3"><img src={announcement.metadata?.signatureImageUrl || settings?.logoUrl || terracottaLogoUrl} alt="" className="h-10 w-10 rounded-full object-cover" /><div><p className="font-serif italic">{announcement.metadata?.signatureName || 'Ayden Smith'}</p><p className="text-xs text-muted-foreground">{announcement.metadata?.signatureTitle || 'Founder & CEO of Aydens Wellness Services'}</p></div></div>}</div>{announcement.metadata?.buttonText && announcement.metadata?.buttonUrl && <a href={announcement.metadata.buttonUrl} className="inline-flex rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">{announcement.metadata.buttonText}</a>}</article>)}</div></section>}
       <main className="flex-1">
         {/* HERO SECTION */}
-        <section className="relative overflow-hidden pt-14 pb-24 lg:pt-28 lg:pb-36">
+        {content.sectionVisibility?.hero !== false && <section className="relative overflow-hidden pt-14 pb-24 lg:pt-28 lg:pb-36">
           <div className="container mx-auto px-4 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: -12 }}
@@ -293,9 +293,10 @@ export default function Home() {
               </motion.div>
             </div>
           </div>
-        </section>
+        </section>}
 
         {/* ABOUT SECTION */}
+        {content.sectionVisibility?.about !== false && <section
         <section id="about" className="py-24 bg-card border-y border-border/50">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -352,12 +353,12 @@ export default function Home() {
               </motion.div>
             </div>
           </div>
-        </section>
+        </section>}
 
         <WellnessLookup />
 
         {/* BOOKING SECTION */}
-         <section id="book" className="py-24 relative bg-[hsl(35_44%_94%)]">
+        {content.sectionVisibility?.booking !== false && <section id="book" className="py-24 relative bg-[hsl(35_44%_94%)]">
           <div className="container mx-auto px-4 max-w-6xl">
             <div className="text-center mb-16">
                <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary mb-3">{content.bookingEyebrow}</p>
@@ -528,7 +529,7 @@ export default function Home() {
                           <FormItem>
                             <FormLabel>{content.bookingPhoneFieldLabel}</FormLabel>
                             <FormControl>
-                              <Input placeholder="{content.bookingPhonePlaceholder}" {...field} />
+                              <Input placeholder={content.bookingPhonePlaceholder} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -544,7 +545,7 @@ export default function Home() {
                          <FormLabel>{content.bookingReasonLabel}</FormLabel>
                           <FormControl>
                             <Textarea 
-                               placeholder="{content.bookingReasonPlaceholder}"
+                               placeholder={content.bookingReasonPlaceholder}
                               className="resize-none h-24"
                               {...field} 
                             />
@@ -610,7 +611,7 @@ export default function Home() {
                         : 'Choose a date to see available business hours. Sessions are 60 minutes and must fit within the practice hours.'}
                     </div>
           </div>
-        </section>
+        </section>}
       </main>
 
       <PublicFooter />
