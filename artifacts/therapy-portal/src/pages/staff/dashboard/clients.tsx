@@ -19,8 +19,6 @@ export default function Clients() {
 
   const clients = (searchResults?.clients ?? []) as Array<{ clientName: string; phone: string; sessionCount: number; bookings: Array<{ id: number | string; preferredDate: string; status: string; confirmationCode: string; preferredTime: string }> }>;
 
-  const clients = (searchResults?.clients ?? []) as Array<{ clientName: string; phone: string; sessionCount: number; bookings: Array<{ id: number | string; preferredDate: string; status: string; confirmationCode: string; preferredTime: string }> }>;
-
   const { data: clientHistory, isLoading, isError, error } = useGetClientHistory(selectedPhone, {
     query: {
       queryKey: getGetClientHistoryQueryKey(selectedPhone),
