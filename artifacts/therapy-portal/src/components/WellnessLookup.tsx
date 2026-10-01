@@ -62,7 +62,7 @@ export function WellnessLookup() {\n  const content = getHomepageContent(undefin
     const normalizedPhone = phoneLast4.replace(/\D/g, '');
 
     if (!normalizedCode || !/^\d{4}$/.test(normalizedPhone)) {
-      setError('{content.wellnessLookupError}');
+      setError(content.wellnessLookupError);
       return;
     }
 
