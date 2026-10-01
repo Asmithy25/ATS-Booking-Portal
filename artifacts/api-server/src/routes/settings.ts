@@ -130,7 +130,7 @@ const DEFAULT_SETTINGS = {
 
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-const IMAGE_URL = /^https?:\/\/[^\s]+$/i;
+const IMAGE_URL = /^(https?:\/\/[^\s]+|data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+)$/i;
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 function isOfficeHours(value: unknown): value is OfficeHours {
