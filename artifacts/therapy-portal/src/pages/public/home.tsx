@@ -218,9 +218,7 @@ export default function Home() {
               <p className="mt-1 font-serif text-xl font-semibold text-foreground">
                 {content.heroWelcome}
               </p>
-              <p className="mt-1 text-sm italic text-muted-foreground">
-                “{getDailyQuote(now).quote}”
-              </p>
+              {content.heroQuoteEnabled && <p className="mt-1 text-sm italic text-muted-foreground">“{getDailyQuote(now).quote}”</p>}
             </motion.div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                  <motion.div
