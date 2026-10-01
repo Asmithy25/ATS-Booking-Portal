@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGetSettings } from '@workspace/api-client-react';
+import { useGetSettings, customFetch } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -46,8 +46,7 @@ export default function Announcements() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  const load = () => fetch('/api/portal/announcements?audience=staff', { credentials: 'include' })
-    .then((r) => r.ok ? r.json() : [])
+  const load = () => customFetch<Announcement[]>('/api/portal/announcements?audience=staff')
     .then((data) => setItems(Array.isArray(data) ? data : []))
     .catch(() => setItems([]));
 
@@ -81,11 +80,10 @@ export default function Announcements() {
           signatureImageUrl: form.signatureImageUrl,
         },
       };
-      const response = await fetch(form.id ? `/api/portal/announcements/${form.id}` : '/api/portal/announcements', {
-        method: form.id ? 'PATCH' : 'POST', credentials: 'include',
+      const response = await customFetch<Announcement>(form.id ? `/api/portal/announcements/${form.id}` : '/api/portal/announcements', {
+        method: form.id ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? 'Could not save announcement.');
       toast({ title: form.id ? 'Announcement updated' : 'Announcement created' });
       setForm(emptyForm); await load();
     } catch (err) {
@@ -106,8 +104,8 @@ export default function Announcements() {
   });
 
   const archive = async (item: Announcement, restore = false) => {
-    await fetch(`/api/portal/announcements/${item.id}`, {
-      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    await customFetch(`/api/portal/announcements/${item.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ active: restore, metadata: { ...(item.metadata ?? {}), status: restore ? 'published' : 'archived' } }),
     });
     await load();
@@ -115,9 +113,8 @@ export default function Announcements() {
 
   const duplicate = async (item: Announcement) => {
     try {
-      const response = await fetch('/api/portal/announcements', {
+      const response = await customFetch('/api/portal/announcements', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: item.title + ' — Copy',
@@ -126,7 +123,7 @@ export default function Announcements() {
           metadata: { ...(item.metadata ?? {}), status: 'draft' },
         }),
       });
-      if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? 'Could not duplicate announcement.');
+
       toast({ title: 'Announcement duplicated', description: 'The copy was saved as a draft.' });
       await load();
     } catch (err) {
@@ -136,7 +133,7 @@ export default function Announcements() {
 
   const remove = async (item: Announcement) => {
     if (!window.confirm('Delete this announcement permanently?')) return;
-    await fetch(`/api/portal/announcements/${item.id}`, { method: 'DELETE', credentials: 'include' });
+    await customFetch(`/api/portal/announcements/${item.id}`, { method: 'DELETE' });
     await load();
   };
 
