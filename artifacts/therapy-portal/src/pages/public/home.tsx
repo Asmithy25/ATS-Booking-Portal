@@ -48,8 +48,8 @@ function formatOfficeTime(value: string) {
   return `${displayHour}:${minuteString} ${suffix}`;
 }
 
-function formatHoursRange(hours?: { open: string; close: string; closed: boolean }) {
-  if (!hours || hours.closed) return 'Closed';
+function formatHoursRange(hours?: { open: string; close: string; closed: boolean }, closedText = 'Closed') {
+  if (!hours || hours.closed) return closedText;
   return `${formatOfficeTime(hours.open)} - ${formatOfficeTime(hours.close)}`;
 }
 
@@ -138,7 +138,7 @@ export default function Home() {
       const daySettings = settings.officeHours[dayKey];
 
       if (daySettings?.closed) {
-        form.setError('preferredDate', { message: 'We are closed on this day of the week.' });
+        form.setError('preferredDate', { message: content.bookingErrorClosedDay });
         return;
       }
 
@@ -146,7 +146,7 @@ export default function Home() {
       const dateStr = format(selectedDate, 'MM-dd');
       const holiday = settings.holidayHours.find(h => h.date === dateStr);
       if (holiday?.closed) {
-        form.setError('preferredDate', { message: `We are closed on ${holiday.name}.` });
+        form.setError('preferredDate', { message: content.bookingErrorHolidayClosed.replace('{holiday}', holiday.name) });
         return;
       }
 
@@ -154,7 +154,7 @@ export default function Home() {
       const fullDateStr = format(selectedDate, 'yyyy-MM-dd');
       const closedDate = settings.closedDates.find(d => d.date === fullDateStr);
       if (closedDate) {
-        form.setError('preferredDate', { message: `We are closed on this date: ${closedDate.reason}` });
+        form.setError('preferredDate', { message: content.bookingErrorClosedDate.replace('{reason}', closedDate.reason) });
         return;
       }
 
@@ -174,7 +174,7 @@ export default function Home() {
            : false;
 
       if (!validTime) {
-        form.setError('preferredTime', { message: 'Selected time is outside of office hours for this date.' });
+        form.setError('preferredTime', { message: content.bookingErrorOutsideHours });
         return;
       }
     }
@@ -249,7 +249,7 @@ export default function Home() {
                     size="lg" 
                     className="rounded-full text-lg px-8 h-14"
                     onClick={() => {
-                      document.getElementById('book')?.scrollIntoView({ behavior: 'smooth' });
+                      window.location.hash = content.heroPrimaryButtonUrl || '#book';
                     }}
                   >
                      {content.heroPrimaryButton}
@@ -405,7 +405,7 @@ export default function Home() {
                          ].map(({ label, hours }) => (
                            <div key={label} className="flex justify-between gap-3">
                              <span>{label}</span>
-                             <span className="text-right">{formatHoursRange(hours)}</span>
+                             <span className="text-right">{formatHoursRange(hours, content.bookingHolidayClosedText)}</span>
                            </div>
                          ))}
                        </div>
@@ -420,7 +420,7 @@ export default function Home() {
                                  if (!h) return null;
                                  return (
                                    <div key={day} className="flex justify-between w-full gap-3">
-                                     <span className="capitalize w-12">{day.substring(0,3)}</span>
+                                     <span className="capitalize w-12">{({ mon: content.bookingWeekdayMonLabel, tue: content.bookingWeekdayTueLabel, wed: content.bookingWeekdayWedLabel, thu: content.bookingWeekdayThuLabel, fri: content.bookingWeekdayFriLabel, sat: content.bookingDaySaturdayShortLabel, sun: content.bookingDaySundayShortLabel } as Record<string,string>)[day]}</span>
                                      <span className="text-right">{formatHoursRange(h)}</span>
                                    </div>
                                  );
@@ -501,7 +501,7 @@ export default function Home() {
 
                     <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                       <h3 className="font-serif text-2xl font-bold">{content.bookingFormTitle}</h3>
-                      <a href="/booking" className="text-sm font-medium text-primary hover:underline">{content.bookingManageLink}</a>
+                      <a href={content.bookingManageLinkUrl || "/booking"} className="text-sm font-medium text-primary hover:underline">{content.bookingManageLink}</a>
                     </div>
                 
                 <Form {...form}>
