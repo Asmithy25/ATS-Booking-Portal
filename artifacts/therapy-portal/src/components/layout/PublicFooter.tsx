@@ -1,10 +1,12 @@
 import React from 'react';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
+import { getHomepageContent } from '@/lib/homepageContent';
 
 export function PublicFooter() {
   const { data: settings } = useGetSettings();
   const content = getHomepageContent(settings);
+  if (content.sectionVisibility?.footer === false) return null;
   return (
     <footer id="contact" className="mt-auto border-t border-primary/20 bg-primary text-primary-foreground">
       <div className="container mx-auto px-4 py-14">
