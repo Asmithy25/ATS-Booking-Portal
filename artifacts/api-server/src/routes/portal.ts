@@ -809,7 +809,9 @@ router.post("/client/bookings", requireClientAuth, async (req, res): Promise<voi
     status: "pending",
   }).returning();
 
-  await notifyBooking(created, "booking_confirmation");
+  await db.update(bookingsTable).set({ clientAccountId: clientId }).where(eq(bookingsTable.id, created.id));
+  const linkedBooking = { ...created, clientAccountId: clientId };
+  await notifyBooking(linkedBooking, "booking_confirmation");
   res.status(201).json({
     ...created,
     claimedBy: created.claimedBy ?? null,
