@@ -10,6 +10,7 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
   heroTitle: "A safe space for healing and growth.",
   heroDescription: "A warm, grounded space to explore your thoughts and feelings without judgment.",
   heroPrimaryButton: "Begin Your First Session",
+  heroPrimaryButtonUrl: "#book",
   heroSecondaryText: "Support that meets you where you are.",
   heroCardTitle: "Phone consultation",
   heroCardSubtitle: "A calm place to begin",
@@ -62,6 +63,7 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
   bookingClosedDateText: "The practice is closed on this date.",
   bookingTimeHelpText: "Choose any start time from {open} to {close}, leaving one hour for your phone session.",
   bookingSelectDateHelpText: "Choose a date to see available business hours. Sessions are 60 minutes and must fit within the practice hours.",
+  bookingManageLinkUrl: "/booking", bookingErrorClosedDay: "We are closed on this day of the week.", bookingErrorHolidayClosed: "We are closed on {holiday}.", bookingErrorClosedDate: "We are closed on this date: {reason}", bookingErrorOutsideHours: "Selected time is outside of office hours for this date.", bookingWeekdayMonLabel: "Mon", bookingWeekdayTueLabel: "Tue", bookingWeekdayWedLabel: "Wed", bookingWeekdayThuLabel: "Thu", bookingWeekdayFriLabel: "Fri", bookingDaySaturdayShortLabel: "Sat", bookingDaySundayShortLabel: "Sun", bookingAppointmentLabel: "Appointment:", bookingTherapistLabel: "Therapist:",
   navPrivateSupport: "Private, phone-based support",
   navRegion: "South Florida and beyond",
   navAbout: "Our approach",
@@ -70,10 +72,11 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
   navStaff: "Staff",
   navClientPortal: "Client portal",
   navRequestCall: "Request a call",
+  navAboutUrl: "#about", navBookUrl: "#book", navWellnessUrl: "#wellness-lookup", navStaffUrl: "/staff/login", navClientPortalUrl: "/portal/login", navRequestCallUrl: "#book", navCloseMenuLabel: "Close menu", navOpenMenuLabel: "Open menu", navStaffSuffix: "portal",
   footerContactHeading: "Contact",
   footerPracticeHeading: "Our practice",
   footerPracticeDescription: "We provide strictly over-the-phone consultations. There is no physical office, allowing you to access support from the comfort of your own space.",
-  footerCopyrightText: "Phone consultations only · no physical office",
+  footerCopyrightText: "Phone consultations only · no physical office", footerCopyrightPrefix: "©",
   logoAlt: "Aydens Wellness Services botanical logo",
   heroImageUrl: "",
   aboutImageUrl: "",
@@ -106,7 +109,7 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
   wellnessStartActivityText: "Start activity",
   wellnessMarkCompletedText: "Mark completed",
   wellnessCompletedText: "Completed",
-  wellnessDuePrefix: "Due",
+  wellnessDuePrefix: "Due", wellnessAppointmentLabel: "Appointment:", wellnessTherapistLabel: "Therapist:", wellnessStatusCompletedText: "Completed", wellnessTypeWellnessJourney: "Wellness Journey", wellnessTypeNotebook: "Notebook", wellnessTypeHomework: "Homework",
 } as const;
 
 export function getHomepageContent(settings: unknown) {
