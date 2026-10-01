@@ -45,7 +45,7 @@ function AssignmentIcon({ type }: { type: string }) {
   return <ClipboardCheck className="h-5 w-5" />;
 }
 
-export function WellnessLookup() {\n  const content = getHomepageContent(undefined);
+export function WellnessLookup({ content }: { content: Record<string, any> }) {
   const [code, setCode] = useState('');
   const [phoneLast4, setPhoneLast4] = useState('');
   const [result, setResult] = useState<LookupResponse | null>(null);
