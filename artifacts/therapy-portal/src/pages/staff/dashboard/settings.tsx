@@ -151,6 +151,8 @@ export default function Settings() {
   const [lastImport, setLastImport] = useState<BackupImportResult | null>(null);
   const [homepageDraft, setHomepageDraft] = useState<Record<string, any>>({});
   const [homepageSaving, setHomepageSaving] = useState(false);
+  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced' });
+  const [portalPrefsSaving, setPortalPrefsSaving] = useState(false);
   const hoursForm = useForm<{ officeHours: SettingsFormValues['officeHours'] }>({
     resolver: zodResolver(z.object({
       officeHours: settingsSchema.shape.officeHours,
@@ -424,6 +426,46 @@ export default function Settings() {
           Save All Settings
         </Button>
       </div>
+
+      <Card className="rounded-2xl border-primary/15">
+        <CardHeader>
+          <CardTitle>My Staff Portal</CardTitle>
+          <CardDescription>Personalize your workspace without changing the public website or anyone else’s portal.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5 sm:grid-cols-2">
+          <div><label className="text-sm font-medium">Workspace feel</label>
+            <Select value={portalPrefs.layout} onValueChange={(value) => setPortalPrefs((current) => ({ ...current, layout: value }))}>
+              <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="composed">Composed</SelectItem><SelectItem value="relaxed">Relaxed</SelectItem><SelectItem value="focused">Focused</SelectItem><SelectItem value="minimal">Minimal</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div><label className="text-sm font-medium">Spacing</label>
+            <Select value={portalPrefs.density} onValueChange={(value) => setPortalPrefs((current) => ({ ...current, density: value }))}>
+              <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="comfortable">Comfortable</SelectItem><SelectItem value="compact">Compact</SelectItem><SelectItem value="spacious">Spacious</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div><label className="text-sm font-medium">Navigation</label>
+            <Select value={portalPrefs.navigation} onValueChange={(value) => setPortalPrefs((current) => ({ ...current, navigation: value }))}>
+              <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="classic">Classic sidebar</SelectItem><SelectItem value="rail">Slim rail</SelectItem><SelectItem value="compact">Compact navigation</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div><label className="text-sm font-medium">Dashboard rhythm</label>
+            <Select value={portalPrefs.dashboard} onValueChange={(value) => setPortalPrefs((current) => ({ ...current, dashboard: value }))}>
+              <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>
+                <SelectItem value="balanced">Balanced</SelectItem><SelectItem value="cards">Card-forward</SelectItem><SelectItem value="flow">Flow-first</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2"><Button type="button" onClick={savePortalPreferences} disabled={portalPrefsSaving}>
+            {portalPrefsSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save My Workspace
+          </Button></div>
+        </CardContent>
+      </Card>
 
       <Form {...form}>
         <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
