@@ -8,50 +8,6 @@ import type { RequestWithSession } from "../middleware/auth";
 
 const router = Router();
 
-const DEFAULT_SETTINGS = {
-  acceptingClients: true,
-  sessionRequestsOpen: true,
-  officeHours: {
-    mon: { open: "13:00", close: "20:00", closed: false },
-    tue: { open: "13:00", close: "20:00", closed: false },
-    wed: { open: "13:00", close: "20:00", closed: false },
-    thu: { open: "13:00", close: "20:00", closed: false },
-    fri: { open: "13:00", close: "20:00", closed: false },
-    sat: { open: "13:00", close: "00:00", closed: false },
-    sun: { open: "13:00", close: "20:00", closed: false },
-  } as OfficeHours,
-  holidayHours: [
-    { name: "Christmas", date: "12-25", closed: true, open: "", close: "" },
-    { name: "Christmas Eve", date: "12-24", closed: true, open: "", close: "" },
-    { name: "Thanksgiving", date: "11-27", closed: false, open: "07:00", close: "12:00" },
-    { name: "New Years", date: "01-01", closed: true, open: "", close: "" },
-    { name: "4th of July", date: "07-04", closed: true, open: "", close: "" },
-  ] as HolidayHour[],
-  closedDates: [] as ClosedDate[],
-  bufferMinutes: 15,
-  vacationMode: false,
-  vacationStart: "",
-  vacationEnd: "",
-  siteName: "Ayden's Therapy Services",
-  siteTagline: "Heal. Grow. Thrive.",
-  logoUrl: "",
-  heroTitle: "A safe space for healing and growth.",
-  heroDescription: "A warm, grounded space to explore your thoughts and feelings without judgment.",
-  primaryColor: "#7B4A2F",
-  secondaryColor: "#C38A4A",
-  accentColor: "#D9B7A2",
-  homepageContent: DEFAULT_HOMEPAGE_CONTENT,
-  featureFlags: {
-    clientBooking: true,
-    clientNotifications: true,
-    clientUpdatesOptIn: true,
-    staffRollouts: true,
-    recognizedBookingCountdown: true,
-    clientPortalCountdown: true,
-    clientTemplates: true,
-  },
-};
-
 const DEFAULT_HOMEPAGE_CONTENT = {
   announcementHeading: "What’s new",
   announcementSubheading: "Updates from Aydens Wellness Services",
@@ -126,6 +82,52 @@ const DEFAULT_HOMEPAGE_CONTENT = {
   contactPhone: "+1 (561) 291-8556",
   contactEmail: "aydenstherapyservices@gmail.com",
 };
+
+const DEFAULT_SETTINGS = {
+  acceptingClients: true,
+  sessionRequestsOpen: true,
+  officeHours: {
+    mon: { open: "13:00", close: "20:00", closed: false },
+    tue: { open: "13:00", close: "20:00", closed: false },
+    wed: { open: "13:00", close: "20:00", closed: false },
+    thu: { open: "13:00", close: "20:00", closed: false },
+    fri: { open: "13:00", close: "20:00", closed: false },
+    sat: { open: "13:00", close: "00:00", closed: false },
+    sun: { open: "13:00", close: "20:00", closed: false },
+  } as OfficeHours,
+  holidayHours: [
+    { name: "Christmas", date: "12-25", closed: true, open: "", close: "" },
+    { name: "Christmas Eve", date: "12-24", closed: true, open: "", close: "" },
+    { name: "Thanksgiving", date: "11-27", closed: false, open: "07:00", close: "12:00" },
+    { name: "New Years", date: "01-01", closed: true, open: "", close: "" },
+    { name: "4th of July", date: "07-04", closed: true, open: "", close: "" },
+  ] as HolidayHour[],
+  closedDates: [] as ClosedDate[],
+  bufferMinutes: 15,
+  vacationMode: false,
+  vacationStart: "",
+  vacationEnd: "",
+  siteName: "Ayden's Therapy Services",
+  siteTagline: "Heal. Grow. Thrive.",
+  logoUrl: "",
+  heroTitle: "A safe space for healing and growth.",
+  heroDescription: "A warm, grounded space to explore your thoughts and feelings without judgment.",
+  primaryColor: "#7B4A2F",
+  secondaryColor: "#C38A4A",
+  accentColor: "#D9B7A2",
+  homepageContent: DEFAULT_HOMEPAGE_CONTENT,
+  featureFlags: {
+    clientBooking: true,
+    clientNotifications: true,
+    clientUpdatesOptIn: true,
+    staffRollouts: true,
+    recognizedBookingCountdown: true,
+    clientPortalCountdown: true,
+    clientTemplates: true,
+  },
+};
+
+
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const IMAGE_URL = /^https?:\/\/[^\s]+$/i;
