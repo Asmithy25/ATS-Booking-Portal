@@ -11,7 +11,10 @@ const DEFAULT_TEMPLATES: Record<string, { title: string; body: string }> = {
     title: "Reminder: your session is {{date}} at {{time}}",
     body: "Hi {{clientName}}, this is a gentle reminder that your phone session is scheduled for {{date}} at {{time}}. Please keep your phone nearby.",
   },
-  appointment_start: {\n    title: "Your session is starting now",\n    body: "Hi {{clientName}}, your phone session is starting now at {{time}}. Please keep your phone nearby.",\n  },\n  starting_soon: {
+  appointment_start: {
+    title: "Your session is starting now",
+    body: "Hi {{clientName}}, your phone session is starting now at {{time}}. Please keep your phone nearby.",
+  },\n  starting_soon: {
     title: "Your session is starting soon",
     body: "Hi {{clientName}}, your session is starting soon at {{time}}. Find a quiet, comfortable place and keep your phone close.",
   },
