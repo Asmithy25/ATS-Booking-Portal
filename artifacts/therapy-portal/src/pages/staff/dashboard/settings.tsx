@@ -723,10 +723,11 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-8">
               {[
-                ['Hero', ['heroGreeting','heroWelcome','heroAcceptingText','heroPhoneBadge','heroPrimaryButton','heroSecondaryText','heroCardTitle','heroCardSubtitle','heroCardDescription']],
+                ['Hero', ['heroGreeting','heroWelcome','heroAcceptingText','heroPhoneBadge','heroTitle','heroDescription','heroPrimaryButton','heroPrimaryButtonUrl','heroSecondaryText','heroCardTitle','heroCardSubtitle','heroCardDescription']],
                 ['About section', ['aboutEyebrow','aboutTitle','aboutParagraph1','aboutParagraph2','aboutParagraph3','aboutQuote']],
-                ['Booking section', ['bookingEyebrow','bookingTitle','bookingDescription','bookingInfoTitle','bookingPhoneLabel','bookingPhone','bookingOfficeBadge','bookingEmailLabel','bookingEmail','bookingHoursTitle','bookingTherapistHoursTitle','bookingHolidaysTitle','bookingFormTitle','bookingManageLink','bookingNameLabel','bookingNamePlaceholder','bookingPhoneFieldLabel','bookingPhonePlaceholder','bookingReasonLabel','bookingReasonPlaceholder','bookingDateLabel','bookingTimeLabel','bookingDisclaimer','bookingSubmitText','bookingSendingText','bookingSuccessTitle','bookingSuccessDescription','bookingCodeLabel','bookingCodeDescription','bookingAnotherButton','bookingClosedTitle','bookingClosedDescription','bookingDateHelp']],
-                ['Navigation & footer', ['navPrivateSupport','navRegion','navAbout','navBook','navWellness','navStaff','navClientPortal','navRequestCall','footerContactHeading','footerPracticeHeading','footerPracticeDescription','footerCopyrightText','footerLegalText','contactPhone','contactEmail']],
+                ['Booking section', ['bookingEyebrow','bookingTitle','bookingDescription','bookingInfoTitle','bookingPhoneLabel','bookingPhone','bookingOfficeBadge','bookingEmailLabel','bookingEmail','bookingHoursTitle','bookingWeekdayLabel','bookingSaturdayLabel','bookingSundayLabel','bookingTherapistHoursTitle','bookingTherapistHoursSuffix','bookingHolidaysTitle','bookingHolidayClosedText','bookingFormTitle','bookingManageLink','bookingManageLinkUrl','bookingNameLabel','bookingNamePlaceholder','bookingPhoneFieldLabel','bookingPhonePlaceholder','bookingReasonLabel','bookingReasonPlaceholder','bookingDateLabel','bookingTimeLabel','bookingDisclaimer','bookingSubmitText','bookingSendingText','bookingSuccessTitle','bookingSuccessDescription','bookingCodeLabel','bookingCodeDescription','bookingManageBookingText','bookingAnotherButton','bookingClosedTitle','bookingClosedDescription','bookingDateHelp','bookingClosedDateText','bookingTimeHelpText','bookingSelectDateHelpText','bookingErrorClosedDay','bookingErrorHolidayClosed','bookingErrorClosedDate','bookingErrorOutsideHours','bookingWeekdayMonLabel','bookingWeekdayTueLabel','bookingWeekdayWedLabel','bookingWeekdayThuLabel','bookingWeekdayFriLabel','bookingDaySaturdayShortLabel','bookingDaySundayShortLabel','bookingAppointmentLabel','bookingTherapistLabel']],
+                ['Wellness journey', ['wellnessEyebrow','wellnessTitle','wellnessDescription','wellnessLookupTitle','wellnessLookupDescription','wellnessCodeLabel','wellnessCodePlaceholder','wellnessPhoneLabel','wellnessPhonePlaceholder','wellnessFindButton','wellnessFindingText','wellnessLookupError','wellnessNotFoundError','wellnessUpdateError','wellnessWelcomeText','wellnessConfirmationPrefix','wellnessNotAssignedText','wellnessNoAssignmentsTitle','wellnessNoAssignmentsDescription','wellnessStartActivityText','wellnessMarkCompletedText','wellnessCompletedText','wellnessDuePrefix','wellnessAppointmentLabel','wellnessTherapistLabel','wellnessStatusCompletedText','wellnessTypeWellnessJourney','wellnessTypeNotebook','wellnessTypeHomework']],
+                ['Navigation & footer', ['navPrivateSupport','navRegion','navAbout','navAboutUrl','navBook','navBookUrl','navWellness','navWellnessUrl','navStaff','navStaffUrl','navClientPortal','navClientPortalUrl','navRequestCall','navRequestCallUrl','navCloseMenuLabel','navOpenMenuLabel','navStaffSuffix','footerContactHeading','footerPracticeHeading','footerPracticeDescription','footerCopyrightText','footerCopyrightPrefix','logoAlt','contactPhone','contactEmail']],
               ].map(([section, keys]) => (
                 <div key={String(section)} className="space-y-4">
                   <div><h3 className="text-lg font-semibold">{section}</h3><p className="text-xs text-muted-foreground">Every field in this group is shown on the public site.</p></div>
@@ -751,6 +752,7 @@ export default function Settings() {
                   {([
                     ['hero','Hero / welcome section'],
                     ['about','About / approach section'],
+                    ['wellness','Wellness Journey'],
                     ['booking','Booking section'],
                     ['announcements','Announcements'],
                     ['footer','Footer'],
@@ -770,6 +772,7 @@ export default function Settings() {
                     ['heroImageUrl','Hero image'],
                     ['aboutImageUrl','About image'],
                     ['faviconUrl','Favicon'],
+                    ['logoUrl','Site logo'],
                   ].map(([key,label]) => (
                     <div key={key} className="space-y-2">
                       <label className="text-sm font-medium">{label}</label>
