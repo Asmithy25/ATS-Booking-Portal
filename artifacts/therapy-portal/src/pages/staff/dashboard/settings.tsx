@@ -222,7 +222,6 @@ export default function Settings() {
     if (settings) {
       setHomepageDraft(getHomepageContent(settings));
       form.reset({
-      form.reset({
         ...settings,
         featureFlags: {
           clientBooking: settings.featureFlags?.clientBooking !== false,
