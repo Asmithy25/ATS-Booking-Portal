@@ -33,39 +33,39 @@ export function PublicNavbar() {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          <button data-testid="button-nav-about" onClick={() => handleScrollTo('about')} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
+          <button data-testid="button-nav-about" onClick={() => { window.location.hash = content.navAboutUrl || '#about'; }} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
             {content.navAbout}
           </button>
-          <button data-testid="button-nav-book" onClick={() => handleScrollTo('book')} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
+          <button data-testid="button-nav-book" onClick={() => { window.location.hash = content.navBookUrl || '#book'; }} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
             {content.navBook}
           </button>
-          <button data-testid="button-nav-wellness" onClick={() => handleScrollTo('wellness-lookup')} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
+          <button data-testid="button-nav-wellness" onClick={() => { window.location.hash = content.navWellnessUrl || '#wellness-lookup'; }} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
             {content.navWellness}
           </button>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <Link href="/staff/login" data-testid="link-staff-portal" className="hidden text-xs font-semibold text-muted-foreground transition-colors hover:text-destructive lg:inline-flex">
+          <Link href={content.navStaffUrl || "/staff/login"} data-testid="link-staff-portal" className="hidden text-xs font-semibold text-muted-foreground transition-colors hover:text-destructive lg:inline-flex">
             {content.navStaff}
           </Link>
-          <Link href="/portal/login" data-testid="link-client-portal" className="hidden text-xs font-semibold text-muted-foreground transition-colors hover:text-destructive lg:inline-flex">
+          <Link href={content.navClientPortalUrl || "/portal/login"} data-testid="link-client-portal" className="hidden text-xs font-semibold text-muted-foreground transition-colors hover:text-destructive lg:inline-flex">
             {content.navClientPortal}
           </Link>
           <ThemeToggle compact />
-          <Button data-testid="button-get-started" onClick={() => handleScrollTo('book')} className="bg-secondary px-4 text-secondary-foreground hover:bg-secondary/90 sm:px-5">
+          <Button data-testid="button-get-started" onClick={() => { window.location.hash = content.navRequestCallUrl || '#book'; }} className="bg-secondary px-4 text-secondary-foreground hover:bg-secondary/90 sm:px-5">
             {content.navRequestCall}
           </Button>
-          <Button data-testid="button-mobile-menu" variant="outline" size="icon" className="md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'}>
+          <Button data-testid="button-mobile-menu" variant="outline" size="icon" className="md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? content.navCloseMenuLabel : content.navOpenMenuLabel}>
             {menuOpen ? <X /> : <Menu />}
           </Button>
         </div>
       </div>
       {menuOpen && <div className="border-b border-border bg-background px-4 py-4 shadow-sm md:hidden">
         <div className="container mx-auto grid gap-1">
-          <button data-testid="button-mobile-about" onClick={() => { handleScrollTo('about'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navAbout}</button>
-          <button data-testid="button-mobile-book" onClick={() => { handleScrollTo('book'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navBook}</button>
-          <button data-testid="button-mobile-wellness" onClick={() => { handleScrollTo('wellness-lookup'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navWellness}</button>
-          <Link href="/staff/login" data-testid="link-mobile-staff" onClick={() => setMenuOpen(false)} className="border-b border-border py-3 text-sm font-semibold">{content.navStaff} portal</Link>
+          <button data-testid="button-mobile-about" onClick={() => { window.location.hash = content.navAboutUrl || '#about'; setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navAbout}</button>
+          <button data-testid="button-mobile-book" onClick={() => { window.location.hash = content.navBookUrl || '#book'; setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navBook}</button>
+          <button data-testid="button-mobile-wellness" onClick={() => { window.location.hash = content.navWellnessUrl || '#wellness-lookup'; setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navWellness}</button>
+          <Link href="/staff/login" data-testid="link-mobile-staff" onClick={() => setMenuOpen(false)} className="border-b border-border py-3 text-sm font-semibold">{content.navStaff} {content.navStaffSuffix}</Link>
           <Link href="/portal/login" data-testid="link-mobile-client" onClick={() => setMenuOpen(false)} className="py-3 text-sm font-semibold">{content.navClientPortal}</Link>
         </div>
       </div>}
