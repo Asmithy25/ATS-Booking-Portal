@@ -114,5 +114,13 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
 
 export function getHomepageContent(settings: unknown) {
   const value = (settings as { homepageContent?: Record<string, unknown> } | undefined)?.homepageContent;
-  return { ...DEFAULT_HOMEPAGE_CONTENT, ...(value ?? {}) } as HomepageContent;
+  const savedVisibility = value?.sectionVisibility;
+  return {
+    ...DEFAULT_HOMEPAGE_CONTENT,
+    ...(value ?? {}),
+    sectionVisibility: {
+      ...DEFAULT_HOMEPAGE_CONTENT.sectionVisibility,
+      ...(savedVisibility && typeof savedVisibility === 'object' ? savedVisibility as Record<string, boolean> : {}),
+    },
+  } as HomepageContent;
 }
