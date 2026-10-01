@@ -296,8 +296,7 @@ export default function Home() {
         </section>}
 
         {/* ABOUT SECTION */}
-        {content.sectionVisibility?.about !== false && <section
-        <section id="about" className="py-24 bg-card border-y border-border/50">
+        {content.sectionVisibility?.about !== false && <section id="about" className="py-24 bg-card border-y border-border/50">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <motion.div 
