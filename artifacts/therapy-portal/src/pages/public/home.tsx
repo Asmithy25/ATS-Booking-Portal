@@ -74,7 +74,7 @@ export default function Home() {
       link.href = String(content.faviconUrl);
     }
     if (settings?.siteName) document.title = settings.siteName;
-  }, [content.faviconUrl, settings?.siteName]);
+  }, [content.faviconUrl, settings?.logoUrl, settings?.siteName]);
 
   useEffect(() => {
     fetch('/api/portal/announcements?audience=client')
