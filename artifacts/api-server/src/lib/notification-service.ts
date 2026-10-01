@@ -1,6 +1,6 @@
 import { and, eq, gte, lt } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import { db, bookingsTable, clientNotificationsTable, staffAccountsTable } from "@workspace/db";
+import { db, bookingsTable, clientNotificationsTable, staffAccountsTable, messageTemplatesTable } from "@workspace/db";
 
 const DEFAULT_TEMPLATES: Record<string, { title: string; body: string }> = {
   booking_confirmation: {
@@ -65,7 +65,9 @@ async function claimEvent(eventKey: string, bookingId: number | null, recipientT
 
 export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, kind: keyof typeof DEFAULT_TEMPLATES) {
   await ensureNotificationEventsTable();
-  const template = DEFAULT_TEMPLATES[kind];
+  const fallback = DEFAULT_TEMPLATES[kind];
+  const [stored] = await db.select().from(messageTemplatesTable).where(eq(messageTemplatesTable.key, kind)).limit(1);
+  const template = stored ? { title: stored.subject, body: stored.body } : fallback;
   const eventKey = `booking:${booking.id}:${kind}`;
 
   if (booking.clientAccountId) {
