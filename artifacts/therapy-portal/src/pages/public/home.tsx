@@ -25,6 +25,7 @@ import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle } from
 import { getThemeStyle } from '@/lib/theme';
 import { getDailyQuote } from '@/lib/motivationalQuotes';
 import { WellnessLookup } from '@/components/WellnessLookup';
+import { getHomepageContent } from '@/lib/homepageContent';
 
 import terracottaLogoUrl from '@assets/ATS_FALL_1786003864019.png';
 import oliveLogoUrl from '@assets/ATS_FALL_1786003864019.png';
@@ -54,10 +55,32 @@ function formatHoursRange(hours?: { open: string; close: string; closed: boolean
 
 export default function Home() {
   const { data: settings, isLoading: loadingSettings } = useGetSettings();
+  const content = getHomepageContent(settings);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const { toast } = useToast();
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState('');
   const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (content.faviconUrl) {
+      let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = String(content.faviconUrl);
+    }
+    if (settings?.siteName) document.title = settings.siteName;
+  }, [content.faviconUrl, settings?.siteName]);
+
+  useEffect(() => {
+    fetch('/api/portal/announcements?audience=client')
+      .then((response) => response.ok ? response.json() : [])
+      .then((items) => setAnnouncements(Array.isArray(items) ? items : []))
+      .catch(() => setAnnouncements([]));
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -178,7 +201,7 @@ export default function Home() {
   return (
       <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(settings)}>
       <PublicNavbar />
-      
+      {announcements.length > 0 && <section className="border-b border-primary/10 bg-card"><div className="container mx-auto px-4 py-5">{announcements.map((announcement) => <article key={announcement.id} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex-1"><p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">{announcement.metadata?.subheading ?? content.announcementSubheading}</p><h2 className="font-serif text-xl font-bold">{announcement.title}</h2><p className="text-sm text-muted-foreground">{announcement.body}</p></div>{announcement.metadata?.buttonText && announcement.metadata?.buttonUrl && <a href={announcement.metadata.buttonUrl} className="inline-flex rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">{announcement.metadata.buttonText}</a>}</article>)}</div></section>}
       <main className="flex-1">
         {/* HERO SECTION */}
         <section className="relative overflow-hidden pt-14 pb-24 lg:pt-28 lg:pb-36">
@@ -193,7 +216,7 @@ export default function Home() {
                 {now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'}
               </p>
               <p className="mt-1 font-serif text-xl font-semibold text-foreground">
-                Welcome — this is a space for you.
+                {content.heroWelcome}
               </p>
               <p className="mt-1 text-sm italic text-muted-foreground">
                 “{getDailyQuote(now).quote}”
@@ -209,7 +232,7 @@ export default function Home() {
                 {settings?.acceptingClients && (
                   <motion.div variants={fadeUp} className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 text-secondary-foreground text-sm font-medium border border-secondary/30">
                     <Sparkles className="w-4 h-4" />
-                    Now Accepting New Clients
+                    {content.heroAcceptingText}
                   </motion.div>
                 )}
                 
@@ -219,7 +242,7 @@ export default function Home() {
                 
                 <motion.p variants={fadeUp} className="text-lg lg:text-xl text-muted-foreground mb-8 leading-relaxed max-w-xl">
                   {settings?.heroDescription ?? 'A warm, grounded space to explore your thoughts and feelings without judgment.'}
-                  <span className="block mt-2 font-medium text-foreground">Take the first step toward a more centered life — from wherever you feel most at ease.</span>
+                  <span className="block mt-2 font-medium text-foreground">{content.heroSecondaryText}</span>
                 </motion.p>
                 
                 <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-4">
@@ -230,11 +253,11 @@ export default function Home() {
                       document.getElementById('book')?.scrollIntoView({ behavior: 'smooth' });
                     }}
                   >
-                     Begin Your First Session
+                     {content.heroPrimaryButton}
                   </Button>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground px-4">
                     <PhoneCall className="w-4 h-4" />
-                    100% Phone-Based
+                    {content.heroPhoneBadge}
                   </div>
                 </motion.div>
               </motion.div>
@@ -248,8 +271,8 @@ export default function Home() {
                   <div className="absolute -inset-8 rounded-[3rem] bg-secondary/20 blur-3xl" />
                   <div className="relative w-full max-w-lg mx-auto overflow-hidden border border-primary/15 shadow-2xl bg-[hsl(43_33%_94%)]">
                     <img
-                      src={settings?.logoUrl || terracottaLogoUrl}
-                      alt="Ayden's Therapy Services botanical logo"
+                      src={content.heroImageUrl || settings?.logoUrl || terracottaLogoUrl}
+                      alt={content.logoAlt}
                       className="w-full aspect-square object-cover"
                       fetchPriority="high"
                       decoding="async"
@@ -262,11 +285,11 @@ export default function Home() {
                       <PhoneCall className="w-6 h-6" />
                     </div>
                     <div>
-                       <p className="font-serif font-bold">Phone consultation</p>
-                       <p className="text-xs text-muted-foreground">A calm place to begin</p>
+                       <p className="font-serif font-bold">{content.heroCardTitle}</p>
+                       <p className="text-xs text-muted-foreground">{content.heroCardSubtitle}</p>
                     </div>
                   </div>
-                   <p className="text-sm text-muted-foreground">Support that meets you where you are.</p>
+                   <p className="text-sm text-muted-foreground">{content.heroCardDescription}</p>
                 </div>
               </motion.div>
             </div>
@@ -286,8 +309,8 @@ export default function Home() {
               >
                 <div className="aspect-square rounded-[2rem] overflow-hidden bg-muted relative shadow-lg">
                   <img
-                    src={settings?.logoUrl || oliveLogoUrl}
-                    alt="Ayden's Therapy Services olive botanical logo"
+                    src={content.aboutImageUrl || settings?.logoUrl || oliveLogoUrl}
+                    alt={content.logoAlt}
                     className="w-full h-full object-cover"
                     loading="lazy"
                     decoding="async"
@@ -303,17 +326,17 @@ export default function Home() {
                 transition={{ duration: 0.6 }}
                 className="order-1 lg:order-2"
               >
-                 <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary mb-4">A grounded space for your next chapter</p>
-                 <h2 className="text-4xl font-serif font-bold mb-6 text-foreground">Healing begins with being heard.</h2>
+                 <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary mb-4">{content.aboutEyebrow}</p>
+                 <h2 className="text-4xl font-serif font-bold mb-6 text-foreground">{content.aboutTitle}</h2>
                 <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
                   <p>
-                    Ayden’s Therapy Services offers a warm, judgment-free space to slow down, reflect, and feel supported.
+                    {content.aboutParagraph1}
                   </p>
                   <p>
-                    With phone-based consultations, you can connect from the place that already feels safe — no commute, no waiting room, and no pressure to have everything figured out before you begin.
+                    {content.aboutParagraph2}
                   </p>
                   <p>
-                    Whether you’re navigating a life transition, managing anxiety, or looking for a grounded presence to talk through the week, you deserve support that honors your pace. Heal, grow, and thrive on your own terms.
+                    {content.aboutParagraph3}
                   </p>
                 </div>
                 
@@ -325,7 +348,7 @@ export default function Home() {
                     loading="lazy"
                     decoding="async"
                   />
-                  <p className="font-serif italic text-xl text-primary">“Your story deserves space.”</p>
+                  <p className="font-serif italic text-xl text-primary">“{content.aboutQuote}”</p>
                 </div>
               </motion.div>
             </div>
@@ -338,9 +361,9 @@ export default function Home() {
          <section id="book" className="py-24 relative bg-[hsl(35_44%_94%)]">
           <div className="container mx-auto px-4 max-w-6xl">
             <div className="text-center mb-16">
-               <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary mb-3">Let’s connect</p>
-               <h2 className="text-4xl font-serif font-bold mb-4">Make room for your wellbeing.</h2>
-              <p className="text-lg text-muted-foreground">Request a brief phone consultation to see if we’re a good fit.</p>
+               <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary mb-3">{content.bookingEyebrow}</p>
+               <h2 className="text-4xl font-serif font-bold mb-4">{content.bookingTitle}</h2>
+              <p className="text-lg text-muted-foreground">{content.bookingDescription}</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
@@ -351,30 +374,30 @@ export default function Home() {
                 viewport={{ once: true }}
                  className="col-span-1 lg:col-span-5 bg-[hsl(25_29%_21%)] text-[hsl(38_42%_96%)] p-7 sm:p-8 rounded-[1.75rem] shadow-xl"
               >
-                <h3 className="font-serif text-2xl font-bold mb-8">A gentle place to start</h3>
+                <h3 className="font-serif text-2xl font-bold mb-8">{content.bookingInfoTitle}</h3>
                 
                 <div className="space-y-8">
                   <div className="flex items-start gap-4">
                     <PhoneCall className="w-6 h-6 mt-1 opacity-80" />
                     <div>
-                       <p className="font-bold">Phone consultations</p>
-                      <p className="opacity-90 mt-1">+1 (561) 291-8556</p>
-                      <Badge variant="outline" className="mt-2 bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20">No Physical Office</Badge>
+                       <p className="font-bold">{content.heroCardTitle}s</p>
+                      <p className="opacity-90 mt-1">{content.bookingPhone}</p>
+                      <Badge variant="outline" className="mt-2 bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20">{content.bookingOfficeBadge}</Badge>
                     </div>
                   </div>
                   
                   <div className="flex items-start gap-4">
                     <Mail className="w-6 h-6 mt-1 opacity-80" />
                     <div>
-                      <p className="font-bold">Email</p>
-                      <p className="opacity-90 mt-1 break-all">aydenstherapyservices@gmail.com</p>
+                      <p className="font-bold">{content.bookingEmailLabel}</p>
+                      <p className="opacity-90 mt-1 break-all">{content.bookingEmail}</p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-4 pt-8 border-t border-primary-foreground/20">
                     <Clock className="w-6 h-6 mt-1 opacity-80" />
                     <div className="w-full">
-                       <p className="font-bold mb-4">Main Office Hours:</p>
+                       <p className="font-bold mb-4">{content.bookingHoursTitle}</p>
                        <div className="space-y-1.5 text-sm opacity-90">
                          {[
                            { label: 'M-F', hours: settings?.officeHours?.mon },
@@ -387,7 +410,7 @@ export default function Home() {
                            </div>
                          ))}
                        </div>
-                       <p className="mt-6 border-t border-primary-foreground/20 pt-6 font-bold mb-4">Therapist Hours:</p>
+                       <p className="mt-6 border-t border-primary-foreground/20 pt-6 font-bold mb-4">{content.bookingTherapistHoursTitle}</p>
                        <div className="space-y-5 text-sm opacity-90">
                          {(settings?.therapistHours ?? []).map((therapist) => (
                            <div key={therapist.name} className="space-y-2">
@@ -414,7 +437,7 @@ export default function Home() {
                     <div className="flex items-start gap-4 pt-8 border-t border-primary-foreground/20">
                       <Calendar className="w-6 h-6 mt-1 opacity-80" />
                       <div className="w-full">
-                        <p className="font-bold mb-2">Upcoming Holidays</p>
+                        <p className="font-bold mb-2">{content.bookingHolidaysTitle}</p>
                         <div className="space-y-2 text-sm opacity-90">
                           {settings.holidayHours.map((h, i) => (
                             <div key={i} className="flex flex-col mb-2">
@@ -442,17 +465,17 @@ export default function Home() {
                     <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-6">
                       <Sparkles className="w-8 h-8" />
                     </div>
-                    <h3 className="text-2xl font-serif font-bold text-foreground mb-3">Request Sent!</h3>
+                    <h3 className="text-2xl font-serif font-bold text-foreground mb-3">{content.bookingSuccessTitle}</h3>
                     <p className="text-muted-foreground mb-6 max-w-sm">
-                      Your booking request has been received. I'll contact you shortly to confirm your session.
+                      {content.bookingSuccessDescription}
                     </p>
                     {confirmationCode && (
                       <div className="w-full max-w-sm mb-6">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Your Confirmation Code</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{content.bookingCodeLabel}</p>
                         <div className="bg-primary/5 border-2 border-primary/20 rounded-xl px-6 py-4 font-mono text-2xl font-bold tracking-widest text-primary select-all">
                           {confirmationCode}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2">Save this code — you can use it to reschedule or cancel your appointment.</p>
+                        <p className="text-xs text-muted-foreground mt-2">{content.bookingCodeDescription}</p>
                         <a
                           href={`/booking/${confirmationCode}`}
                           className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
@@ -462,7 +485,7 @@ export default function Home() {
                       </div>
                     )}
                     <Button onClick={() => { setBookingSuccess(false); setConfirmationCode(''); }} variant="outline">
-                      Book Another Session
+                      {content.bookingAnotherButton}
                     </Button>
                   </div>
                 ) : !settings?.sessionRequestsOpen ? (
@@ -470,16 +493,16 @@ export default function Home() {
                     <div className="w-16 h-16 bg-muted text-muted-foreground rounded-full flex items-center justify-center mb-6">
                       <AlertCircle className="w-8 h-8" />
                     </div>
-                    <h3 className="text-2xl font-serif font-bold text-foreground mb-4">Currently Fully Booked</h3>
+                    <h3 className="text-2xl font-serif font-bold text-foreground mb-4">{content.bookingClosedTitle}</h3>
                     <p className="text-muted-foreground max-w-sm">
-                      We are not accepting new session requests at this moment. Please check back later.
+                      {content.bookingClosedDescription}
                     </p>
                   </div>
                 ) : null}
 
                     <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                      <h3 className="font-serif text-2xl font-bold">Request a consultation</h3>
-                      <a href="/booking" className="text-sm font-medium text-primary hover:underline">Already booked? Manage with your code →</a>
+                      <h3 className="font-serif text-2xl font-bold">{content.bookingFormTitle}</h3>
+                      <a href="/booking" className="text-sm font-medium text-primary hover:underline">{content.bookingManageLink}</a>
                     </div>
                 
                 <Form {...form}>
@@ -490,9 +513,9 @@ export default function Home() {
                         name="clientName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Full Name</FormLabel>
+                            <FormLabel>{content.bookingNameLabel}</FormLabel>
                             <FormControl>
-                              <Input placeholder="Jane Doe" {...field} />
+                              <Input placeholder="{content.bookingNamePlaceholder}" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -504,9 +527,9 @@ export default function Home() {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
+                            <FormLabel>{content.bookingPhoneFieldLabel}</FormLabel>
                             <FormControl>
-                              <Input placeholder="(555) 123-4567" {...field} />
+                              <Input placeholder="{content.bookingPhonePlaceholder}" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -519,10 +542,10 @@ export default function Home() {
                       name="reason"
                       render={({ field }) => (
                         <FormItem>
-                         <FormLabel>What would you like support with?</FormLabel>
+                         <FormLabel>{content.bookingReasonLabel}</FormLabel>
                           <FormControl>
                             <Textarea 
-                               placeholder="Share a little about what brings you here..."
+                               placeholder="{content.bookingReasonPlaceholder}"
                               className="resize-none h-24"
                               {...field} 
                             />
@@ -538,7 +561,7 @@ export default function Home() {
                         name="preferredDate"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Preferred Date</FormLabel>
+                            <FormLabel>{content.bookingDateLabel}</FormLabel>
                             <FormControl>
                               <Input type="date" min={format(new Date(), 'yyyy-MM-dd')} {...field} />
                             </FormControl>
@@ -552,7 +575,7 @@ export default function Home() {
                         name="preferredTime"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Preferred Time</FormLabel>
+                            <FormLabel>{content.bookingTimeLabel}</FormLabel>
                              <FormControl>
                                <Input type="time" step="900" {...field} />
                             </FormControl>
@@ -564,7 +587,7 @@ export default function Home() {
 
                      <div className="pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                       <p className="text-xs text-muted-foreground max-w-xs">
-                         This first step is simply a request. All consultations are held by phone.
+                         {content.bookingDisclaimer}
                       </p>
                       <Button 
                         type="submit" 
@@ -572,7 +595,7 @@ export default function Home() {
                          className="px-8 rounded-full w-full sm:w-auto"
                         disabled={createBooking.isPending || !settings?.sessionRequestsOpen}
                       >
-                         {createBooking.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending</> : 'Request consultation'}
+                         {createBooking.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {content.bookingSendingText}</> : content.bookingSubmitText}
                       </Button>
                     </div>
                   </form>
