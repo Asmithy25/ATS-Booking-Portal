@@ -9,6 +9,7 @@ import type { RequestWithSession } from "../middleware/auth";
 const router = Router();
 
 const DEFAULT_HOMEPAGE_CONTENT = {
+  sectionVisibility: { hero: true, about: true, wellness: true, booking: true, announcements: true, footer: true },
   announcementHeading: "What’s new",
   announcementSubheading: "Updates from Aydens Wellness Services",
   announcementDescription: "",
@@ -140,7 +141,7 @@ function mergeHomepageContent(value: unknown) {
     ...DEFAULT_HOMEPAGE_CONTENT,
     ...saved,
     sectionVisibility: {
-      ...(DEFAULT_HOMEPAGE_CONTENT as Record<string, unknown>).sectionVisibility as Record<string, boolean> ?? {},
+      ...DEFAULT_HOMEPAGE_CONTENT.sectionVisibility,
       ...(savedVisibility && typeof savedVisibility === "object" ? savedVisibility as Record<string, boolean> : {}),
     },
   };
