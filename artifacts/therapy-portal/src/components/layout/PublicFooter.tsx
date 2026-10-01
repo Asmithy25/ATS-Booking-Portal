@@ -4,6 +4,7 @@ import { useGetSettings } from '@workspace/api-client-react';
 
 export function PublicFooter() {
   const { data: settings } = useGetSettings();
+  const content = getHomepageContent(settings);
   return (
     <footer id="contact" className="mt-auto border-t border-primary/20 bg-primary text-primary-foreground">
       <div className="container mx-auto px-4 py-14">
@@ -19,24 +20,24 @@ export function PublicFooter() {
           </div>
           
           <div className="flex flex-col items-start gap-4 text-left">
-            <h4 className="font-mono text-[10px] font-bold uppercase tracking-[.14em] text-secondary">Contact</h4>
+            <h4 className="font-mono text-[10px] font-bold uppercase tracking-[.14em] text-secondary">{content.footerContactHeading}</h4>
             <div className="space-y-2 text-sm text-primary-foreground/70">
-              <p>+1 (561) 291-8556</p>
-              <p>aydenstherapyservices@gmail.com</p>
+              <p>{content.contactPhone}</p>
+              <p>{content.contactEmail}</p>
             </div>
           </div>
           
           <div className="flex flex-col items-start gap-4 text-left">
-            <h4 className="font-mono text-[10px] font-bold uppercase tracking-[.14em] text-secondary">Our practice</h4>
+            <h4 className="font-mono text-[10px] font-bold uppercase tracking-[.14em] text-secondary">{content.footerPracticeHeading}</h4>
             <p className="max-w-xs text-sm leading-6 text-primary-foreground/70">
-              We provide strictly over-the-phone consultations. There is no physical office, allowing you to access support from the comfort of your own space.
+              {content.footerPracticeDescription}
             </p>
           </div>
         </div>
         
         <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-primary-foreground/15 pt-6 text-[10px] uppercase tracking-[.12em] text-primary-foreground/55 sm:flex-row sm:items-center">
           <p>© {new Date().getFullYear()} {settings?.siteName ?? "Ayden's Therapy Services"}</p>
-          <p>Phone consultations only · no physical office</p>
+          <p>{content.footerCopyrightText}</p>
         </div>
       </div>
     </footer>
