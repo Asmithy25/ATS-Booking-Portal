@@ -26,6 +26,33 @@ router.get("/", requireAuth, async (req, res) => {
   res.json(row ? { ...DEFAULTS, ...row, staffEmail: access.email } : { ...DEFAULTS, staffEmail: access.email });
 });
 
+router.get("/notifications", requireAuth, async (req, res) => {
+  const access = await getStaffAccess(req);
+  if (!access) return res.status(401).json({ error: "Unauthorized." });
+  await ensureTable();
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS staff_notifications (
+    id serial PRIMARY KEY,
+    staff_email text NOT NULL,
+    title text NOT NULL,
+    body text NOT NULL,
+    read boolean NOT NULL DEFAULT false,
+    created_at timestamp NOT NULL DEFAULT now()
+  )`);
+  const result = await db.execute(sql`SELECT id, title, body, read, created_at FROM staff_notifications WHERE staff_email = ${access.email} ORDER BY created_at DESC LIMIT 50`);
+  const rows = Array.isArray(result) ? result : (result as any).rows ?? [];
+  res.json(rows);
+});
+
+router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
+  const access = await getStaffAccess(req);
+  if (!access) return res.status(401).json({ error: "Unauthorized." });
+  await ensureTable();
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid notification ID." });
+  await db.execute(sql`UPDATE staff_notifications SET read = true WHERE id = ${id} AND staff_email = ${access.email}`);
+  res.json({ success: true });
+});
+
 router.put("/", requireAuth, async (req, res) => {
   const access = await getStaffAccess(req);
   if (!access) return res.status(401).json({ error: "Unauthorized." });
