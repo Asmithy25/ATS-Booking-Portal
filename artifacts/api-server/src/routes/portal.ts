@@ -22,6 +22,7 @@ import { getStaffAccess, hasPermission, requireAuth, requireClientAuth, type Req
 import { recordAudit } from "../lib/audit";
 import { generateConfirmationCode } from "../lib/booking-utils";
 import { validateBookingSlot } from "../lib/scheduling";
+import { notifyBooking } from "../lib/notification-service";
 
 const router = Router();
 
@@ -904,6 +905,8 @@ router.patch("/client/bookings/:id", requireClientAuth, async (req, res): Promis
     res.status(404).json({ error: "Appointment not found." });
     return;
   }
+  if (status === "cancelled") await notifyBooking(updated, "cancellation");
+  else if (preferredDate || preferredTime) await notifyBooking(updated, "reschedule");
   res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
 });
 
