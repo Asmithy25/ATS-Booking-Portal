@@ -87,7 +87,7 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
   await Promise.all(recipients.filter((item, index, list) => list.findIndex((other) => other.email === item.email) === index).map(async ({ email }) => {
     const staffKey = `${eventKey}:staff:${email}`;
     if (await claimEvent(staffKey, booking.id, "staff", email, kind)) {
-      await db.execute(sql`INSERT INTO staff_notifications (staff_email, title, body) VALUES (${email}, ${template.title}, ${template.body})`);
+      await db.execute(sql`INSERT INTO staff_notifications (staff_email, title, body) VALUES (${email}, ${fill(template.title, booking)}, ${fill(template.body, booking)})`);
     }
   }));
 }
