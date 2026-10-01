@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
-import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey } from '@workspace/api-client-react';
+import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
 import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
@@ -45,12 +45,10 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
 
   useEffect(() => {
     if (!session?.authenticated) return;
-    fetch('/api/settings/staff-preferences', { credentials: 'include' })
-      .then((response) => response.ok ? response.json() : null)
+    customFetch('/api/settings/staff-preferences')
       .then((value) => value && setPortalPrefs(value))
       .catch(() => undefined);
-    const loadNotifications = () => fetch('/api/settings/staff-preferences/notifications', { credentials: 'include' })
-      .then((response) => response.ok ? response.json() : [])
+    const loadNotifications = () => customFetch('/api/settings/staff-preferences/notifications')
       .then((value) => setStaffNotifications(Array.isArray(value) ? value : []))
       .catch(() => undefined);
     loadNotifications();
@@ -186,7 +184,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
                   <div className="max-h-80 space-y-2 overflow-y-auto">
                     {staffNotifications.length === 0 ? <p className="p-3 text-sm text-muted-foreground">You’re all caught up.</p> : staffNotifications.map((item) => (
                       <button key={item.id} type="button" className={`w-full rounded-xl border p-3 text-left ${item.read ? "opacity-60" : "bg-primary/5"}`} onClick={() => {
-                        fetch('/api/settings/staff-preferences/notifications/' + item.id + '/read', { method: 'PATCH', credentials: 'include' }).catch(() => undefined);
+                        customFetch('/api/settings/staff-preferences/notifications/' + item.id + '/read', { method: 'PATCH' }).catch(() => undefined);
                         setStaffNotifications((items) => items.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry));
                       }}>
                         <p className="text-sm font-semibold">{item.title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{item.body}</p>
