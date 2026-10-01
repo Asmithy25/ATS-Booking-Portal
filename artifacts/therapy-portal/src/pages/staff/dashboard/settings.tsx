@@ -18,6 +18,7 @@ import {
   type BackupExport,
   type BackupImportResult,
   type BackupScope,
+  customFetch,
 } from '@workspace/api-client-react';
 
 import {
@@ -156,8 +157,8 @@ export default function Settings() {
   const savePortalPreferences = async () => {
     setPortalPrefsSaving(true);
     try {
-      const response = await fetch('/api/settings/staff-preferences', {
-        method: 'PATCH',
+      const response = await customFetch('/api/settings/staff-preferences', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(portalPrefs),
@@ -291,16 +292,13 @@ export default function Settings() {
   const saveHomepageContent = async () => {
     setHomepageSaving(true);
     try {
-      const response = await fetch('/api/settings', {
+      const response = await customFetch('/api/settings', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ homepageContent: homepageDraft }),
       });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error ?? 'Homepage content could not be saved.');
-      }
+
       await queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
       toast({ title: 'Homepage saved', description: 'Every editable homepage field is now live.' });
     } catch (err) {
