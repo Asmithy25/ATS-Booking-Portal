@@ -33,12 +33,6 @@ type LookupResponse = {
   assignments: WellnessAssignment[];
 };
 
-const typeLabels: Record<string, string> = {
-  wellness_journey: 'Wellness Journey',
-  notebook: 'Notebook',
-  homework: 'Homework',
-};
-
 function AssignmentIcon({ type }: { type: string }) {
   if (type === 'wellness_journey') return <Heart className="h-5 w-5" />;
   if (type === 'notebook') return <NotebookPen className="h-5 w-5" />;
@@ -179,8 +173,8 @@ export function WellnessLookup({ content }: { content: Record<string, any> }) {
               </div>
               <div className="grid gap-3 pt-3 text-sm text-muted-foreground sm:grid-cols-3">
                 <span><CalendarDays className="mr-1 inline h-4 w-4" />{format(parseISO(result.booking.preferredDate), 'MMMM d, yyyy')}</span>
-                <span>Appointment: {result.booking.preferredTime}</span>
-                <span>Therapist: {result.booking.therapist || '{content.wellnessNotAssignedText}'}</span>
+                <span>{content.wellnessAppointmentLabel} {result.booking.preferredTime}</span>
+                <span>{content.wellnessTherapistLabel} {result.booking.therapist || content.wellnessNotAssignedText}</span>
               </div>
             </CardHeader>
             <CardContent className="p-6">
@@ -202,7 +196,7 @@ export function WellnessLookup({ content }: { content: Record<string, any> }) {
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="font-semibold">{assignment.title}</h3>
-                              <Badge variant="secondary">{typeLabels[assignment.type] ?? assignment.type}</Badge>
+                              <Badge variant="secondary">{({ wellness_journey: content.wellnessTypeWellnessJourney, notebook: content.wellnessTypeNotebook, homework: content.wellnessTypeHomework } as Record<string, string>)[assignment.type] ?? assignment.type}</Badge>
                             </div>
                             {assignment.dueDate && (
                               <p className="mt-1 text-xs text-muted-foreground">
