@@ -360,6 +360,7 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
       return res.status(409).json({ error: slot.error });
     }
     const [created] = await db.insert(bookingsTable).values({ confirmationCode: await createConfirmationCode(), clientAccountId: await resolveClientAccountId(phone), clientName, phone, reason, preferredDate, preferredTime, status, priority: status === "waitlisted" ? priority : 1, claimedBy: status === "claimed" ? staffSession?.name ?? null : null, sessionNotes: sessionNotes ?? null }).returning();
+    await notifyBooking(created, "booking_confirmation");
     res.status(201).json(serializeBooking(created));
   } catch (err) {
     req.log.error({ err }, "Failed to create staff booking");
