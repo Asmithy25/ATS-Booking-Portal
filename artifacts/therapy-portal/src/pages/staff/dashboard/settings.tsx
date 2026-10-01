@@ -772,7 +772,6 @@ export default function Settings() {
                     ['heroImageUrl','Hero image'],
                     ['aboutImageUrl','About image'],
                     ['faviconUrl','Favicon'],
-                    ['logoUrl','Site logo'],
                   ].map(([key,label]) => (
                     <div key={key} className="space-y-2">
                       <label className="text-sm font-medium">{label}</label>
