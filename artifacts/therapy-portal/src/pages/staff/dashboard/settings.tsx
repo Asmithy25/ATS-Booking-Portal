@@ -746,6 +746,24 @@ export default function Settings() {
               ))}
 
               <div className="space-y-4">
+                <div><h3 className="text-lg font-semibold">Section controls</h3><p className="text-xs text-muted-foreground">Turn major public homepage sections on or off without removing their saved content.</p></div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {([
+                    ['hero','Hero / welcome section'],
+                    ['about','About / approach section'],
+                    ['booking','Booking section'],
+                    ['announcements','Announcements'],
+                    ['footer','Footer'],
+                  ] as const).map(([key,label]) => (
+                    <div key={key} className="flex items-center justify-between rounded-xl border bg-background p-4">
+                      <span className="text-sm font-medium">{label}</span>
+                      <SwitchComponent checked={homepageDraft.sectionVisibility?.[key] !== false} onCheckedChange={(value) => setHomepageDraft((current) => ({ ...current, sectionVisibility: { ...(current.sectionVisibility ?? {}), [key]: value } }))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
                 <div><h3 className="text-lg font-semibold">Homepage media</h3><p className="text-xs text-muted-foreground">Use a URL or upload a JPG, PNG, WebP, or GIF. Uploads are stored with the site settings so they survive host changes.</p></div>
                 <div className="grid gap-4 md:grid-cols-2">
                   {[
