@@ -12,6 +12,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced' });
+  const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
 
   const { data: session, isLoading, error } = useGetAuthMe({
@@ -40,6 +43,21 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    fetch('/api/settings/staff-preferences', { credentials: 'include' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((value) => value && setPortalPrefs(value))
+      .catch(() => undefined);
+    const loadNotifications = () => fetch('/api/settings/staff-preferences/notifications', { credentials: 'include' })
+      .then((response) => response.ok ? response.json() : [])
+      .then((value) => setStaffNotifications(Array.isArray(value) ? value : []))
+      .catch(() => undefined);
+    loadNotifications();
+    const interval = window.setInterval(loadNotifications, 60000);
+    return () => window.clearInterval(interval);
+  }, [session?.authenticated]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -51,6 +69,8 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   if (!session?.authenticated) {
     return null;
   }
+
+  const unreadNotifications = staffNotifications.filter((item) => !item.read).length;
 
   const navItem = (href: string, icon: React.ReactNode, label: string) => {
     const active = location === href || location.startsWith(href + '/');
@@ -71,9 +91,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   };
 
   return (
-      <div className="ats-staff-shell min-h-screen flex bg-[#edf0eb] text-foreground dark:bg-background ats-paper">
+      <div className={`ats-staff-shell min-h-screen flex bg-[#edf0eb] text-foreground dark:bg-background ats-paper ${portalPrefs.layout === "relaxed" ? "staff-relaxed" : portalPrefs.layout === "focused" ? "staff-focused" : portalPrefs.layout === "minimal" ? "staff-minimal" : "staff-composed"}`}>
       {/* Sidebar */}
-      <aside className={`w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col fixed h-full z-30 transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`${portalPrefs.navigation === "rail" ? "w-20" : portalPrefs.navigation === "compact" ? "w-56" : "w-64"} bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col fixed h-full z-30 transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="border-b border-sidebar-border p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-sidebar-primary p-1">
@@ -130,7 +150,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
       {mobileOpen && <button aria-label="Close navigation" data-testid="button-close-sidebar" className="fixed inset-0 z-20 bg-[hsl(25_29%_21%_/.35)] md:hidden" onClick={() => setMobileOpen(false)} />}
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 p-4 pt-20 md:p-10 md:pt-9">
+      <main className={`flex-1 p-4 pt-20 md:p-10 md:pt-9 ${portalPrefs.navigation === "rail" ? "md:ml-20" : portalPrefs.navigation === "compact" ? "md:ml-56" : "md:ml-64"} ${portalPrefs.density === "compact" ? "staff-compact" : portalPrefs.density === "spacious" ? "staff-spacious" : "staff-comfortable"}`}>
         <div className="fixed top-0 left-0 right-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center bg-secondary p-1">
@@ -156,7 +176,25 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
                 <Clock3 className="h-3.5 w-3.5 text-primary" />
                 <span className="font-mono tabular-nums text-foreground">{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span>
               </div>
-              <Button type="button" variant="outline" size="icon" aria-label="Notifications"><Bell className="h-4 w-4" /></Button>
+              <div className="relative">
+                <Button type="button" variant="outline" size="icon" aria-label="Notifications" onClick={() => setNotificationsOpen((value) => !value)}>
+                  <Bell className="h-4 w-4" />
+                  {unreadNotifications > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground">{unreadNotifications}</span>}
+                </Button>
+                {notificationsOpen && <div className="absolute right-0 top-11 z-50 w-80 rounded-2xl border bg-card p-3 shadow-xl">
+                  <div className="mb-2 flex items-center justify-between"><p className="font-semibold">Notifications</p><span className="text-xs text-muted-foreground">{unreadNotifications} unread</span></div>
+                  <div className="max-h-80 space-y-2 overflow-y-auto">
+                    {staffNotifications.length === 0 ? <p className="p-3 text-sm text-muted-foreground">You’re all caught up.</p> : staffNotifications.map((item) => (
+                      <button key={item.id} type="button" className={`w-full rounded-xl border p-3 text-left ${item.read ? "opacity-60" : "bg-primary/5"}`} onClick={() => {
+                        fetch('/api/settings/staff-preferences/notifications/' + item.id + '/read', { method: 'PATCH', credentials: 'include' }).catch(() => undefined);
+                        setStaffNotifications((items) => items.map((entry) => entry.id === item.id ? { ...entry, read: true } : entry));
+                      }}>
+                        <p className="text-sm font-semibold">{item.title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{item.body}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>}
+              </div>
               <ThemeToggle compact />
               <Button type="button" variant="secondary" className="hidden sm:inline-flex" onClick={() => setLocation('/staff/bookings')}>
                 Open bookings <ArrowUpRight className="h-4 w-4" />
