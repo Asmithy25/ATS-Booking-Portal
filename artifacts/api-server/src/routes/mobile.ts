@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { desc, eq } from "drizzle-orm";
 import { db, announcementsTable, bookingsTable, clientNotificationsTable, clientAccountsTable } from "@workspace/db";
-import { extractClientSession, extractStaffSession, getStaffAccess, requireClientAuth, requireAuth } from "../middleware/auth";
+import { extractClientSession, getStaffAccess, requireClientAuth } from "../middleware/auth";
 
 const router = Router();
 
