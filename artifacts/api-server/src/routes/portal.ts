@@ -142,7 +142,7 @@ router.get("/announcements", async (req, res) => {
     if (!access) { res.status(401).json({ error: "Staff authentication required." }); return; }
   }
   const rows = await db.select().from(announcementsTable)
-    .where(and(eq(announcementsTable.audience, audience), eq(announcementsTable.active, true)))
+    .where(staffView ? eq(announcementsTable.audience, audience) : and(eq(announcementsTable.audience, audience), eq(announcementsTable.active, true)))
     .orderBy(desc(announcementsTable.createdAt));
   const now = Date.now();
   const visible = staffView ? rows : rows.filter((item) => {
