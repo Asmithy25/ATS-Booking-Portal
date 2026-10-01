@@ -14,7 +14,8 @@ const DEFAULT_TEMPLATES: Record<string, { title: string; body: string }> = {
   appointment_start: {
     title: "Your session is starting now",
     body: "Hi {{clientName}}, your phone session is starting now at {{time}}. Please keep your phone nearby.",
-  },\n  starting_soon: {
+  },
+  starting_soon: {
     title: "Your session is starting soon",
     body: "Hi {{clientName}}, your session is starting soon at {{time}}. Find a quiet, comfortable place and keep your phone close.",
   },
