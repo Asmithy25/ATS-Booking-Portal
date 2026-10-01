@@ -74,7 +74,7 @@ export function WellnessLookup() {\n  const content = getHomepageContent(undefin
       );
       setResult(data);
     } catch {
-      setError("{content.wellnessNotFoundError}");
+      setError(content.wellnessNotFoundError);
     } finally {
       setLoading(false);
     }
@@ -103,7 +103,7 @@ export function WellnessLookup() {\n  const content = getHomepageContent(undefin
           : current,
       );
     } catch {
-      setError('{content.wellnessUpdateError}');
+      setError(content.wellnessUpdateError);
     } finally {
       setUpdatingId(null);
     }
