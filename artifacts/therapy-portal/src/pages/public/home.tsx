@@ -71,7 +71,7 @@ export default function Home() {
         link.rel = 'icon';
         document.head.appendChild(link);
       }
-      link.href = String(content.faviconUrl);
+      link.href = String(favicon);
     }
     if (settings?.siteName) document.title = settings.siteName;
   }, [content.faviconUrl, settings?.logoUrl, settings?.siteName]);
