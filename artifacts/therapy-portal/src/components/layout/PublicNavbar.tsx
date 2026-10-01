@@ -5,10 +5,12 @@ import { Menu, X } from 'lucide-react';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { getHomepageContent } from '@/lib/homepageContent';
 
 export function PublicNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: settings } = useGetSettings();
+  const content = getHomepageContent(settings);
   const handleScrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -18,8 +20,8 @@ export function PublicNavbar() {
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md">
       <div className="bg-primary text-primary-foreground">
         <div className="container mx-auto flex min-h-8 items-center justify-center px-4 text-center font-mono text-[9px] font-bold uppercase tracking-[.14em] sm:justify-between">
-          <span>Private, phone-based support</span>
-          <span className="hidden opacity-70 sm:inline">South Florida and beyond</span>
+          <span>{content.navPrivateSupport}</span>
+          <span className="hidden opacity-70 sm:inline">{content.navRegion}</span>
         </div>
       </div>
       <div className="container mx-auto flex h-[82px] items-center justify-between border-b border-border px-4">
@@ -32,26 +34,26 @@ export function PublicNavbar() {
 
         <nav className="hidden items-center gap-8 md:flex">
           <button data-testid="button-nav-about" onClick={() => handleScrollTo('about')} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
-            Our approach
+            {content.navAbout}
           </button>
           <button data-testid="button-nav-book" onClick={() => handleScrollTo('book')} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
-            How to begin
+            {content.navBook}
           </button>
           <button data-testid="button-nav-wellness" onClick={() => handleScrollTo('wellness-lookup')} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
-            Wellness Journey
+            {content.navWellness}
           </button>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-4">
           <Link href="/staff/login" data-testid="link-staff-portal" className="hidden text-xs font-semibold text-muted-foreground transition-colors hover:text-destructive lg:inline-flex">
-            Staff
+            {content.navStaff}
           </Link>
           <Link href="/portal/login" data-testid="link-client-portal" className="hidden text-xs font-semibold text-muted-foreground transition-colors hover:text-destructive lg:inline-flex">
-            Client portal
+            {content.navClientPortal}
           </Link>
           <ThemeToggle compact />
           <Button data-testid="button-get-started" onClick={() => handleScrollTo('book')} className="bg-secondary px-4 text-secondary-foreground hover:bg-secondary/90 sm:px-5">
-            Request a call
+            {content.navRequestCall}
           </Button>
           <Button data-testid="button-mobile-menu" variant="outline" size="icon" className="md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'}>
             {menuOpen ? <X /> : <Menu />}
@@ -60,11 +62,11 @@ export function PublicNavbar() {
       </div>
       {menuOpen && <div className="border-b border-border bg-background px-4 py-4 shadow-sm md:hidden">
         <div className="container mx-auto grid gap-1">
-          <button data-testid="button-mobile-about" onClick={() => { handleScrollTo('about'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">Our approach</button>
-          <button data-testid="button-mobile-book" onClick={() => { handleScrollTo('book'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">How to begin</button>
-          <button data-testid="button-mobile-wellness" onClick={() => { handleScrollTo('wellness-lookup'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">Wellness Journey</button>
-          <Link href="/staff/login" data-testid="link-mobile-staff" onClick={() => setMenuOpen(false)} className="border-b border-border py-3 text-sm font-semibold">Staff portal</Link>
-          <Link href="/portal/login" data-testid="link-mobile-client" onClick={() => setMenuOpen(false)} className="py-3 text-sm font-semibold">Client portal</Link>
+          <button data-testid="button-mobile-about" onClick={() => { handleScrollTo('about'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navAbout}</button>
+          <button data-testid="button-mobile-book" onClick={() => { handleScrollTo('book'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navBook}</button>
+          <button data-testid="button-mobile-wellness" onClick={() => { handleScrollTo('wellness-lookup'); setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navWellness}</button>
+          <Link href="/staff/login" data-testid="link-mobile-staff" onClick={() => setMenuOpen(false)} className="border-b border-border py-3 text-sm font-semibold">{content.navStaff} portal</Link>
+          <Link href="/portal/login" data-testid="link-mobile-client" onClick={() => setMenuOpen(false)} className="py-3 text-sm font-semibold">{content.navClientPortal}</Link>
         </div>
       </div>}
     </header>
