@@ -1,6 +1,7 @@
 export type HomepageContent = typeof DEFAULT_HOMEPAGE_CONTENT & Record<string, unknown>;
 
 export const DEFAULT_HOMEPAGE_CONTENT = {
+  sectionVisibility: { hero: true, about: true, booking: true, announcements: true, footer: true },
   heroGreeting: "Good morning",
   heroWelcome: "Welcome — this is a space for you.",
   heroQuoteEnabled: true,
