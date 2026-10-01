@@ -17,6 +17,8 @@ export default function Clients() {
     query: { retry: false },
   });
 
+  const clients = (searchResults?.clients ?? []) as Array<{ clientName: string; phone: string; sessionCount: number; bookings: Array<{ id: number | string; preferredDate: string; status: string; confirmationCode: string; preferredTime: string }> }>;
+
   const { data: clientHistory, isLoading, isError, error } = useGetClientHistory(selectedPhone, {
     query: {
       queryKey: getGetClientHistoryQueryKey(selectedPhone),
@@ -64,7 +66,7 @@ export default function Clients() {
         </div>
       )}
 
-       {activeSearch && !isSearching && !isLoading && !searchResults?.clients.length && !clientHistory && (
+       {activeSearch && !isSearching && !isLoading && !clients.length && !clientHistory && (
         <Card className="border-dashed bg-muted/30">
           <CardContent className="pt-6 text-center py-12">
              <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
@@ -80,10 +82,10 @@ export default function Clients() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-xl font-bold">Matching clients</h2>
-            <span className="text-sm text-muted-foreground">{searchResults.clients.length} result{searchResults.clients.length === 1 ? '' : 's'}</span>
+            <span className="text-sm text-muted-foreground">{clients.length} result{searchResults.clients.length === 1 ? '' : 's'}</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {searchResults.clients.map((client) => (
+            {clients.map((client) => (
               <Card key={client.phone} className="border-border shadow-sm rounded-2xl">
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between gap-4">
