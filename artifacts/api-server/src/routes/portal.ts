@@ -809,6 +809,7 @@ router.post("/client/bookings", requireClientAuth, async (req, res): Promise<voi
     status: "pending",
   }).returning();
 
+  await notifyBooking(created, "booking_confirmation");
   res.status(201).json({
     ...created,
     claimedBy: created.claimedBy ?? null,
