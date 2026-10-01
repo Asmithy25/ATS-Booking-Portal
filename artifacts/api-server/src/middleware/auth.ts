@@ -162,7 +162,7 @@ export async function getStaffAccess(req: Request): Promise<{
   role: string;
   permissions: Record<string, boolean>;
 } | null> {
-  const session = extractSession(req);
+  const session = extractStaffSession(req);
   if (!session?.email) return null;
   if (session.email === ADMIN_EMAIL) {
     return { email: session.email, name: session.name, role: "founder", permissions: {} };
@@ -208,6 +208,15 @@ export function requirePermission(permission: string) {
     (req as RequestWithSession).staffSession = { email: access.email, name: access.name };
     next();
   };
+}
+
+export function extractStaffSession(req: Request): StaffSession | null {
+  const bearer = req.headers.authorization;
+  const raw = bearer?.startsWith("Bearer ") ? bearer.slice(7) : (req.cookies?.[SESSION_COOKIE] as string | undefined);
+  if (!raw) return null;
+  const session = verifyPayload(raw);
+  if (!session?.email || !session?.name) return null;
+  return { email: session.email, name: session.name };
 }
 
 export function extractClientSession(req: Request): ClientSession | null {
