@@ -1,4 +1,4 @@
-export type HomepageContent = typeof DEFAULT_HOMEPAGE_CONTENT & Record<string, unknown>;
+export type HomepageContent = Record<string, any> & { sectionVisibility: Record<string, boolean> };
 
 export const DEFAULT_HOMEPAGE_CONTENT = {
   sectionVisibility: { hero: true, about: true, wellness: true, booking: true, announcements: true, footer: true },
