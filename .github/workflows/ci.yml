@@ -43,6 +43,6 @@ jobs:
         env:
           PORT: 5173
           BASE_PATH: /
-          VITE_API_URL: https://7210c7a1-83ba-4abf-bb2d-f2f440cb7223-00-1tcp7lxuw6y70.riker.replit.dev
+          VITE_API_URL: https://ats-api-live-production.up.railway.app
           NODE_ENV: production
         run: pnpm run build
