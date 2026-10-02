@@ -362,6 +362,27 @@ router.patch("/staff/:email/profile", requireAuth, async (req, res): Promise<voi
   res.json({ success: true, email, bio, photoUrl, focus, displayTitle });
 });
 
+router.get("/welcome-summary", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access) { res.status(401).json({ error: "Unauthorized." }); return; }
+  await ensureWorkspaceTables();
+  const today = new Date().toISOString().slice(0, 10);
+  const todayAppointments = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM bookings WHERE preferred_date=${today} AND status <> 'cancelled'`))[0]?.count ?? 0;
+  const upcoming = rowsOf(await db.execute(sql`SELECT id, client_name AS "clientName", preferred_date AS "preferredDate", preferred_time AS "preferredTime", confirmation_code AS "confirmationCode", status
+    FROM bookings WHERE preferred_date >= ${today} AND status NOT IN ('cancelled','completed')
+    ORDER BY preferred_date ASC, preferred_time ASC LIMIT 8`));
+  const openTeam = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM collaboration_items WHERE status <> 'done'`))[0]?.count ?? 0;
+  const unread = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM staff_notifications WHERE staff_email=${access.email} AND read=false`))[0]?.count ?? 0;
+  const staffCount = 1 + (await db.select({ id: staffAccountsTable.id }).from(staffAccountsTable)).length;
+  res.json({
+    todayAppointments: Number(todayAppointments),
+    upcomingAppointments: upcoming,
+    openTeamItems: Number(openTeam),
+    unreadNotifications: Number(unread),
+    staffCount,
+  });
+});
+
 router.get("/founder-summary", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
   if (!access || access.role !== "founder") { res.status(access ? 403 : 401).json({ error: "Founder dashboard access required." }); return; }
