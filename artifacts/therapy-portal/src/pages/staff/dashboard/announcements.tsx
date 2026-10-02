@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Switch as SwitchComponent } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Megaphone, Save, Upload, Trash2, Archive, RotateCcw, Copy } from 'lucide-react';
+import { Megaphone, Save, Upload, Trash2, Archive, RotateCcw, Copy, Loader2 } from 'lucide-react';
 
 type Announcement = {
   id: number;
@@ -46,9 +46,23 @@ export default function Announcements() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  const load = () => customFetch<Announcement[]>('/api/portal/announcements?audience=staff')
-    .then((data) => setItems(Array.isArray(data) ? data : []))
-    .catch(() => setItems([]));
+  const [loadingItems, setLoadingItems] = useState(true);
+  const load = async () => {
+    setLoadingItems(true);
+    try {
+      const data = await customFetch<Announcement[]>('/api/portal/announcements?audience=all');
+      setItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setItems([]);
+      toast({
+        variant: 'destructive',
+        title: 'Could not load announcement library',
+        description: err instanceof Error ? err.message : 'Please refresh and try again.',
+      });
+    } finally {
+      setLoadingItems(false);
+    }
+  };
 
   useEffect(() => { load(); }, []);
 
@@ -132,9 +146,19 @@ export default function Announcements() {
   };
 
   const remove = async (item: Announcement) => {
-    if (!window.confirm('Delete this announcement permanently?')) return;
-    await customFetch(`/api/portal/announcements/${item.id}`, { method: 'DELETE' });
-    await load();
+    if (!window.confirm(`Delete “${item.title}” permanently? This cannot be undone.`)) return;
+    try {
+      await customFetch(`/api/portal/announcements/${item.id}`, { method: 'DELETE' });
+      setItems((current) => current.filter((entry) => entry.id !== item.id));
+      if (form.id === item.id) setForm(emptyForm);
+      toast({ title: 'Announcement deleted' });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Could not delete announcement',
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+    }
   };
 
   return <div className="space-y-7 max-w-6xl">
@@ -153,7 +177,7 @@ export default function Announcements() {
           <div className="flex gap-2"><Button disabled={saving}><Save className="mr-2 h-4 w-4" /> {saving ? 'Saving…' : form.id ? 'Save changes' : 'Create announcement'}</Button>{form.id && <Button type="button" variant="outline" onClick={() => setForm(emptyForm)}>Cancel edit</Button>}</div>
         </form></CardContent>
       </Card>
-      <Card><CardHeader><CardTitle>Live preview</CardTitle><CardDescription>Preview the announcement before publishing it.</CardDescription></CardHeader><CardContent>{form.title || form.body || form.imageUrl ? <article className="rounded-2xl border bg-card p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start"><div className="flex-1">{form.subheading && <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">{form.subheading}</p>}<h2 className="mt-1 font-serif text-2xl font-bold">{form.title || "Announcement heading"}</h2><p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{form.body || "Announcement body"}</p>{form.showSignature && <div className="mt-4 border-t pt-3"><p className="font-serif italic">{form.signatureName || "Ayden Smith"}</p><p className="text-xs text-muted-foreground">{form.signatureTitle || "Founder & CEO of Aydens Wellness Services"}</p></div>}</div>{form.imageUrl && <img src={form.imageUrl} alt="" className="h-24 w-24 rounded-2xl object-cover" />}</div>{form.buttonText && form.buttonUrl && <a href={form.buttonUrl} className="mt-4 inline-flex rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">{form.buttonText}</a>}</article> : <p className="text-sm text-muted-foreground">Start typing to preview the announcement.</p>}</CardContent></Card><Card><CardHeader><CardTitle>Announcement library</CardTitle></CardHeader><CardContent className="space-y-3">{items.map((item) => <div key={item.id} className="rounded-2xl border p-4"><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{item.title}</p><Badge variant="outline">{item.audience}</Badge><Badge variant={item.metadata?.status === 'published' ? 'default' : 'secondary'}>{item.metadata?.status ?? (item.active ? 'published' : 'archived')}</Badge></div><p className="mt-2 text-sm text-muted-foreground">{item.body}</p></div>{item.metadata?.imageUrl && <img src={item.metadata.imageUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />}</div><div className="mt-4 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => edit(item)}>Edit</Button><Button size="sm" variant="outline" onClick={() => duplicate(item)}><Copy className="mr-1 h-4 w-4" /> Duplicate</Button>{item.active ? <Button size="sm" variant="outline" onClick={() => archive(item)}><Archive className="mr-1 h-4 w-4" /> Archive</Button> : <Button size="sm" variant="outline" onClick={() => archive(item, true)}><RotateCcw className="mr-1 h-4 w-4" /> Restore</Button>}<Button size="sm" variant="destructive" onClick={() => remove(item)}><Trash2 className="mr-1 h-4 w-4" /> Delete</Button></div></div>)}{!items.length && <p className="text-sm text-muted-foreground">No announcements yet.</p>}</CardContent></Card>
+      <Card><CardHeader><CardTitle>Live preview</CardTitle><CardDescription>Preview the announcement before publishing it.</CardDescription></CardHeader><CardContent>{form.title || form.body || form.imageUrl ? <article className="rounded-2xl border bg-card p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start"><div className="flex-1">{form.subheading && <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">{form.subheading}</p>}<h2 className="mt-1 font-serif text-2xl font-bold">{form.title || "Announcement heading"}</h2><p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{form.body || "Announcement body"}</p>{form.showSignature && <div className="mt-4 border-t pt-3"><p className="font-serif italic">{form.signatureName || "Ayden Smith"}</p><p className="text-xs text-muted-foreground">{form.signatureTitle || "Founder & CEO of Aydens Wellness Services"}</p></div>}</div>{form.imageUrl && <img src={form.imageUrl} alt="" className="h-24 w-24 rounded-2xl object-cover" />}</div>{form.buttonText && form.buttonUrl && <a href={form.buttonUrl} className="mt-4 inline-flex rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">{form.buttonText}</a>}</article> : <p className="text-sm text-muted-foreground">Start typing to preview the announcement.</p>}</CardContent></Card><Card><CardHeader><CardTitle>Announcement library</CardTitle><CardDescription>All announcements are listed here. Use Modify or Delete directly beneath each announcement.</CardDescription></CardHeader><CardContent className="space-y-3">{loadingItems ? <div className="flex items-center justify-center py-8 text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading announcements…</div> : items.map((item) => <div key={item.id} className="rounded-2xl border p-4"><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{item.title}</p><Badge variant="outline">{item.audience}</Badge><Badge variant={item.metadata?.status === 'published' ? 'default' : 'secondary'}>{item.metadata?.status ?? (item.active ? 'published' : 'archived')}</Badge></div><p className="mt-2 text-sm text-muted-foreground">{item.body}</p></div>{item.metadata?.imageUrl && <img src={item.metadata.imageUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />}</div><div className="mt-4 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => edit(item)}>Modify</Button><Button size="sm" variant="outline" onClick={() => duplicate(item)}><Copy className="mr-1 h-4 w-4" /> Duplicate</Button>{item.active ? <Button size="sm" variant="outline" onClick={() => archive(item)}><Archive className="mr-1 h-4 w-4" /> Archive</Button> : <Button size="sm" variant="outline" onClick={() => archive(item, true)}><RotateCcw className="mr-1 h-4 w-4" /> Restore</Button>}<Button size="sm" variant="destructive" onClick={() => remove(item)}><Trash2 className="mr-1 h-4 w-4" /> Delete</Button></div></div>)}{!loadingItems && !items.length && <p className="text-sm text-muted-foreground">No announcements yet.</p>}</CardContent></Card>
     </div>
   </div>;
 }
