@@ -354,7 +354,7 @@ router.patch("/staff/:email/profile", requireAuth, async (req, res): Promise<voi
   const focus = String(body.focus ?? "").trim().slice(0, 160);
   const displayTitle = String(body.displayTitle ?? "").trim().slice(0, 120);
   const photoUrl = String(body.photoUrl ?? "").trim().slice(0, 7000000);
-  if (photoUrl && !/^(https?:\\/\\/|data:image\\/)/i.test(photoUrl)) { res.status(400).json({ error: "Photo must be an image URL or uploaded image data." }); return; }
+  if (photoUrl && !/^(https?:\/\/|data:image\/)/i.test(photoUrl)) { res.status(400).json({ error: "Photo must be an image URL or uploaded image data." }); return; }
   await db.execute(sql`INSERT INTO staff_profile_overrides (staff_email, bio, photo_url, focus, display_title, updated_at)
     VALUES (${email}, ${bio}, ${photoUrl}, ${focus}, ${displayTitle}, now())
     ON CONFLICT (staff_email) DO UPDATE SET bio=${bio}, photo_url=${photoUrl}, focus=${focus}, display_title=${displayTitle}, updated_at=now()`);
