@@ -127,6 +127,24 @@ router.get("/analytics", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
+router.get("/feedback", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || !hasPermission(access, "viewAnalytics")) {
+    res.status(403).json({ error: "Feedback dashboard access required." });
+    return;
+  }
+  const requestedLimit = Number(req.query.limit ?? 100);
+  const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 100;
+  const rows = await db.select().from(sessionFeedbackTable)
+    .orderBy(desc(sessionFeedbackTable.createdAt))
+    .limit(limit);
+  res.json(rows.map((feedback) => ({
+    ...feedback,
+    comment: feedback.comment ?? null,
+    createdAt: feedback.createdAt.toISOString(),
+  })));
+});
+
 router.get("/activity", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
   if (!access || !hasPermission(access, "viewAuditLogs")) {
