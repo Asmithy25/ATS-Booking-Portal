@@ -55,6 +55,20 @@ async function ensureNotificationEventsTable() {
     read boolean NOT NULL DEFAULT false,
     created_at timestamp NOT NULL DEFAULT now()
   )`);
+  await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS notification_preferences jsonb NOT NULL DEFAULT '{}'`).catch(() => undefined);
+}
+
+async function staffAllows(email: string, preference: string) {
+  const result = await db.execute(sql`SELECT notification_preferences AS prefs FROM staff_portal_preferences WHERE staff_email=${email} LIMIT 1`);
+  const row = Array.isArray(result) ? result[0] : (result as any).rows?.[0];
+  const prefs = (row?.prefs ?? {}) as Record<string, boolean>;
+  return prefs[preference] !== false;
+}
+
+function preferenceForBookingKind(kind: keyof typeof DEFAULT_TEMPLATES) {
+  return ["booking_confirmation", "appointment_reminder", "appointment_start", "starting_soon", "cancellation", "reschedule"].includes(kind)
+    ? "appointmentAlerts"
+    : "systemAlerts";
 }
 
 async function claimEvent(eventKey: string, bookingId: number | null, recipientType: string, recipientId: string | null, kind: string) {
@@ -88,7 +102,9 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
 
   const staff = await db.select({ email: staffAccountsTable.email }).from(staffAccountsTable);
   const recipients = [{ email: "ayden@aydenstherapyservices.com" }, ...staff];
+  const preference = preferenceForBookingKind(kind);
   await Promise.all(recipients.filter((item, index, list) => list.findIndex((other) => other.email === item.email) === index).map(async ({ email }) => {
+    if (!await staffAllows(email, preference)) return;
     const staffKey = `${eventKey}:staff:${email}`;
     if (await claimEvent(staffKey, booking.id, "staff", email, kind)) {
       await db.execute(sql`INSERT INTO staff_notifications (staff_email, title, body) VALUES (${email}, ${fill(template.title, booking)}, ${fill(template.body, booking)})`);
