@@ -162,7 +162,10 @@ export async function getStaffAccess(req: Request): Promise<{
   role: string;
   permissions: Record<string, boolean>;
 } | null> {
-  const session = extractStaffSession(req);
+  // Reuse the session already validated by requireAuth when available.
+  // This avoids a second auth parse from picking up a stale/mismatched
+  // Authorization header instead of the valid staff session cookie.
+  const session = (req as RequestWithSession).staffSession ?? extractStaffSession(req);
   if (!session?.email) return null;
   if (session.email === ADMIN_EMAIL) {
     return { email: session.email, name: session.name, role: "founder", permissions: {} };
