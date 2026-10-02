@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { customFetch, useGetSettings, useGetAuthMe } from '@workspace/api-client-react';
+import { customFetch, useGetAuthMe } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,16 +17,19 @@ const SECTIONS = [
 ] as const;
 
 export default function HomepageControls() {
-  const { data: settings } = useGetSettings();
   const { data: session } = useGetAuthMe();
+  const [settings, setSettings] = useState<any>(null);
   const { toast } = useToast();
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const saved = (settings?.homepageContent as any)?.sectionVisibility;
-    setVisibility(Object.fromEntries(SECTIONS.map(([key]) => [key, saved?.[key] !== false])));
-  }, [settings]);
+    customFetch<any>('/api/settings').then((value) => {
+      setSettings(value);
+      const saved = value?.homepageContent?.sectionVisibility;
+      setVisibility(Object.fromEntries(SECTIONS.map(([key]) => [key, saved?.[key] !== false])));
+    }).catch(() => setVisibility(Object.fromEntries(SECTIONS.map(([key]) => [key, true]))));
+  }, []);
 
   const enabledCount = useMemo(() => Object.values(visibility).filter(Boolean).length, [visibility]);
 
