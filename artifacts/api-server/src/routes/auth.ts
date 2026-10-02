@@ -4,7 +4,6 @@ import { signPayload, verifyPayload, STAFF_ACCOUNTS, SESSION_COOKIE, CLIENT_SESS
 import { db } from "@workspace/db";
 import { staffAccountsTable, clientAccountsTable, bookingsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { hashPassword } from "../middleware/auth";
 import { repairClientData } from "../lib/client-data-repair";
 
 const router = Router();
