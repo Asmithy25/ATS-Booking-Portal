@@ -19,7 +19,7 @@ export default function Welcome() {
   useEffect(() => {
     Promise.all([
       customFetch<Status>('/api/workspace/practice-status').catch(() => null),
-      customFetch<Summary>('/api/workspace/founder-summary').catch(() => null),
+      customFetch<Summary>('/api/workspace/welcome-summary').catch(() => null),
       customFetch<any[]>('/api/portal/announcements?audience=staff').catch(() => []),
     ]).then(([nextStatus, nextSummary, nextAnnouncements]) => {
       setStatus(nextStatus);
