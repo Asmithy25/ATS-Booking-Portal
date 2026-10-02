@@ -229,7 +229,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
                 </div>}
               </div>
               <ThemeToggle compact />
-              <Button type="button" variant="secondary" className="hidden sm:inline-flex" onClick={() => setLocation('/staff/welcome')}>
+              <Button type="button" variant="secondary" className="hidden sm:inline-flex" onClick={() => setLocation('/staff/bookings')}>
                 Open bookings <ArrowUpRight className="h-4 w-4" />
               </Button>
             </div>
