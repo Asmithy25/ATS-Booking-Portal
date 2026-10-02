@@ -214,8 +214,13 @@ export function requirePermission(permission: string) {
 }
 
 export function extractStaffSession(req: Request): StaffSession | null {
+  // Browser staff sessions live in the dedicated staff cookie. Prefer that
+  // cookie whenever it is present so a separate client bearer token stored in
+  // localStorage cannot override an already-authenticated staff session.
+  const staffCookie = req.cookies?.[SESSION_COOKIE] as string | undefined;
   const bearer = req.headers.authorization;
-  const raw = bearer?.startsWith("Bearer ") ? bearer.slice(7) : (req.cookies?.[SESSION_COOKIE] as string | undefined);
+  const bearerToken = bearer?.startsWith("Bearer ") ? bearer.slice(7) : undefined;
+  const raw = staffCookie ?? bearerToken;
   if (!raw) return null;
   const session = verifyPayload(raw);
   if (!session?.email || !session?.name) return null;
