@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
 import { format, parseISO, isBefore, isAfter, getDay } from 'date-fns';
-import { useGetSettings, useCreateBooking } from '@workspace/api-client-react';
+import { useGetSettings, useCreateBooking, customFetch } from '@workspace/api-client-react';
 
 import { PublicNavbar } from '@/components/layout/PublicNavbar';
 import { PublicFooter } from '@/components/layout/PublicFooter';
@@ -77,8 +77,7 @@ export default function Home() {
   }, [content.faviconUrl, settings?.logoUrl, settings?.siteName]);
 
   useEffect(() => {
-    fetch('/api/portal/announcements?audience=client')
-      .then((response) => response.ok ? response.json() : [])
+    customFetch<any[]>('/api/portal/announcements?audience=client')
       .then((items) => setAnnouncements(Array.isArray(items) ? items : []))
       .catch(() => setAnnouncements([]));
   }, []);
@@ -202,7 +201,7 @@ export default function Home() {
   return (
       <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(settings)}>
       <PublicNavbar />
-      {content.sectionVisibility?.announcements !== false && announcements.length > 0 && <section className="border-b border-primary/10 bg-card"><div className="container mx-auto px-4 py-5">{announcements.map((announcement) => <article key={announcement.id} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">{announcement.metadata?.imageUrl && <img src={announcement.metadata.imageUrl} alt="" className="h-24 w-24 rounded-2xl object-cover" />}<div className="flex-1"><p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">{announcement.metadata?.subheading ?? content.announcementSubheading}</p><h2 className="font-serif text-xl font-bold">{announcement.title}</h2><p className="text-sm text-muted-foreground">{announcement.body}</p>{announcement.metadata?.showSignature !== false && <div className="mt-4 flex items-center gap-3 border-t pt-3"><img src={announcement.metadata?.signatureImageUrl || settings?.logoUrl || terracottaLogoUrl} alt="" className="h-10 w-10 rounded-full object-cover" /><div><p className="font-serif italic">{announcement.metadata?.signatureName || 'Ayden Smith'}</p><p className="text-xs text-muted-foreground">{announcement.metadata?.signatureTitle || 'Founder & CEO of Aydens Wellness Services'}</p></div></div>}</div>{announcement.metadata?.buttonText && announcement.metadata?.buttonUrl && <a href={announcement.metadata.buttonUrl} className="inline-flex rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">{announcement.metadata.buttonText}</a>}</article>)}</div></section>}
+
       <main className="flex-1">
         {/* HERO SECTION */}
         {content.sectionVisibility?.hero !== false && <section className="relative overflow-hidden pt-14 pb-24 lg:pt-28 lg:pb-36">
@@ -294,6 +293,61 @@ export default function Home() {
             </div>
           </div>
         </section>}
+
+        {content.sectionVisibility?.announcements !== false && announcements.length > 0 && (
+          <section id="announcements" className="border-y border-primary/10 bg-card py-16">
+            <div className="container mx-auto px-4">
+              <div className="mb-10 max-w-2xl">
+                <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">{content.announcementSubheading}</p>
+                <h2 className="mt-2 text-4xl font-serif font-bold">{content.announcementHeading}</h2>
+                {content.announcementDescription && (
+                  <p className="mt-3 text-lg leading-relaxed text-muted-foreground">{content.announcementDescription}</p>
+                )}
+              </div>
+              <div className="space-y-5">
+                {announcements.map((announcement) => (
+                  <article key={announcement.id} className="rounded-3xl border border-primary/10 bg-background p-5 shadow-sm sm:p-7">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                      {announcement.metadata?.imageUrl && (
+                        <img src={announcement.metadata.imageUrl} alt="" className="h-36 w-full rounded-2xl object-cover lg:h-36 lg:w-52" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">
+                          {announcement.metadata?.subheading || content.announcementSubheading}
+                        </p>
+                        <h3 className="mt-2 font-serif text-2xl font-bold">{announcement.title}</h3>
+                        <p className="mt-3 whitespace-pre-wrap text-base leading-7 text-muted-foreground">{announcement.body}</p>
+                        {announcement.metadata?.showSignature !== false && (
+                          <div className="mt-6 flex items-center gap-3 border-t border-border pt-4">
+                            <img
+                              src={announcement.metadata?.signatureImageUrl || settings?.logoUrl || terracottaLogoUrl}
+                              alt=""
+                              className="h-11 w-11 rounded-full object-cover"
+                            />
+                            <div>
+                              <p className="font-serif italic">{announcement.metadata?.signatureName || 'Ayden Smith'}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {announcement.metadata?.signatureTitle || 'Founder & CEO of Aydens Wellness Services'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {announcement.metadata?.buttonText && announcement.metadata?.buttonUrl && (
+                          <a
+                            href={announcement.metadata.buttonUrl}
+                            className="mt-5 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+                          >
+                            {announcement.metadata.buttonText}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ABOUT SECTION */}
         {content.sectionVisibility?.about !== false && <section id="about" className="py-24 bg-card border-y border-border/50">
