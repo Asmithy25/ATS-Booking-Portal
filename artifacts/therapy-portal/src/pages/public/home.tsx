@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle, Leaf, Eye } from 'lucide-react';
 import { getThemeStyle } from '@/lib/theme';
-import { getDailyQuote } from '@/lib/motivationalQuotes';
+import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 import { WellnessLookup } from '@/components/WellnessLookup';
 import { getHomepageContent } from '@/lib/homepageContent';
 
@@ -286,12 +286,12 @@ export default function Home() {
                className="mb-10 max-w-2xl border-l-4 border-primary bg-card/75 px-5 py-4 shadow-sm backdrop-blur sm:px-6"
             >
               <p className="text-xs font-semibold uppercase tracking-[.2em] text-primary">
-                {content.heroGreeting}
+                {getTimeGreeting(now)}
               </p>
               <p className="mt-1 font-serif text-xl font-semibold text-foreground">
                 {content.heroWelcome}
               </p>
-              {content.heroQuoteEnabled && <p className="mt-1 text-sm italic text-muted-foreground">“{getDailyQuote(now).quote}”</p>}
+              {content.heroQuoteEnabled && <p className="mt-1 text-sm italic text-muted-foreground">“{getDailyQuote('home', now).quote}”</p>}
             </motion.div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                  <motion.div
