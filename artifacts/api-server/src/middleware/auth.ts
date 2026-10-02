@@ -213,18 +213,32 @@ export function requirePermission(permission: string) {
   };
 }
 
+function parseStaffSessionToken(raw: string): StaffSession | null {
+  const session = verifyPayload(raw);
+
+  // Staff session payloads contain email/name but no client account id.
+  // Requiring that shape prevents a client bearer token from ever being
+  // accepted as a staff identity.
+  if (!session?.email || !session?.name || session.id) return null;
+
+  return { email: session.email, name: session.name };
+}
+
 export function extractStaffSession(req: Request): StaffSession | null {
-  // Browser staff sessions live in the dedicated staff cookie. Prefer that
-  // cookie whenever it is present so a separate client bearer token stored in
-  // localStorage cannot override an already-authenticated staff session.
+  // Browser staff sessions live in the dedicated staff cookie. Prefer a
+  // valid staff cookie whenever it exists so a client bearer token cannot
+  // override an already-authenticated staff session.
   const staffCookie = req.cookies?.[SESSION_COOKIE] as string | undefined;
+  if (staffCookie) {
+    const cookieSession = parseStaffSessionToken(staffCookie);
+    if (cookieSession) return cookieSession;
+  }
+
+  // Mobile staff clients can authenticate with a bearer token when no valid
+  // staff cookie is available.
   const bearer = req.headers.authorization;
   const bearerToken = bearer?.startsWith("Bearer ") ? bearer.slice(7) : undefined;
-  const raw = staffCookie ?? bearerToken;
-  if (!raw) return null;
-  const session = verifyPayload(raw);
-  if (!session?.email || !session?.name) return null;
-  return { email: session.email, name: session.name };
+  return bearerToken ? parseStaffSessionToken(bearerToken) : null;
 }
 
 export function extractClientSession(req: Request): ClientSession | null {
