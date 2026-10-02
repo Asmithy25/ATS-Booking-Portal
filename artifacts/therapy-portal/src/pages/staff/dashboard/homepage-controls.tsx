@@ -35,7 +35,7 @@ export default function HomepageControls() {
     try {
       const homepageContent = { ...(settings?.homepageContent ?? {}), sectionVisibility: visibility };
       await customFetch('/api/settings', { method: 'PUT', body: JSON.stringify({ homepageContent }) });
-      toast({ title: 'Homepage layout saved', description: \`\${enabledCount} of \${SECTIONS.length} sections are enabled.\` });
+      toast({ title: 'Homepage layout saved', description: `${enabledCount} of ${SECTIONS.length} sections are enabled.` });
     } catch (err) {
       toast({ variant: 'destructive', title: 'Could not save homepage layout', description: err instanceof Error ? err.message : 'Founder permission is required.' });
     } finally { setSaving(false); }
@@ -47,7 +47,7 @@ export default function HomepageControls() {
     <div className="max-w-4xl space-y-7">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div><p className="text-sm text-muted-foreground">Choose which major sections appear on the public homepage.</p><h1 className="mt-1 flex items-center gap-2 text-3xl font-semibold"><LayoutPanelTop className="h-6 w-6 text-primary" /> Homepage controls</h1><p className="mt-2 max-w-2xl text-muted-foreground">This does not change the content itself — it simply controls which sections are visible.</p></div>
-        <Badge variant="secondary">{\${enabledCount}}/{SECTIONS.length} visible</Badge>
+        <Badge variant="secondary">{${enabledCount}}/{SECTIONS.length} visible</Badge>
       </div>
 
       <Card className="rounded-2xl">
