@@ -5,6 +5,15 @@ import { getStaffAccess, requireAuth } from "../middleware/auth";
 
 const router = Router();
 const DEFAULTS = { layout: "composed", density: "comfortable", navigation: "classic", dashboard: "balanced" };
+const NOTIFICATION_DEFAULTS = {
+  appointmentAlerts: true,
+  teamAssignments: true,
+  teamMentions: true,
+  practiceAnnouncements: true,
+  feedbackAlerts: true,
+  systemAlerts: true,
+  emailDigest: false,
+};
 
 async function ensureTable() {
   await db.execute(sql`CREATE TABLE IF NOT EXISTS staff_portal_preferences (
@@ -24,6 +33,29 @@ router.get("/", requireAuth, async (req, res) => {
   const result = await db.execute(sql`SELECT staff_email, layout, density, navigation, dashboard, updated_at FROM staff_portal_preferences WHERE staff_email = ${access.email} LIMIT 1`);
   const row = Array.isArray(result) ? result[0] : (result as any).rows?.[0];
   res.json(row ? { ...DEFAULTS, ...row, staffEmail: access.email } : { ...DEFAULTS, staffEmail: access.email });
+});
+
+router.get("/notification-preferences", requireAuth, async (req, res) => {
+  const access = await getStaffAccess(req);
+  if (!access) return res.status(401).json({ error: "Unauthorized." });
+  await ensureTable();
+  await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS notification_preferences jsonb NOT NULL DEFAULT '{}'`);
+  const result = await db.execute(sql`SELECT notification_preferences AS "notificationPreferences" FROM staff_portal_preferences WHERE staff_email = ${access.email} LIMIT 1`);
+  const row = Array.isArray(result) ? result[0] : (result as any).rows?.[0];
+  res.json({ ...NOTIFICATION_DEFAULTS, ...((row?.notificationPreferences ?? {}) as Record<string, boolean>) });
+});
+
+router.put("/notification-preferences", requireAuth, async (req, res) => {
+  const access = await getStaffAccess(req);
+  if (!access) return res.status(401).json({ error: "Unauthorized." });
+  await ensureTable();
+  await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS notification_preferences jsonb NOT NULL DEFAULT '{}'`);
+  const body = req.body as Record<string, unknown>;
+  const prefs = Object.fromEntries(Object.keys(NOTIFICATION_DEFAULTS).map((key) => [key, body[key] !== false]));
+  await db.execute(sql`INSERT INTO staff_portal_preferences (staff_email, layout, density, navigation, dashboard, notification_preferences, updated_at)
+    VALUES (${access.email}, 'composed', 'comfortable', 'classic', 'balanced', ${JSON.stringify(prefs)}::jsonb, now())
+    ON CONFLICT (staff_email) DO UPDATE SET notification_preferences=${JSON.stringify(prefs)}::jsonb, updated_at=now()`);
+  res.json(prefs);
 });
 
 router.get("/notifications", requireAuth, async (req, res) => {
