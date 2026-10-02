@@ -66,6 +66,7 @@ export const MOTIVATIONAL_QUOTES = [
 ] as const;
 
 const STAFF_QUOTE_PAGES = [
+  "home",
   "welcome",
   "bookings",
   "clients",
