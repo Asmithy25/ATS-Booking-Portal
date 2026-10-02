@@ -29,6 +29,7 @@ const Notifications = lazy(() => import('@/pages/staff/dashboard/notifications')
 const Feedback = lazy(() => import('@/pages/staff/dashboard/feedback'));
 const Security = lazy(() => import('@/pages/staff/dashboard/security'));
 const PracticeControl = lazy(() => import('@/pages/staff/dashboard/practice-control'));
+const HomepageControls = lazy(() => import('@/pages/staff/dashboard/homepage-controls'));
 const StaffDirectory = lazy(() => import('@/pages/staff/dashboard/staff-directory'));
 const FounderDashboard = lazy(() => import('@/pages/staff/dashboard/founder-dashboard'));
 const GlobalSearch = lazy(() => import('@/pages/staff/dashboard/global-search'));
@@ -69,6 +70,7 @@ function StaffRouter() {
         <Route path="/staff/security" component={Security} />
         <Route path="/staff/homepage-preview" component={HomepagePreview} />
         <Route path="/staff/practice-control" component={PracticeControl} />
+        <Route path="/staff/homepage-controls" component={HomepageControls} />
         <Route path="/staff/staff-directory" component={StaffDirectory} />
         <Route path="/staff/founder-dashboard" component={FounderDashboard} />
         <Route path="/staff/search" component={GlobalSearch} />
