@@ -10,6 +10,7 @@ import Home from '@/pages/public/home';
 const BookingManage = lazy(() => import('@/pages/public/booking-manage'));
 const Login = lazy(() => import('@/pages/staff/login'));
 const StaffDashboardLayout = lazy(() => import('@/pages/staff/dashboard/layout'));
+const Welcome = lazy(() => import('@/pages/staff/dashboard/welcome'));
 const Bookings = lazy(() => import('@/pages/staff/dashboard/bookings'));
 const Clients = lazy(() => import('@/pages/staff/dashboard/clients'));
 const Wellness = lazy(() => import('@/pages/staff/dashboard/wellness'));
@@ -27,6 +28,11 @@ const Rollout = lazy(() => import('@/pages/staff/dashboard/rollout'));
 const Notifications = lazy(() => import('@/pages/staff/dashboard/notifications'));
 const Feedback = lazy(() => import('@/pages/staff/dashboard/feedback'));
 const Security = lazy(() => import('@/pages/staff/dashboard/security'));
+const PracticeControl = lazy(() => import('@/pages/staff/dashboard/practice-control'));
+const StaffDirectory = lazy(() => import('@/pages/staff/dashboard/staff-directory'));
+const FounderDashboard = lazy(() => import('@/pages/staff/dashboard/founder-dashboard'));
+const GlobalSearch = lazy(() => import('@/pages/staff/dashboard/global-search'));
+const SystemHealth = lazy(() => import('@/pages/staff/dashboard/system-health'));
 const HomepagePreview = lazy(() => import('@/pages/staff/dashboard/homepage-preview'));
 const PublicUpdates = lazy(() => import('@/pages/public/updates'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
@@ -44,7 +50,8 @@ function StaffRouter() {
   return (
     <StaffDashboardLayout>
       <Switch>
-        <Route path="/staff/dashboard" component={Bookings} />
+        <Route path="/staff/dashboard" component={Welcome} />
+        <Route path="/staff/welcome" component={Welcome} />
         <Route path="/staff/bookings" component={Bookings} />
         <Route path="/staff/clients" component={Clients} />
         <Route path="/staff/wellness" component={Wellness} />
@@ -61,6 +68,11 @@ function StaffRouter() {
         <Route path="/staff/feedback" component={Feedback} />
         <Route path="/staff/security" component={Security} />
         <Route path="/staff/homepage-preview" component={HomepagePreview} />
+        <Route path="/staff/practice-control" component={PracticeControl} />
+        <Route path="/staff/staff-directory" component={StaffDirectory} />
+        <Route path="/staff/founder-dashboard" component={FounderDashboard} />
+        <Route path="/staff/search" component={GlobalSearch} />
+        <Route path="/staff/system-health" component={SystemHealth} />
         <Route path="/staff/settings" component={Settings} />
         <Route path="/staff/employees" component={Employees} />
         <Route component={NotFound} />
