@@ -49,15 +49,15 @@ function rowsOf(result: unknown): any[] {
 async function ensureWorkspaceTables() {
   if (!setupPromise) {
     setupPromise = (async () => {
-      await db.execute(sql\`CREATE TABLE IF NOT EXISTS staff_profile_overrides (
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS staff_profile_overrides (
         staff_email text PRIMARY KEY,
         bio text NOT NULL DEFAULT '',
         photo_url text NOT NULL DEFAULT '',
         focus text NOT NULL DEFAULT '',
         display_title text NOT NULL DEFAULT '',
         updated_at timestamp NOT NULL DEFAULT now()
-      )\`);
-      await db.execute(sql\`CREATE TABLE IF NOT EXISTS practice_mode_schedules (
+      )`);
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS practice_mode_schedules (
         id serial PRIMARY KEY,
         name text NOT NULL,
         mode text NOT NULL DEFAULT 'limited',
@@ -68,27 +68,27 @@ async function ensureWorkspaceTables() {
         ends_at timestamp NOT NULL,
         created_by text NOT NULL,
         created_at timestamp NOT NULL DEFAULT now()
-      )\`);
-      await db.execute(sql\`CREATE TABLE IF NOT EXISTS team_chat_channels (
+      )`);
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS team_chat_channels (
         id text PRIMARY KEY,
         label text NOT NULL,
         description text NOT NULL DEFAULT '',
         active boolean NOT NULL DEFAULT true,
         created_by text NOT NULL DEFAULT 'system',
         created_at timestamp NOT NULL DEFAULT now()
-      )\`);
-      await db.execute(sql\`CREATE TABLE IF NOT EXISTS team_chat_reads (
+      )`);
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS team_chat_reads (
         staff_email text NOT NULL,
         channel_id text NOT NULL,
         last_read_at timestamp NOT NULL DEFAULT now(),
         PRIMARY KEY (staff_email, channel_id)
-      )\`);
-      await db.execute(sql\`ALTER TABLE collaboration_items ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb\`);
-      await db.execute(sql\`ALTER TABLE collaboration_items ADD COLUMN IF NOT EXISTS pinned boolean NOT NULL DEFAULT false\`);
+      )`);
+      await db.execute(sql`ALTER TABLE collaboration_items ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb`);
+      await db.execute(sql`ALTER TABLE collaboration_items ADD COLUMN IF NOT EXISTS pinned boolean NOT NULL DEFAULT false`);
       for (const channel of DEFAULT_CHANNELS) {
-        await db.execute(sql\`INSERT INTO team_chat_channels (id, label, description, created_by)
-          VALUES (\${channel.id}, \${channel.label}, \${channel.description}, 'system')
-          ON CONFLICT (id) DO NOTHING\`);
+        await db.execute(sql`INSERT INTO team_chat_channels (id, label, description, created_by)
+          VALUES (${channel.id}, ${channel.label}, ${channel.description}, 'system')
+          ON CONFLICT (id) DO NOTHING`);
       }
     })().catch((err) => {
       setupPromise = null;
@@ -152,11 +152,11 @@ async function getCurrentPracticeStatus() {
       tone: "quiet",
     };
   }
-  const scheduleResult = await db.execute(sql\`SELECT id, name, mode, title, detail, label, starts_at AS "startsAt", ends_at AS "endsAt"
+  const scheduleResult = await db.execute(sql`SELECT id, name, mode, title, detail, label, starts_at AS "startsAt", ends_at AS "endsAt"
     FROM practice_mode_schedules
     WHERE starts_at <= now() AND ends_at > now()
     ORDER BY starts_at DESC, id DESC
-    LIMIT 1\`).catch(() => ({ rows: [] }));
+    LIMIT 1`).catch(() => ({ rows: [] }));
   const active = rowsOf(scheduleResult)[0];
   const status = active
     ? { ...active, scheduled: true }
@@ -268,8 +268,8 @@ router.get("/practice-schedules", requireAuth, async (req, res): Promise<void> =
   const access = await getStaffAccess(req);
   if (!access || !hasPermission(access, "manageSettings")) { res.status(access ? 403 : 401).json({ error: "Practice schedule access required." }); return; }
   await ensureWorkspaceTables();
-  const result = await db.execute(sql\`SELECT id, name, mode, title, detail, label, starts_at AS "startsAt", ends_at AS "endsAt", created_by AS "createdBy", created_at AS "createdAt"
-    FROM practice_mode_schedules ORDER BY starts_at ASC, id ASC\`);
+  const result = await db.execute(sql`SELECT id, name, mode, title, detail, label, starts_at AS "startsAt", ends_at AS "endsAt", created_by AS "createdBy", created_at AS "createdAt"
+    FROM practice_mode_schedules ORDER BY starts_at ASC, id ASC`);
   res.json(rowsOf(result));
 });
 
@@ -284,13 +284,13 @@ router.post("/practice-schedules", requireAuth, async (req, res): Promise<void> 
     res.status(400).json({ error: "Give the schedule a name and a valid start/end time." }); return;
   }
   const mode = ["open", "paused", "limited", "high_demand"].includes(String(body.mode)) ? String(body.mode) : "limited";
-  const created = rowsOf(await db.execute(sql\`INSERT INTO practice_mode_schedules (name, mode, title, detail, label, starts_at, ends_at, created_by)
-    VALUES (\${String(body.name).trim().slice(0, 120)}, \${mode},
-      \${String(body.title ?? "Aydens Wellness Services").trim().slice(0, 160)},
-      \${String(body.detail ?? "").trim().slice(0, 300)},
-      \${String(body.label ?? mode).trim().slice(0, 80)},
-      \${startsAt.toISOString()}, \${endsAt.toISOString()}, \${access.email})
-    RETURNING id, name, mode, title, detail, label, starts_at AS "startsAt", ends_at AS "endsAt", created_by AS "createdBy", created_at AS "createdAt"\`))[0];
+  const created = rowsOf(await db.execute(sql`INSERT INTO practice_mode_schedules (name, mode, title, detail, label, starts_at, ends_at, created_by)
+    VALUES (${String(body.name).trim().slice(0, 120)}, ${mode},
+      ${String(body.title ?? "Aydens Wellness Services").trim().slice(0, 160)},
+      ${String(body.detail ?? "").trim().slice(0, 300)},
+      ${String(body.label ?? mode).trim().slice(0, 80)},
+      ${startsAt.toISOString()}, ${endsAt.toISOString()}, ${access.email})
+    RETURNING id, name, mode, title, detail, label, starts_at AS "startsAt", ends_at AS "endsAt", created_by AS "createdBy", created_at AS "createdAt"`))[0];
   await recordAudit(req, "created_practice_mode_schedule", "practice_mode_schedule", String(created?.id ?? ""));
   res.status(201).json(created);
 });
@@ -300,7 +300,7 @@ router.delete("/practice-schedules/:id", requireAuth, async (req, res): Promise<
   if (!access || !hasPermission(access, "manageSettings")) { res.status(access ? 403 : 401).json({ error: "Practice schedule access required." }); return; }
   await ensureWorkspaceTables();
   const id = Number(req.params.id);
-  const deleted = rowsOf(await db.execute(sql\`DELETE FROM practice_mode_schedules WHERE id=\${id} RETURNING id\`))[0];
+  const deleted = rowsOf(await db.execute(sql`DELETE FROM practice_mode_schedules WHERE id=${id} RETURNING id`))[0];
   if (!deleted) { res.status(404).json({ error: "Schedule not found." }); return; }
   await recordAudit(req, "deleted_practice_mode_schedule", "practice_mode_schedule", String(id));
   res.json({ success: true });
@@ -320,7 +320,7 @@ router.get("/staff", requireAuth, async (req, res): Promise<void> => {
     isVisible: staffAccountsTable.isVisible,
     createdAt: staffAccountsTable.createdAt,
   }).from(staffAccountsTable).orderBy(staffAccountsTable.createdAt);
-  const overrides = rowsOf(await db.execute(sql\`SELECT staff_email AS "staffEmail", bio, photo_url AS "photoUrl", focus, display_title AS "displayTitle" FROM staff_profile_overrides\`));
+  const overrides = rowsOf(await db.execute(sql`SELECT staff_email AS "staffEmail", bio, photo_url AS "photoUrl", focus, display_title AS "displayTitle" FROM staff_profile_overrides`));
   const overrideMap = new Map(overrides.map((row) => [row.staffEmail, row]));
   const founderOverride = overrideMap.get(ADMIN_EMAIL);
   res.json([
@@ -355,9 +355,9 @@ router.patch("/staff/:email/profile", requireAuth, async (req, res): Promise<voi
   const displayTitle = String(body.displayTitle ?? "").trim().slice(0, 120);
   const photoUrl = String(body.photoUrl ?? "").trim().slice(0, 7000000);
   if (photoUrl && !/^(https?:\\/\\/|data:image\\/)/i.test(photoUrl)) { res.status(400).json({ error: "Photo must be an image URL or uploaded image data." }); return; }
-  await db.execute(sql\`INSERT INTO staff_profile_overrides (staff_email, bio, photo_url, focus, display_title, updated_at)
-    VALUES (\${email}, \${bio}, \${photoUrl}, \${focus}, \${displayTitle}, now())
-    ON CONFLICT (staff_email) DO UPDATE SET bio=\${bio}, photo_url=\${photoUrl}, focus=\${focus}, display_title=\${displayTitle}, updated_at=now()\`);
+  await db.execute(sql`INSERT INTO staff_profile_overrides (staff_email, bio, photo_url, focus, display_title, updated_at)
+    VALUES (${email}, ${bio}, ${photoUrl}, ${focus}, ${displayTitle}, now())
+    ON CONFLICT (staff_email) DO UPDATE SET bio=${bio}, photo_url=${photoUrl}, focus=${focus}, display_title=${displayTitle}, updated_at=now()`);
   await recordAudit(req, "updated_staff_profile", "staff_profile", email);
   res.json({ success: true, email, bio, photoUrl, focus, displayTitle });
 });
@@ -391,9 +391,9 @@ router.get("/founder-summary", requireAuth, async (req, res): Promise<void> => {
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = bookings.filter((item) => item.preferredDate >= today && !["cancelled", "completed"].includes(item.status)).slice(0, 8);
   const feedback = await db.select().from(sessionFeedbackTable).limit(500);
-  const openTeam = rowsOf(await db.execute(sql\`SELECT count(*)::int AS count FROM collaboration_items WHERE status <> 'done'\`))[0]?.count ?? 0;
-  const unread = rowsOf(await db.execute(sql\`SELECT count(*)::int AS count FROM staff_notifications WHERE read = false\`)).at(0)?.count ?? 0;
-  const activeSchedules = rowsOf(await db.execute(sql\`SELECT count(*)::int AS count FROM practice_mode_schedules WHERE starts_at <= now() AND ends_at > now()\`)).at(0)?.count ?? 0;
+  const openTeam = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM collaboration_items WHERE status <> 'done'`))[0]?.count ?? 0;
+  const unread = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM staff_notifications WHERE read = false`)).at(0)?.count ?? 0;
+  const activeSchedules = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM practice_mode_schedules WHERE starts_at <= now() AND ends_at > now()`)).at(0)?.count ?? 0;
   const staffCount = 1 + (await db.select({ id: staffAccountsTable.id }).from(staffAccountsTable)).length;
   const avg = feedback.length ? Math.round((feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length) * 10) / 10 : null;
   res.json({
@@ -419,21 +419,21 @@ router.get("/search", requireAuth, async (req, res): Promise<void> => {
   const q = String(req.query.q ?? "").trim().slice(0, 100);
   if (q.length < 2) { res.json([]); return; }
   const needle = "%" + q + "%";
-  const bookingRows = rowsOf(await db.execute(sql\`SELECT 'booking' AS type, id::text AS id, client_name AS title, (confirmation_code || ' · ' || preferred_date || ' · ' || status) AS subtitle, '/staff/bookings' AS href
-    FROM bookings WHERE client_name ILIKE \${needle} OR phone ILIKE \${needle} OR confirmation_code ILIKE \${needle} OR reason ILIKE \${needle}
-    ORDER BY created_at DESC LIMIT 12\`));
-  const clientRows = rowsOf(await db.execute(sql\`SELECT 'client' AS type, id::text AS id, name AS title, email || ' · ' || phone AS subtitle, '/staff/clients' AS href
-    FROM client_accounts WHERE name ILIKE \${needle} OR email ILIKE \${needle} OR phone ILIKE \${needle}
-    ORDER BY created_at DESC LIMIT 12\`));
-  const announcementRows = rowsOf(await db.execute(sql\`SELECT 'announcement' AS type, id::text AS id, title, body AS subtitle, '/staff/announcements' AS href
-    FROM announcements WHERE title ILIKE \${needle} OR body ILIKE \${needle}
-    ORDER BY created_at DESC LIMIT 12\`));
-  const workspaceRows = rowsOf(await db.execute(sql\`SELECT 'workspace' AS type, id::text AS id, COALESCE(title, kind) AS title, body AS subtitle, '/staff/team' AS href
-    FROM collaboration_items WHERE title ILIKE \${needle} OR body ILIKE \${needle} OR author_name ILIKE \${needle}
-    ORDER BY created_at DESC LIMIT 12\`));
-  const staffRows = rowsOf(await db.execute(sql\`SELECT 'staff' AS type, id::text AS id, name AS title, email || ' · ' || role AS subtitle, '/staff/staff-directory' AS href
-    FROM staff_accounts WHERE name ILIKE \${needle} OR email ILIKE \${needle} OR role ILIKE \${needle}
-    ORDER BY created_at DESC LIMIT 12\`));
+  const bookingRows = rowsOf(await db.execute(sql`SELECT 'booking' AS type, id::text AS id, client_name AS title, (confirmation_code || ' · ' || preferred_date || ' · ' || status) AS subtitle, '/staff/bookings' AS href
+    FROM bookings WHERE client_name ILIKE ${needle} OR phone ILIKE ${needle} OR confirmation_code ILIKE ${needle} OR reason ILIKE ${needle}
+    ORDER BY created_at DESC LIMIT 12`));
+  const clientRows = rowsOf(await db.execute(sql`SELECT 'client' AS type, id::text AS id, name AS title, email || ' · ' || phone AS subtitle, '/staff/clients' AS href
+    FROM client_accounts WHERE name ILIKE ${needle} OR email ILIKE ${needle} OR phone ILIKE ${needle}
+    ORDER BY created_at DESC LIMIT 12`));
+  const announcementRows = rowsOf(await db.execute(sql`SELECT 'announcement' AS type, id::text AS id, title, body AS subtitle, '/staff/announcements' AS href
+    FROM announcements WHERE title ILIKE ${needle} OR body ILIKE ${needle}
+    ORDER BY created_at DESC LIMIT 12`));
+  const workspaceRows = rowsOf(await db.execute(sql`SELECT 'workspace' AS type, id::text AS id, COALESCE(title, kind) AS title, body AS subtitle, '/staff/team' AS href
+    FROM collaboration_items WHERE title ILIKE ${needle} OR body ILIKE ${needle} OR author_name ILIKE ${needle}
+    ORDER BY created_at DESC LIMIT 12`));
+  const staffRows = rowsOf(await db.execute(sql`SELECT 'staff' AS type, id::text AS id, name AS title, email || ' · ' || role AS subtitle, '/staff/staff-directory' AS href
+    FROM staff_accounts WHERE name ILIKE ${needle} OR email ILIKE ${needle} OR role ILIKE ${needle}
+    ORDER BY created_at DESC LIMIT 12`));
   res.json([...bookingRows, ...clientRows, ...announcementRows, ...workspaceRows, ...staffRows].slice(0, 50));
 });
 
@@ -443,7 +443,7 @@ router.get("/health", requireAuth, async (req, res): Promise<void> => {
   const started = Date.now();
   let database = { status: "healthy", latencyMs: 0 };
   try {
-    await db.execute(sql\`select 1 as ok\`);
+    await db.execute(sql`select 1 as ok`);
     database.latencyMs = Date.now() - started;
   } catch {
     database = { status: "error", latencyMs: Date.now() - started };
@@ -474,12 +474,12 @@ router.get("/chat/channels", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
   if (!access) { res.status(401).json({ error: "Unauthorized." }); return; }
   await ensureWorkspaceTables();
-  const channels = rowsOf(await db.execute(sql\`SELECT id, label, description, active, created_by AS "createdBy" FROM team_chat_channels WHERE active = true ORDER BY created_at ASC\`));
-  const unread = rowsOf(await db.execute(sql\`SELECT r.channel_id AS "channelId", count(c.id)::int AS unread
+  const channels = rowsOf(await db.execute(sql`SELECT id, label, description, active, created_by AS "createdBy" FROM team_chat_channels WHERE active = true ORDER BY created_at ASC`));
+  const unread = rowsOf(await db.execute(sql`SELECT r.channel_id AS "channelId", count(c.id)::int AS unread
     FROM team_chat_reads r
     LEFT JOIN collaboration_items c ON c.kind='chat' AND (c.title=r.channel_id OR c.title=(SELECT label FROM team_chat_channels WHERE id=r.channel_id)) AND c.created_at > r.last_read_at
-    WHERE r.staff_email=\${access.email}
-    GROUP BY r.channel_id\`));
+    WHERE r.staff_email=${access.email}
+    GROUP BY r.channel_id`));
   const unreadMap = new Map(unread.map((item) => [item.channelId, Number(item.unread)]));
   res.json(channels.map((channel) => ({ ...channel, unread: unreadMap.get(channel.id) ?? 0 })));
 });
@@ -493,9 +493,9 @@ router.post("/chat/channels", requireAuth, async (req, res): Promise<void> => {
   const description = String(req.body?.description ?? "").trim().slice(0, 180);
   if (!id || !label) { res.status(400).json({ error: "Channel name and label are required." }); return; }
   try {
-    const created = rowsOf(await db.execute(sql\`INSERT INTO team_chat_channels (id, label, description, created_by)
-      VALUES (\${id}, \${label}, \${description}, \${access.email})
-      RETURNING id, label, description, active, created_by AS "createdBy"\`))[0];
+    const created = rowsOf(await db.execute(sql`INSERT INTO team_chat_channels (id, label, description, created_by)
+      VALUES (${id}, ${label}, ${description}, ${access.email})
+      RETURNING id, label, description, active, created_by AS "createdBy"`))[0];
     res.status(201).json({ ...created, unread: 0 });
   } catch {
     res.status(409).json({ error: "That channel already exists." });
@@ -510,12 +510,12 @@ router.patch("/chat/channels/:id", requireAuth, async (req, res): Promise<void> 
   const active = req.body?.active !== false;
   const label = String(req.body?.label ?? "").trim().slice(0, 80);
   const description = String(req.body?.description ?? "").trim().slice(0, 180);
-  const updated = rowsOf(await db.execute(sql\`UPDATE team_chat_channels SET
-    label=COALESCE(NULLIF(\${label}, ''), label),
-    description=COALESCE(NULLIF(\${description}, ''), description),
-    active=\${active}
-    WHERE id=\${id}
-    RETURNING id, label, description, active, created_by AS "createdBy"\`))[0];
+  const updated = rowsOf(await db.execute(sql`UPDATE team_chat_channels SET
+    label=COALESCE(NULLIF(${label}, ''), label),
+    description=COALESCE(NULLIF(${description}, ''), description),
+    active=${active}
+    WHERE id=${id}
+    RETURNING id, label, description, active, created_by AS "createdBy"`))[0];
   if (!updated) { res.status(404).json({ error: "Channel not found." }); return; }
   res.json({ ...updated, unread: 0 });
 });
@@ -525,10 +525,10 @@ router.get("/chat", requireAuth, async (req, res): Promise<void> => {
   if (!access) { res.status(401).json({ error: "Unauthorized." }); return; }
   await ensureWorkspaceTables();
   const channel = String(req.query.channel ?? "general");
-  const result = await db.execute(sql\`SELECT id, author_name AS "authorName", body, created_at AS "createdAt", pinned, metadata
+  const result = await db.execute(sql`SELECT id, author_name AS "authorName", body, created_at AS "createdAt", pinned, metadata
     FROM collaboration_items
-    WHERE kind='chat' AND (title=\${channel} OR title=(SELECT label FROM team_chat_channels WHERE id=\${channel}))
-    ORDER BY created_at ASC LIMIT 300\`);
+    WHERE kind='chat' AND (title=${channel} OR title=(SELECT label FROM team_chat_channels WHERE id=${channel}))
+    ORDER BY created_at ASC LIMIT 300`);
   res.json(rowsOf(result));
 });
 
@@ -540,7 +540,7 @@ router.post("/chat", requireAuth, async (req, res): Promise<void> => {
   const body = String(req.body?.body ?? "").trim().slice(0, 5000);
   const replyTo = req.body?.replyToId ? Number(req.body.replyToId) : null;
   if (!body) { res.status(400).json({ error: "Message text is required." }); return; }
-  const channels = rowsOf(await db.execute(sql\`SELECT id FROM team_chat_channels WHERE id=\${channel} AND active=true LIMIT 1\`));
+  const channels = rowsOf(await db.execute(sql`SELECT id FROM team_chat_channels WHERE id=${channel} AND active=true LIMIT 1`));
   if (!channels.length) { res.status(400).json({ error: "That team channel is not available." }); return; }
 
   const staff = await db.select({ email: staffAccountsTable.email, name: staffAccountsTable.name }).from(staffAccountsTable);
@@ -548,9 +548,9 @@ router.post("/chat", requireAuth, async (req, res): Promise<void> => {
   if (new RegExp("@Ayden\\\\b", "i").test(body)) mentionNames.push({ email: ADMIN_EMAIL, name: "Ayden Smith" });
 
   const metadata = { channel, reactions: {}, replyToId: Number.isInteger(replyTo) ? replyTo : null, mentions: mentionNames.map((person) => person.email) };
-  const created = rowsOf(await db.execute(sql\`INSERT INTO collaboration_items (kind, title, body, author_name, assigned_to, status, metadata)
-    VALUES ('chat', \${channel}, \${body}, \${access.name}, NULL, 'open', \${JSON.stringify(metadata)}::jsonb)
-    RETURNING id, author_name AS "authorName", body, created_at AS "createdAt", pinned, metadata\`))[0];
+  const created = rowsOf(await db.execute(sql`INSERT INTO collaboration_items (kind, title, body, author_name, assigned_to, status, metadata)
+    VALUES ('chat', ${channel}, ${body}, ${access.name}, NULL, 'open', ${JSON.stringify(metadata)}::jsonb)
+    RETURNING id, author_name AS "authorName", body, created_at AS "createdAt", pinned, metadata`))[0];
 
   for (const person of mentionNames.filter((person) => person.email !== access.email)) {
     const prefsResult = await db.execute(sql`SELECT notification_preferences AS prefs FROM staff_portal_preferences WHERE staff_email=${person.email} LIMIT 1`).catch(() => ({ rows: [] }));
@@ -571,7 +571,7 @@ router.post("/chat/:id/reaction", requireAuth, async (req, res): Promise<void> =
   const id = Number(req.params.id);
   const reaction = String(req.body?.reaction ?? "");
   if (!["heart", "thumbs_up", "check"].includes(reaction)) { res.status(400).json({ error: "Unsupported reaction." }); return; }
-  const existing = rowsOf(await db.execute(sql\`SELECT metadata FROM collaboration_items WHERE id=\${id} AND kind='chat' LIMIT 1\`))[0];
+  const existing = rowsOf(await db.execute(sql`SELECT metadata FROM collaboration_items WHERE id=${id} AND kind='chat' LIMIT 1`))[0];
   if (!existing) { res.status(404).json({ error: "Message not found." }); return; }
   const metadata = { ...(existing.metadata ?? {}) } as Record<string, any>;
   const reactions = { ...(metadata.reactions ?? {}) } as Record<string, string[]>;
@@ -580,8 +580,8 @@ router.post("/chat/:id/reaction", requireAuth, async (req, res): Promise<void> =
   if (index >= 0) users.splice(index, 1); else users.push(access.email);
   reactions[reaction] = users;
   metadata.reactions = reactions;
-  const updated = rowsOf(await db.execute(sql\`UPDATE collaboration_items SET metadata=\${JSON.stringify(metadata)}::jsonb WHERE id=\${id}
-    RETURNING id, author_name AS "authorName", body, created_at AS "createdAt", pinned, metadata\`))[0];
+  const updated = rowsOf(await db.execute(sql`UPDATE collaboration_items SET metadata=${JSON.stringify(metadata)}::jsonb WHERE id=${id}
+    RETURNING id, author_name AS "authorName", body, created_at AS "createdAt", pinned, metadata`))[0];
   res.json(updated);
 });
 
@@ -591,7 +591,7 @@ router.patch("/chat/:id/pin", requireAuth, async (req, res): Promise<void> => {
   await ensureWorkspaceTables();
   const id = Number(req.params.id);
   const pinned = req.body?.pinned === true;
-  const updated = rowsOf(await db.execute(sql\`UPDATE collaboration_items SET pinned=\${pinned} WHERE id=\${id} AND kind='chat' RETURNING id, pinned\`))[0];
+  const updated = rowsOf(await db.execute(sql`UPDATE collaboration_items SET pinned=${pinned} WHERE id=${id} AND kind='chat' RETURNING id, pinned`))[0];
   if (!updated) { res.status(404).json({ error: "Message not found." }); return; }
   res.json(updated);
 });
@@ -601,9 +601,9 @@ router.post("/chat/read", requireAuth, async (req, res): Promise<void> => {
   if (!access) { res.status(401).json({ error: "Unauthorized." }); return; }
   await ensureWorkspaceTables();
   const channel = String(req.body?.channel ?? "general");
-  await db.execute(sql\`INSERT INTO team_chat_reads (staff_email, channel_id, last_read_at)
-    VALUES (\${access.email}, \${channel}, now())
-    ON CONFLICT (staff_email, channel_id) DO UPDATE SET last_read_at=now()\`);
+  await db.execute(sql`INSERT INTO team_chat_reads (staff_email, channel_id, last_read_at)
+    VALUES (${access.email}, ${channel}, now())
+    ON CONFLICT (staff_email, channel_id) DO UPDATE SET last_read_at=now()`);
   res.json({ success: true });
 });
 
@@ -614,8 +614,8 @@ router.get("/chat/search", requireAuth, async (req, res): Promise<void> => {
   const q = String(req.query.q ?? "").trim().slice(0, 100);
   if (q.length < 2) { res.json([]); return; }
   const needle = "%" + q + "%";
-  const result = await db.execute(sql\`SELECT id, author_name AS "authorName", body, created_at AS "createdAt", title AS "channelId", pinned, metadata
-    FROM collaboration_items WHERE kind='chat' AND body ILIKE \${needle} ORDER BY created_at DESC LIMIT 50\`);
+  const result = await db.execute(sql`SELECT id, author_name AS "authorName", body, created_at AS "createdAt", title AS "channelId", pinned, metadata
+    FROM collaboration_items WHERE kind='chat' AND body ILIKE ${needle} ORDER BY created_at DESC LIMIT 50`);
   res.json(rowsOf(result));
 });
 
