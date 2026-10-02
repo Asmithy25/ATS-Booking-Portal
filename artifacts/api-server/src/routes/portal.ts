@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   announcementsTable,
   auditLogsTable,
@@ -190,6 +190,18 @@ router.post("/announcements", requireAuth, async (req, res): Promise<void> => {
   if (!title?.trim() || !body?.trim() || !["staff", "client"].includes(audience)) { res.status(400).json({ error: "Title, body, and a valid audience are required." }); return; }
   const [created] = await db.insert(announcementsTable).values({ title: title.trim().slice(0, 180), body: body.trim().slice(0, 5000), audience, publishedBy: access.name, metadata }).returning();
   await recordAudit(req, "posted_announcement", "announcement", String(created.id), audience);
+  if (audience === "staff") {
+    const staff = await db.select({ email: staffAccountsTable.email }).from(staffAccountsTable);
+    await Promise.all(staff.map(async ({ email }) => {
+      const prefsResult = await db.execute(sql`SELECT notification_preferences AS prefs FROM staff_portal_preferences WHERE staff_email=${email} LIMIT 1`).catch(() => ({ rows: [] }));
+      const prefsRow = Array.isArray(prefsResult) ? prefsResult[0] : (prefsResult as any).rows?.[0];
+      const prefs = (prefsRow?.prefs ?? {}) as Record<string, boolean>;
+      if (prefs.practiceAnnouncements !== false) {
+        await db.execute(sql`INSERT INTO staff_notifications (staff_email, title, body)
+          VALUES (${email}, ${"New practice announcement"}, ${title.trim().slice(0, 180)})`).catch(() => undefined);
+      }
+    }));
+  }
   res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
 });
 
@@ -1045,6 +1057,17 @@ router.post("/client/bookings/:id/feedback", requireClientAuth, async (req, res)
     entityId: String(created.id),
     details: `Rating: ${rating}/5 for booking ${booking.confirmationCode}`,
   });
+
+  const feedbackStaff = await db.select({ email: staffAccountsTable.email }).from(staffAccountsTable);
+  await Promise.all(feedbackStaff.map(async ({ email }) => {
+    const prefsResult = await db.execute(sql`SELECT notification_preferences AS prefs FROM staff_portal_preferences WHERE staff_email=${email} LIMIT 1`).catch(() => ({ rows: [] }));
+    const prefsRow = Array.isArray(prefsResult) ? prefsResult[0] : (prefsResult as any).rows?.[0];
+    const prefs = (prefsRow?.prefs ?? {}) as Record<string, boolean>;
+    if (prefs.feedbackAlerts !== false) {
+      await db.execute(sql`INSERT INTO staff_notifications (staff_email, title, body)
+        VALUES (${email}, ${"New session feedback"}, ${created.clientName + " submitted a " + created.rating + "/5 rating."})`).catch(() => undefined);
+    }
+  }));
 
   res.status(201).json({
     id: created.id,
