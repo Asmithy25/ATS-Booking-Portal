@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { CookieOptions } from "express";
-import { signPayload, verifyPayload, STAFF_ACCOUNTS, SESSION_COOKIE, CLIENT_SESSION_COOKIE, ADMIN_EMAIL, verifyPassword, requireClientAuth } from "../middleware/auth";
+import { signPayload, verifyPayload, STAFF_ACCOUNTS, SESSION_COOKIE, CLIENT_SESSION_COOKIE, ADMIN_EMAIL, verifyPassword, requireClientAuth, requireAuth, getStaffAccess, hashPassword } from "../middleware/auth";
 import { db } from "@workspace/db";
 import { staffAccountsTable, clientAccountsTable, bookingsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -42,6 +42,57 @@ router.post("/login", async (req, res) => {
 
   issueSession(res, key, rows[0].name, keepSignedIn);
   res.json({ success: true, staffName: rows[0].name, role: rows[0].role, permissions: rows[0].permissions });
+});
+
+router.get("/security", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access) { res.status(401).json({ error: "Unauthorized." }); return; }
+  const isFounder = access.role === "founder";
+  let accountCreatedAt: string | null = null;
+  if (!isFounder) {
+    const [staff] = await db.select({ createdAt: staffAccountsTable.createdAt }).from(staffAccountsTable).where(eq(staffAccountsTable.email, access.email)).limit(1);
+    accountCreatedAt = staff?.createdAt?.toISOString() ?? null;
+  }
+  res.json({
+    accountType: isFounder ? "founder" : "staff",
+    role: access.role,
+    email: access.email,
+    secureCookie: process.env.NODE_ENV === "production",
+    sessionRememberDays: 30,
+    passwordChangeSupported: !isFounder,
+    permissionNames: Object.entries(access.permissions ?? {}).filter(([, allowed]) => allowed).map(([name]) => name),
+    accountCreatedAt,
+  });
+});
+
+router.post("/change-password", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access) { res.status(401).json({ error: "Unauthorized." }); return; }
+  if (access.role === "founder" || access.email === ADMIN_EMAIL) {
+    res.status(400).json({ error: "The founder password is managed through Railway." });
+    return;
+  }
+  const body = req.body as { currentPassword?: unknown; newPassword?: unknown };
+  if (typeof body.currentPassword !== "string" || typeof body.newPassword !== "string") {
+    res.status(400).json({ error: "Current and new passwords are required." });
+    return;
+  }
+  if (body.newPassword.length < 10) {
+    res.status(400).json({ error: "New password must be at least 10 characters." });
+    return;
+  }
+  if (body.newPassword === body.currentPassword) {
+    res.status(400).json({ error: "Choose a different password." });
+    return;
+  }
+  const [staff] = await db.select({ passwordHash: staffAccountsTable.passwordHash }).from(staffAccountsTable).where(eq(staffAccountsTable.email, access.email)).limit(1);
+  if (!staff || !verifyPassword(body.currentPassword, staff.passwordHash)) {
+    res.status(401).json({ error: "Current password is incorrect." });
+    return;
+  }
+  await db.update(staffAccountsTable).set({ passwordHash: hashPassword(body.newPassword) }).where(eq(staffAccountsTable.email, access.email));
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.json({ success: true });
 });
 
 router.post("/logout", (_req, res) => {
