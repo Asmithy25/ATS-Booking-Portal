@@ -91,7 +91,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ThemeSettingsBridge>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(//$/, '')}>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
             <Suspense
               fallback={
                 <div className="min-h-screen flex items-center justify-center bg-background text-primary">
