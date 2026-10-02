@@ -61,8 +61,14 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
 
   useEffect(() => {
     if (!session?.authenticated) return;
-    customFetch('/api/settings/staff-preferences')
-      .then((value) => value && setPortalPrefs(value))
+    customFetch<{ layout?: string; density?: string; navigation?: string; dashboard?: string }>('/api/settings/staff-preferences')
+      .then((value) => value && setPortalPrefs((current) => ({
+        ...current,
+        layout: value.layout ?? current.layout,
+        density: value.density ?? current.density,
+        navigation: value.navigation ?? current.navigation,
+        dashboard: value.dashboard ?? current.dashboard,
+      })))
       .catch(() => undefined);
     const loadNotifications = () => customFetch('/api/settings/staff-preferences/notifications')
       .then((value) => setStaffNotifications(Array.isArray(value) ? value : []))
