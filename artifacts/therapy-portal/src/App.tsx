@@ -24,6 +24,11 @@ const TeamChat = lazy(() => import('@/pages/staff/dashboard/team-chat'));
 const MessageTemplates = lazy(() => import('@/pages/staff/dashboard/message-templates'));
 const ClientTemplates = lazy(() => import('@/pages/staff/dashboard/client-templates'));
 const Rollout = lazy(() => import('@/pages/staff/dashboard/rollout'));
+const Notifications = lazy(() => import('@/pages/staff/dashboard/notifications'));
+const Feedback = lazy(() => import('@/pages/staff/dashboard/feedback'));
+const Security = lazy(() => import('@/pages/staff/dashboard/security'));
+const HomepagePreview = lazy(() => import('@/pages/staff/dashboard/homepage-preview'));
+const PublicUpdates = lazy(() => import('@/pages/public/updates'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const NotFound = lazy(() => import('@/pages/not-found'));
@@ -43,15 +48,19 @@ function StaffRouter() {
         <Route path="/staff/bookings" component={Bookings} />
         <Route path="/staff/clients" component={Clients} />
         <Route path="/staff/wellness" component={Wellness} />
-          <Route path="/staff/analytics" component={Analytics} />
-          <Route path="/staff/activity" component={Activity} />
-          <Route path="/staff/announcements" component={Announcements} />
-          <Route path="/staff/support" component={Support} />
-           <Route path="/staff/team" component={TeamWorkspace} />
-          <Route path="/staff/team-chat" component={TeamChat} />
-          <Route path="/staff/messages" component={MessageTemplates} />
-          <Route path="/staff/client-templates" component={ClientTemplates} />
-          <Route path="/staff/rollout" component={Rollout} />
+        <Route path="/staff/analytics" component={Analytics} />
+        <Route path="/staff/activity" component={Activity} />
+        <Route path="/staff/announcements" component={Announcements} />
+        <Route path="/staff/support" component={Support} />
+        <Route path="/staff/team" component={TeamWorkspace} />
+        <Route path="/staff/team-chat" component={TeamChat} />
+        <Route path="/staff/messages" component={MessageTemplates} />
+        <Route path="/staff/client-templates" component={ClientTemplates} />
+        <Route path="/staff/rollout" component={Rollout} />
+        <Route path="/staff/notifications" component={Notifications} />
+        <Route path="/staff/feedback" component={Feedback} />
+        <Route path="/staff/security" component={Security} />
+        <Route path="/staff/homepage-preview" component={HomepagePreview} />
         <Route path="/staff/settings" component={Settings} />
         <Route path="/staff/employees" component={Employees} />
         <Route component={NotFound} />
@@ -66,6 +75,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/booking/:code" component={BookingManage} />
       <Route path="/booking" component={BookingManage} />
+      <Route path="/updates" component={PublicUpdates} />
       <Route path="/staff" component={Login} />
       <Route path="/staff/login" component={Login} />
       <Route path="/portal/login" component={ClientAuth} />
@@ -81,7 +91,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ThemeSettingsBridge>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(//$/, '')}>
             <Suspense
               fallback={
                 <div className="min-h-screen flex items-center justify-center bg-background text-primary">
