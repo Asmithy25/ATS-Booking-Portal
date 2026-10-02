@@ -66,7 +66,7 @@ export default function TeamChat() {
   };
 
   const react = async (id: number, reaction: string) => {
-    try { await customFetch('/api/workspace/chat/' + id + '/reaction', { method: 'POST', body: JSON.stringify({ reaction }) }); await loadMessages(channel.id); }
+    try { await customFetch('/api/workspace/chat/' + id + '/reaction', { method: 'POST', body: JSON.stringify({ reaction }) }); await loadMessages(channelId); }
     catch { toast({ variant: 'destructive', title: 'Reaction could not be updated' }); }
   };
 
