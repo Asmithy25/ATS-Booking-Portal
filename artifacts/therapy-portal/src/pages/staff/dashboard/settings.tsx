@@ -157,13 +157,13 @@ export default function Settings() {
   const savePortalPreferences = async () => {
     setPortalPrefsSaving(true);
     try {
-      const response = await customFetch('/api/settings/staff-preferences', {
+      await customFetch('/api/settings/staff-preferences', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(portalPrefs),
       });
-      if (!response.ok) throw new Error('Failed to save preferences');
+      window.dispatchEvent(new CustomEvent('ats-staff-preferences-updated', { detail: portalPrefs }));
       toast({ title: 'Workspace saved', description: 'Your staff portal preferences were updated.' });
     } catch {
       toast({ title: 'Could not save workspace', description: 'Please try again.', variant: 'destructive' });
