@@ -50,7 +50,7 @@ export default function Notifications() {
     try {
       await customFetch('/api/settings/staff-preferences/notifications/read-all', { method: 'PATCH' });
       setItems((current) => current.map((item) => ({ ...item, read: true })));
-      toast({ title: 'All caught up', description: prefs.quietMessage ?? 'Your notifications are clear.' });
+      toast({ title: 'All caught up', description: 'Your notifications are clear.' });
     } catch (err) { toast({ variant: 'destructive', title: 'Could not mark notifications read', description: err instanceof Error ? err.message : 'Please try again.' }); }
   };
 
