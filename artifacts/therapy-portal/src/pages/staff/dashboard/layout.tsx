@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -133,6 +133,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           <p className="px-3 pb-3 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-sidebar-foreground/40">Workspace</p>
+          {navItem('/staff/welcome', <Leaf className="h-4 w-4" />, 'Welcome Screen')}
           {navItem('/staff/bookings', <Calendar className="h-4 w-4" />, 'Bookings')}
           {navItem('/staff/clients', <Users className="h-4 w-4" />, 'Clients')}
           {navItem('/staff/wellness', <NotebookPen className="h-4 w-4" />, 'Wellness Journey')}
@@ -150,6 +151,11 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/feedback', <Star className="h-4 w-4" />, 'Feedback')}
           {navItem('/staff/homepage-preview', <Eye className="h-4 w-4" />, 'Homepage preview')}
           {navItem('/staff/security', <ShieldCheck className="h-4 w-4" />, 'Security')}
+          {navItem('/staff/search', <SearchIcon className="h-4 w-4" />, 'Global Search')}
+          {navItem('/staff/practice-control', <Leaf className="h-4 w-4" />, 'Practice Control')}
+          {navItem('/staff/staff-directory', <UserRound className="h-4 w-4" />, 'Staff Directory')}
+          {session.isAdmin && navItem('/staff/founder-dashboard', <Crown className="h-4 w-4" />, 'Founder Dashboard')}
+          {navItem('/staff/system-health', <Activity className="h-4 w-4" />, 'System Health')}
 
           {/* Employees — admin only */}
           {session.isAdmin && (
@@ -223,7 +229,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
                 </div>}
               </div>
               <ThemeToggle compact />
-              <Button type="button" variant="secondary" className="hidden sm:inline-flex" onClick={() => setLocation('/staff/bookings')}>
+              <Button type="button" variant="secondary" className="hidden sm:inline-flex" onClick={() => setLocation('/staff/welcome')}>
                 Open bookings <ArrowUpRight className="h-4 w-4" />
               </Button>
             </div>
