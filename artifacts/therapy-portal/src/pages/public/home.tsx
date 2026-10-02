@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle, Leaf, Eye } from 'lucide-react';
 import { getThemeStyle } from '@/lib/theme';
 import { getDailyQuote } from '@/lib/motivationalQuotes';
 import { WellnessLookup } from '@/components/WellnessLookup';
@@ -39,6 +39,29 @@ const bookingSchema = z.object({
 });
 
 type BookingFormValues = z.infer<typeof bookingSchema>;
+
+function PracticeStatus({ settings }: { settings: any }) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const isClosedToday = Boolean(settings?.closedDates?.some((item: any) => item.date === today));
+  const isPaused = Boolean(settings?.vacationMode || !settings?.acceptingClients || !settings?.sessionRequestsOpen || isClosedToday);
+  const title = isPaused ? 'A little pause is okay' : 'We’re here when you’re ready';
+  const detail = isPaused
+    ? (settings?.vacationMode ? 'New requests are temporarily paused while we take a rest.' : 'New phone consultation requests are temporarily paused.')
+    : 'Phone consultations are currently open for new requests.';
+  return (
+    <section aria-label="Practice status" className="border-b border-primary/10 bg-primary/[0.045]">
+      <div className="container mx-auto flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background text-primary shadow-sm"><Leaf className="h-4 w-4" /></span>
+          <div><p className="text-sm font-semibold">{title}</p><p className="text-xs text-muted-foreground">{detail}</p></div>
+        </div>
+        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/15 bg-background px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-primary">
+          <span className="h-2 w-2 rounded-full bg-primary" />{isPaused ? 'Request window paused' : 'Accepting new requests'}
+        </span>
+      </div>
+    </section>
+  );
+}
 
 function formatOfficeTime(value: string) {
   const [hourString, minuteString = '00'] = value.split(':');
@@ -61,6 +84,7 @@ export default function Home() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState('');
   const [now, setNow] = useState(() => new Date());
+  const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
   useEffect(() => {
     const favicon = content.faviconUrl || settings?.logoUrl;
@@ -201,6 +225,15 @@ export default function Home() {
   return (
       <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(settings)}>
       <PublicNavbar />
+      <PracticeStatus settings={settings} />
+      {previewMode && (
+        <div className="border-b border-primary/15 bg-primary/10">
+          <div className="container mx-auto flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-primary">
+            <Eye className="h-3.5 w-3.5" />
+            Homepage preview mode · this is the public-facing view
+          </div>
+        </div>
+      )}
 
       <main className="flex-1">
         {/* HERO SECTION */}
@@ -344,6 +377,11 @@ export default function Home() {
                     </div>
                   </article>
                 ))}
+              </div>
+              <div className="mt-7 flex justify-center">
+                <a href={import.meta.env.BASE_URL + 'updates'} className="inline-flex items-center rounded-full border border-primary/20 bg-background px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/5">
+                  View all practice updates
+                </a>
               </div>
             </div>
           </section>
