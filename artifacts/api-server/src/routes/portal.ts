@@ -138,14 +138,21 @@ router.get("/activity", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/announcements", async (req, res) => {
-  const audience = req.query.audience === "staff" ? "staff" : "client";
-  const staffView = audience === "staff";
+  const requestedAudience = String(req.query.audience ?? "client");
+  const audience = requestedAudience === "staff" || requestedAudience === "client" || requestedAudience === "all"
+    ? requestedAudience
+    : "client";
+  const staffView = audience === "staff" || audience === "all";
   if (staffView) {
     const access = await getStaffAccess(req);
     if (!access) { res.status(401).json({ error: "Staff authentication required." }); return; }
   }
   const rows = await db.select().from(announcementsTable)
-    .where(staffView ? eq(announcementsTable.audience, audience) : and(eq(announcementsTable.audience, audience), eq(announcementsTable.active, true)))
+    .where(
+      staffView
+        ? (audience === "all" ? undefined : eq(announcementsTable.audience, audience))
+        : and(eq(announcementsTable.audience, audience), eq(announcementsTable.active, true))
+    )
     .orderBy(desc(announcementsTable.createdAt));
   const now = Date.now();
   const visible = staffView ? rows : rows.filter((item) => {
@@ -187,7 +194,7 @@ router.patch("/announcements/:id", requireAuth, async (req, res): Promise<void> 
 
 router.delete("/announcements/:id", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
-  if (!access || access.role !== "founder") { res.status(403).json({ error: "Founder access required." }); return; }
+  if (!access || !hasPermission(access, "postAnnouncements")) { res.status(403).json({ error: "Announcement management access required." }); return; }
   const id = Number(req.params.id);
   const [deleted] = await db.delete(announcementsTable).where(eq(announcementsTable.id, id)).returning();
   if (!deleted) { res.status(404).json({ error: "Announcement not found." }); return; }
