@@ -553,8 +553,13 @@ router.post("/chat", requireAuth, async (req, res): Promise<void> => {
     RETURNING id, author_name AS "authorName", body, created_at AS "createdAt", pinned, metadata\`))[0];
 
   for (const person of mentionNames.filter((person) => person.email !== access.email)) {
-    await db.execute(sql\`INSERT INTO staff_notifications (staff_email, title, body)
-      VALUES (\${person.email}, \${"You were mentioned in #" + channel}, \${access.name + " mentioned you: " + body.slice(0, 220)})\`).catch(() => undefined);
+    const prefsResult = await db.execute(sql`SELECT notification_preferences AS prefs FROM staff_portal_preferences WHERE staff_email=${person.email} LIMIT 1`).catch(() => ({ rows: [] }));
+    const prefsRow = Array.isArray(prefsResult) ? prefsResult[0] : (prefsResult as any).rows?.[0];
+    const prefs = (prefsRow?.prefs ?? {}) as Record<string, boolean>;
+    if (prefs.teamMentions !== false) {
+      await db.execute(sql`INSERT INTO staff_notifications (staff_email, title, body)
+        VALUES (${person.email}, ${"You were mentioned in #" + channel}, ${access.name + " mentioned you: " + body.slice(0, 220)})`).catch(() => undefined);
+    }
   }
   res.status(201).json(created);
 });
