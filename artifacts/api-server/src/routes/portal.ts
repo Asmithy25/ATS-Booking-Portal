@@ -15,6 +15,7 @@ import {
   clientTemplatesTable,
   clientNotificationsTable,
   sessionFeedbackTable,
+  staffAccountsTable,
   wellnessAssignmentsTable,
 } from "@workspace/db";
 import { db } from "@workspace/db";
