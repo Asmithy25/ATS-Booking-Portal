@@ -259,7 +259,7 @@ router.put("/practice-settings", requireAuth, async (req, res): Promise<void> =>
   };
 
   const homepageContent = { ...current, practiceStatus, seasonal, experience };
-  await db.update(settingsTable).set({ homepageContent }).where(eq(settingsTable.id, settings.id));
+  await db.update(settingsTable).set({ homepageContent: homepageContent as any }).where(eq(settingsTable.id, settings.id));
   await recordAudit(req, "updated_practice_control", "settings", String(settings.id));
   res.json({ practiceStatus, seasonal, experience });
 });
