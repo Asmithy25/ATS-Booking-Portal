@@ -40,24 +40,43 @@ const bookingSchema = z.object({
 
 type BookingFormValues = z.infer<typeof bookingSchema>;
 
-function PracticeStatus({ settings }: { settings: any }) {
+function PracticeStatus({ settings, remote }: { settings: any; remote?: any }) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const isClosedToday = Boolean(settings?.closedDates?.some((item: any) => item.date === today));
   const isPaused = Boolean(settings?.vacationMode || !settings?.acceptingClients || !settings?.sessionRequestsOpen || isClosedToday);
-  const title = isPaused ? 'A little pause is okay' : 'We’re here when you’re ready';
-  const detail = isPaused
-    ? (settings?.vacationMode ? 'New requests are temporarily paused while we take a rest.' : 'New phone consultation requests are temporarily paused.')
-    : 'Phone consultations are currently open for new requests.';
+  const fallback = {
+    title: isPaused ? 'A little pause is okay' : 'We’re here when you’re ready',
+    detail: isPaused
+      ? (settings?.vacationMode ? 'New requests are temporarily paused while we take a rest.' : 'New phone consultation requests are temporarily paused.')
+      : 'Phone consultations are currently open for new requests.',
+    label: isPaused ? 'Request window paused' : 'Accepting new requests',
+  };
+  const status = remote ?? fallback;
   return (
     <section aria-label="Practice status" className="border-b border-primary/10 bg-primary/[0.045]">
       <div className="container mx-auto flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background text-primary shadow-sm"><Leaf className="h-4 w-4" /></span>
-          <div><p className="text-sm font-semibold">{title}</p><p className="text-xs text-muted-foreground">{detail}</p></div>
+          <div><p className="text-sm font-semibold">{status.title}</p><p className="text-xs text-muted-foreground">{status.detail}</p></div>
         </div>
         <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/15 bg-background px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-primary">
-          <span className="h-2 w-2 rounded-full bg-primary" />{isPaused ? 'Request window paused' : 'Accepting new requests'}
+          <span className="h-2 w-2 rounded-full bg-primary" />{status.label}
         </span>
+      </div>
+    </section>
+  );
+}
+
+function AydensExperienceLayer({ seasonal, experience }: { seasonal?: any; experience?: any }) {
+  if (experience?.enabled === false && seasonal?.enabled === false) return null;
+  const season = seasonal?.enabled === false ? 'none' : seasonal?.season;
+  const icon = season === 'halloween' ? '🎃' : season === 'fall' ? '🍂' : season === 'winter' ? '❄️' : season === 'spring' ? '🌷' : season === 'summer' ? '☀️' : '🌿';
+  const label = season && season !== 'none' ? seasonal?.seasonLabel + ' at Aydens' : 'Aydens Wellness Services';
+  return (
+    <section className="border-b border-primary/10 bg-background">
+      <div className="container mx-auto flex flex-wrap items-center justify-center gap-2 px-4 py-2 text-center text-[11px] text-muted-foreground">
+        <span aria-hidden="true">{icon}</span><span className="font-semibold text-foreground/75">{label}</span>
+        {experience?.enabled !== false && <><span>·</span><span>{experience?.greeting ?? 'Care that meets you where you are.'}</span></>}
       </div>
     </section>
   );
@@ -84,6 +103,7 @@ export default function Home() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState('');
   const [now, setNow] = useState(() => new Date());
+  const [publicExperience, setPublicExperience] = useState<any>(null);
   const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
   useEffect(() => {
@@ -99,6 +119,12 @@ export default function Home() {
     }
     if (settings?.siteName) document.title = settings.siteName;
   }, [content.faviconUrl, settings?.logoUrl, settings?.siteName]);
+
+  useEffect(() => {
+    customFetch<any>('/api/workspace/public-experience')
+      .then((value) => setPublicExperience(value))
+      .catch(() => setPublicExperience(null));
+  }, []);
 
   useEffect(() => {
     customFetch<any[]>('/api/portal/announcements?audience=client')
@@ -225,7 +251,8 @@ export default function Home() {
   return (
       <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(settings)}>
       <PublicNavbar />
-      <PracticeStatus settings={settings} />
+      <PracticeStatus settings={settings} remote={publicExperience?.practice} />
+      <AydensExperienceLayer seasonal={publicExperience?.seasonal} experience={publicExperience?.experience} />
       {previewMode && (
         <div className="border-b border-primary/15 bg-primary/10">
           <div className="container mx-auto flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-primary">
