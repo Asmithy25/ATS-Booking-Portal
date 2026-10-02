@@ -53,6 +53,14 @@ router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+router.patch("/notifications/read-all", requireAuth, async (req, res) => {
+  const access = await getStaffAccess(req);
+  if (!access) return res.status(401).json({ error: "Unauthorized." });
+  await ensureTable();
+  await db.execute(sql`UPDATE staff_notifications SET read = true WHERE staff_email = ${access.email}`);
+  res.json({ success: true });
+});
+
 router.put("/", requireAuth, async (req, res) => {
   const access = await getStaffAccess(req);
   if (!access) return res.status(401).json({ error: "Unauthorized." });
