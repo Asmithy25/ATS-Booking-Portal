@@ -1,0 +1,13 @@
+{
+  "name": "Aydens Wellness Services",
+  "short_name": "Aydens Wellness",
+  "description": "Reset. Rebuild. Thrive.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f3ed",
+  "theme_color": "#7B4A2F",
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
