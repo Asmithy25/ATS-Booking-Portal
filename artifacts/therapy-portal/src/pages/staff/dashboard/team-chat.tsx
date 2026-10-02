@@ -59,7 +59,7 @@ export default function TeamChat() {
       await customFetch('/api/workspace/chat', { method: 'POST', body: JSON.stringify({ channel: channel.id, body, replyToId }) });
       setBody('');
       setReplyToId(null);
-      await loadMessages(channel.id);
+      await loadMessages(channelId);
     } catch (err) {
       toast({ variant: 'destructive', title: 'Message could not be sent', description: err instanceof Error ? err.message : 'Please try again.' });
     }
