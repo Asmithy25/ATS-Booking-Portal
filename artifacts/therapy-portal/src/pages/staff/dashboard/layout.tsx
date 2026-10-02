@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { getDailyQuote } from '@/lib/motivationalQuotes';
+import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 
 export default function StaffDashboardLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
@@ -198,9 +198,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
             <div>
               <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Today’s rhythm</p>
               <h1 className="mt-2 font-serif text-4xl font-normal leading-none sm:text-5xl">
-                {now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'}, {session.staffName.split(' ')[0]}.
+                {getTimeGreeting(now)}, {session.staffName.split(' ')[0]}.
               </h1>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">{getDailyQuote().quote}</p>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">{getDailyQuote(location.startsWith('/staff/') ? location.split('/')[2] || 'welcome' : 'global', now).quote}</p>
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <div className="hidden items-center gap-2 border border-border bg-card px-3 py-2 text-xs text-muted-foreground sm:flex">
