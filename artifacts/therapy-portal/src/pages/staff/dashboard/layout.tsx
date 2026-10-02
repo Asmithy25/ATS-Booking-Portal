@@ -44,6 +44,22 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   }, []);
 
   useEffect(() => {
+    const handlePreferencesUpdated = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (!detail || typeof detail !== 'object') return;
+      setPortalPrefs((current) => ({
+        ...current,
+        layout: typeof detail.layout === 'string' ? detail.layout : current.layout,
+        density: typeof detail.density === 'string' ? detail.density : current.density,
+        navigation: typeof detail.navigation === 'string' ? detail.navigation : current.navigation,
+        dashboard: typeof detail.dashboard === 'string' ? detail.dashboard : current.dashboard,
+      }));
+    };
+    window.addEventListener('ats-staff-preferences-updated', handlePreferencesUpdated);
+    return () => window.removeEventListener('ats-staff-preferences-updated', handlePreferencesUpdated);
+  }, []);
+
+  useEffect(() => {
     if (!session?.authenticated) return;
     customFetch('/api/settings/staff-preferences')
       .then((value) => value && setPortalPrefs(value))
