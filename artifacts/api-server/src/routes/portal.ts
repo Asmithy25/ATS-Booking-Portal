@@ -434,6 +434,22 @@ router.post("/collaboration", requireAuth, async (req, res): Promise<void> => {
     status,
     dueDate: input.dueDate?.trim().slice(0, 10) || null,
   }).returning();
+
+  if (kind === "task" && input.assignedTo?.trim()) {
+    const assigned = input.assignedTo.trim().toLowerCase();
+    const staff = await db.select({ email: staffAccountsTable.email, name: staffAccountsTable.name }).from(staffAccountsTable);
+    const person = staff.find((item) => item.name.toLowerCase() === assigned || item.email.toLowerCase() === assigned);
+    if (person) {
+      const prefsResult = await db.execute(sql`SELECT notification_preferences AS prefs FROM staff_portal_preferences WHERE staff_email=${person.email} LIMIT 1`).catch(() => ({ rows: [] }));
+      const prefsRow = Array.isArray(prefsResult) ? prefsResult[0] : (prefsResult as any).rows?.[0];
+      const prefs = (prefsRow?.prefs ?? {}) as Record<string, boolean>;
+      if (prefs.teamAssignments !== false) {
+        await db.execute(sql`INSERT INTO staff_notifications (staff_email, title, body)
+          VALUES (${person.email}, ${"New task assigned to you"}, ${access.name + " assigned you: " + (input.title?.trim() || body).slice(0, 220)})`).catch(() => undefined);
+      }
+    }
+  }
+
   await recordAudit(req, `created_${kind}`, "collaboration_item", String(created.id));
   res.status(201).json({
     ...created,
