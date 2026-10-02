@@ -1,12 +1,46 @@
 import { Router } from "express";
-import { desc, eq } from "drizzle-orm";
-import { db, announcementsTable, bookingsTable, clientNotificationsTable, clientAccountsTable } from "@workspace/db";
+import { and, desc, eq } from "drizzle-orm";
+import { db, announcementsTable, bookingsTable, clientNotificationsTable, clientAccountsTable, settingsTable } from "@workspace/db";
 import { extractClientSession, getStaffAccess, requireClientAuth } from "../middleware/auth";
 
 const router = Router();
 
 router.get("/v1/health", (_req, res) => {
   res.json({ ok: true, apiVersion: "v1", service: "aydens-wellness" });
+});
+
+router.get("/v1/config", async (_req, res) => {
+  const [settings] = await db.select({
+    siteName: settingsTable.siteName,
+    siteTagline: settingsTable.siteTagline,
+    logoUrl: settingsTable.logoUrl,
+    acceptingClients: settingsTable.acceptingClients,
+    sessionRequestsOpen: settingsTable.sessionRequestsOpen,
+    vacationMode: settingsTable.vacationMode,
+  }).from(settingsTable).limit(1);
+  res.json({
+    apiVersion: "v1",
+    appName: settings?.siteName ?? "Aydens Wellness Services",
+    tagline: settings?.siteTagline ?? "Reset. Rebuild. Thrive.",
+    logoUrl: settings?.logoUrl ?? "",
+    acceptingClients: settings?.acceptingClients ?? true,
+    sessionRequestsOpen: settings?.sessionRequestsOpen ?? true,
+    vacationMode: settings?.vacationMode ?? false,
+  });
+});
+
+router.get("/v1/status", async (_req, res) => {
+  const [settings] = await db.select({
+    acceptingClients: settingsTable.acceptingClients,
+    sessionRequestsOpen: settingsTable.sessionRequestsOpen,
+    vacationMode: settingsTable.vacationMode,
+  }).from(settingsTable).limit(1);
+  const open = Boolean(settings?.acceptingClients !== false && settings?.sessionRequestsOpen !== false && settings?.vacationMode !== true);
+  res.json({
+    status: open ? "open" : "paused",
+    label: open ? "Accepting new requests" : "Request window paused",
+    phoneOnly: true,
+  });
 });
 
 router.get("/v1/me", async (req, res) => {
@@ -52,7 +86,9 @@ router.get("/v1/notifications", requireClientAuth, async (req, res) => {
 
 router.get("/v1/announcements", async (_req, res) => {
   const now = Date.now();
-  const rows = await db.select().from(announcementsTable).where(eq(announcementsTable.active, true)).orderBy(desc(announcementsTable.createdAt));
+  const rows = await db.select().from(announcementsTable)
+    .where(and(eq(announcementsTable.active, true), eq(announcementsTable.audience, "client")))
+    .orderBy(desc(announcementsTable.createdAt));
   res.json({ announcements: rows.filter((item) => {
     const meta = item.metadata ?? {};
     return (!meta.status || meta.status === "published") &&
