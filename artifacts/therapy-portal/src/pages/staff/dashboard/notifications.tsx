@@ -4,26 +4,34 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Bell, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, CheckCheck, Loader2, Save, SlidersHorizontal } from 'lucide-react';
+import { Switch as SwitchComponent } from '@/components/ui/switch';
 
 type StaffNotification = { id: number; title: string; body: string; read: boolean; createdAt?: string };
+type Preferences = { appointmentAlerts: boolean; teamAssignments: boolean; teamMentions: boolean; practiceAnnouncements: boolean; feedbackAlerts: boolean; systemAlerts: boolean; emailDigest: boolean };
+
+const DEFAULT_PREFS: Preferences = { appointmentAlerts: true, teamAssignments: true, teamMentions: true, practiceAnnouncements: true, feedbackAlerts: true, systemAlerts: true, emailDigest: false };
 
 export default function Notifications() {
   const { toast } = useToast();
   const [items, setItems] = useState<StaffNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      const data = await customFetch<StaffNotification[]>('/api/settings/staff-preferences/notifications');
-      setItems(Array.isArray(data) ? data : []);
+      const [notifications, preferences] = await Promise.all([
+        customFetch<StaffNotification[]>('/api/settings/staff-preferences/notifications'),
+        customFetch<Preferences>('/api/settings/staff-preferences/notification-preferences'),
+      ]);
+      setItems(Array.isArray(notifications) ? notifications : []);
+      setPrefs({ ...DEFAULT_PREFS, ...(preferences || {}) });
     } catch (err) {
       toast({ variant: 'destructive', title: 'Could not load notifications', description: err instanceof Error ? err.message : 'Please refresh.' });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -35,50 +43,54 @@ export default function Notifications() {
     try {
       await customFetch('/api/settings/staff-preferences/notifications/' + id + '/read', { method: 'PATCH' });
       setItems((current) => current.map((item) => item.id === id ? { ...item, read: true } : item));
-    } catch {
-      toast({ variant: 'destructive', title: 'Could not update notification' });
-    }
+    } catch { toast({ variant: 'destructive', title: 'Could not update notification' }); }
   };
 
   const markAllRead = async () => {
     try {
       await customFetch('/api/settings/staff-preferences/notifications/read-all', { method: 'PATCH' });
       setItems((current) => current.map((item) => ({ ...item, read: true })));
-      toast({ title: 'All caught up' });
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'Could not mark notifications read', description: err instanceof Error ? err.message : 'Please try again.' });
-    }
+      toast({ title: 'All caught up', description: prefs.quietMessage ?? 'Your notifications are clear.' });
+    } catch (err) { toast({ variant: 'destructive', title: 'Could not mark notifications read', description: err instanceof Error ? err.message : 'Please try again.' }); }
   };
 
+  const savePrefs = async () => {
+    setSavingPrefs(true);
+    try {
+      await customFetch('/api/settings/staff-preferences/notification-preferences', { method: 'PUT', body: JSON.stringify(prefs) });
+      toast({ title: 'Notification preferences saved', description: 'Your alert mix is now personalized to your workspace.' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Could not save preferences', description: err instanceof Error ? err.message : 'Please try again.' });
+    } finally { setSavingPrefs(false); }
+  };
+
+  const prefItems: Array<[keyof Preferences, string, string]> = [
+    ['appointmentAlerts', 'Appointment alerts', 'Reminders and booking activity.'],
+    ['teamAssignments', 'Team assignments', 'Tasks and workspace items assigned to you.'],
+    ['teamMentions', 'Team mentions', 'When someone mentions you in team chat.'],
+    ['practiceAnnouncements', 'Practice announcements', 'Internal announcements posted to the team.'],
+    ['feedbackAlerts', 'Feedback alerts', 'New client feedback notifications.'],
+    ['systemAlerts', 'System alerts', 'Platform and account alerts.'],
+    ['emailDigest', 'Email digest', 'Allow a future email digest for lower-priority updates.'],
+  ];
+
   return (
-    <div className="max-w-4xl space-y-7">
+    <div className="max-w-5xl space-y-7">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div><p className="text-sm text-muted-foreground">A single place for appointment, team, and practice alerts.</p><h1 className="mt-1 flex items-center gap-2 text-3xl font-semibold"><Bell className="h-6 w-6 text-primary" /> Notification center</h1></div>
         <Badge variant={unread ? 'default' : 'secondary'}>{unread} unread</Badge>
       </div>
+
       <Card className="rounded-2xl">
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><CardTitle>Your notifications</CardTitle><CardDescription>Notifications are private to your staff account.</CardDescription></div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant={filter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('all')}>All</Button>
-            <Button variant={filter === 'unread' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('unread')}>Unread</Button>
-            <Button variant="outline" size="sm" onClick={markAllRead} disabled={!unread}><CheckCheck className="mr-1 h-4 w-4" />Mark all read</Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? <div className="flex justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div> : visible.length ? (
-            <div className="space-y-3">
-              {visible.map((item) => (
-                <button key={item.id} type="button" onClick={() => !item.read && markRead(item.id)} className={['w-full rounded-2xl border p-4 text-left transition', item.read ? 'bg-background opacity-65' : 'bg-primary/[0.045] hover:bg-primary/[0.08]'].join(' ')}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div><p className="font-semibold">{item.title}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{item.body}</p></div>
-                    {!item.read && <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary" />}
-                  </div>
-                  {item.createdAt && <p className="mt-3 text-[11px] text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</p>}
-                </button>
-              ))}
-            </div>
-          ) : <div className="rounded-2xl bg-muted/35 p-10 text-center"><p className="font-medium">{filter === 'unread' ? 'You are all caught up.' : 'No notifications yet.'}</p><p className="mt-1 text-sm text-muted-foreground">New staff alerts will show up here.</p></div>}
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><CardTitle>Your notifications</CardTitle><CardDescription>Notifications are private to your staff account.</CardDescription></div><div className="flex flex-wrap gap-2"><Button variant={filter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('all')}>All</Button><Button variant={filter === 'unread' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('unread')}>Unread</Button><Button variant="outline" size="sm" onClick={markAllRead} disabled={!unread}><CheckCheck className="mr-1 h-4 w-4" />Mark all read</Button></div></CardHeader>
+        <CardContent>{loading ? <div className="flex justify-center py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div> : visible.length ? <div className="space-y-3">{visible.map((item) => <button key={item.id} type="button" onClick={() => !item.read && markRead(item.id)} className={['w-full rounded-2xl border p-4 text-left transition', item.read ? 'bg-background opacity-65' : 'bg-primary/[0.045] hover:bg-primary/[0.08]'].join(' ')}><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{item.title}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{item.body}</p></div>{!item.read && <span className="mt-1 h-2.5 w-2.5 rounded-full bg-primary" />}</div>{item.createdAt && <p className="mt-3 text-[11px] text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</p>}</button>)}</div> : <div className="rounded-2xl bg-muted/35 p-10 text-center"><p className="font-medium">{filter === 'unread' ? 'You are all caught up.' : 'No notifications yet.'}</p><p className="mt-1 text-sm text-muted-foreground">New staff alerts will show up here.</p></div>}</CardContent>
+      </Card>
+
+      <Card className="rounded-2xl">
+        <CardHeader><CardTitle className="flex items-center gap-2"><SlidersHorizontal className="h-5 w-5 text-primary" /> Notification preferences</CardTitle><CardDescription>This is the customization you were looking for: choose which kinds of alerts belong in your workspace.</CardDescription></CardHeader>
+        <CardContent className="space-y-2">
+          {prefItems.map(([key, label, description]) => <div key={key} className="flex items-center justify-between gap-4 rounded-2xl border p-4"><div><p className="font-medium">{label}</p><p className="mt-1 text-xs text-muted-foreground">{description}</p></div><SwitchComponent checked={prefs[key]} onCheckedChange={(checked) => setPrefs((current) => ({ ...current, [key]: checked }))} /></div>)}
+          <div className="pt-3"><Button onClick={savePrefs} disabled={savingPrefs}><Save className="mr-2 h-4 w-4" />{savingPrefs ? 'Saving…' : 'Save notification preferences'}</Button></div>
         </CardContent>
       </Card>
     </div>
