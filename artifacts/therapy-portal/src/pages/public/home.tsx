@@ -122,9 +122,22 @@ export default function Home() {
 
   useEffect(() => {
     customFetch<any>('/api/workspace/public-experience')
-      .then((value) => setPublicExperience(value))
+      .then((value) => {
+        if (!previewMode) { setPublicExperience(value); return; }
+        try {
+          const raw = localStorage.getItem('aydens-preview-draft');
+          const draft = raw ? JSON.parse(raw) : null;
+          if (!draft) { setPublicExperience(value); return; }
+          setPublicExperience({
+            ...value,
+            practice: { ...value.practice, ...(draft.practice ?? {}) },
+            seasonal: { ...value.seasonal, ...(draft.seasonal ?? {}) },
+            experience: { ...value.experience, ...(draft.experience ?? {}) },
+          });
+        } catch { setPublicExperience(value); }
+      })
       .catch(() => setPublicExperience(null));
-  }, []);
+  }, [previewMode]);
 
   useEffect(() => {
     customFetch<any[]>('/api/portal/announcements?audience=client')
