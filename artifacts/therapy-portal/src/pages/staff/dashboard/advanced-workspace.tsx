@@ -169,6 +169,17 @@ export default function AdvancedWorkspace() {
   const openMessages = threads.filter(t=>t.status==="open").length;
   const activeAssignments = assignments.filter(a=>a.status!=="completed").length;
   const activeTasks = tasks.filter(t=>t.status!=="done").length;
+  const staffPermissions = (session as any).permissions || {};
+  const canAurora = Boolean(
+    session.isAdmin ||
+    staffPermissions.useAuroraAI === true ||
+    (session.role === "manager" && !Object.prototype.hasOwnProperty.call(staffPermissions, "useAuroraAI"))
+  );
+  const [auroraMessages,setAuroraMessages] = useState<{role:"user"|"assistant";body:string}[]>([]);
+  const [auroraInput,setAuroraInput] = useState("");
+  const [auroraBusy,setAuroraBusy] = useState(false);
+  const [auroraConfigured,setAuroraConfigured] = useState<boolean|null>(null);
+
 
   return <div className="max-w-7xl space-y-7">
     <div className="flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
@@ -183,7 +194,7 @@ export default function AdvancedWorkspace() {
     <Tabs value={tab} onValueChange={setTab} className="space-y-6">
       <TabsList className="h-auto flex-wrap justify-start">
         <TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="messages">Client messages</TabsTrigger><TabsTrigger value="assignments">Assignments</TabsTrigger><TabsTrigger value="uploads">Uploads</TabsTrigger><TabsTrigger value="tasks">Tasks</TabsTrigger>
-        {session.isAdmin && <TabsTrigger value="roles">Roles & permissions</TabsTrigger>}
+        {canAurora && <TabsTrigger value="aurora">Aurora</TabsTrigger>}\n        {session.isAdmin && <TabsTrigger value="roles">Roles & permissions</TabsTrigger>}
       </TabsList>
 
       <TabsContent value="overview" className="space-y-5">
@@ -239,6 +250,7 @@ export default function AdvancedWorkspace() {
         <Card className="rounded-2xl"><CardHeader><CardTitle>Received files</CardTitle></CardHeader><CardContent className="space-y-2">{uploads.map(f=><div key={f.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"><div><b>{f.fileName}</b><p className="text-xs text-muted-foreground">{f.clientName} · {f.label} · {Math.ceil(f.sizeBytes/1024)} KB</p></div><Button size="sm" variant="outline" onClick={()=>void downloadUpload(f.id,f.fileName)}>Download</Button></div>)}</CardContent></Card>
       </TabsContent>
 
+      {canAurora&&<TabsContent value="aurora"><Card className="rounded-2xl"><CardHeader><div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary"/><CardTitle>Aurora</CardTitle>{auroraConfigured===true&&<Badge variant="secondary">Configured</Badge>}{auroraConfigured===false&&<Badge variant="destructive">Key needed</Badge>}</div><CardDescription>Private staff AI. Aurora is separate from the public Aydens Wellness Assistant and uses its own staff permission and OpenAI credential.</CardDescription></CardHeader><CardContent><div className="min-h-72 space-y-3 rounded-xl bg-muted/20 p-4">{auroraMessages.map((m,i)=><div key={i} className={m.role==="user"?"ml-auto max-w-[85%] rounded-xl bg-primary p-3 text-sm text-primary-foreground":"max-w-[85%] rounded-xl border bg-background p-3 text-sm"}>{m.body}</div>)}{!auroraMessages.length&&<div className="flex min-h-56 items-center justify-center text-center text-sm text-muted-foreground"><div><Sparkles className="mx-auto mb-2 h-7 w-7 text-primary/60"/><p className="font-medium text-foreground">Ask Aurora</p><p className="mt-1 max-w-md">Use Aurora for staff-only workflow help, communication drafts, assignment ideas, and summaries.</p></div></div>}</div><div className="mt-3 flex gap-2"><Textarea rows={3} value={auroraInput} onChange={e=>setAuroraInput(e.target.value)} placeholder="Ask Aurora…"/><Button className="self-end" onClick={async()=>{const value=auroraInput.trim();if(!value||auroraBusy)return;setAuroraMessages(m=>[...m,{role:"user",body:value}]);setAuroraInput("");setAuroraBusy(true);try{const out=await getJson<{reply:string;name:string}>("/api/advanced/staff/aurora",{method:"POST",body:JSON.stringify({message:value})});setAuroraMessages(m=>[...m,{role:"assistant",body:out.reply}]);setAuroraConfigured(true);}catch(error:any){toast({variant:"destructive",title:"Aurora unavailable",description:error?.message||"Check the staff AI key and permissions."});}finally{setAuroraBusy(false);}}} disabled={auroraBusy||!auroraInput.trim()}><Send className="mr-1 h-4 w-4"/>Send</Button></div><p className="mt-3 text-xs text-muted-foreground">Aurora is staff-only. The public assistant is Aubrey, displayed to clients as Aydens Wellness Assistant.</p></CardContent></Card></TabsContent>}
       <TabsContent value="tasks" className="space-y-5">
         <Card className="rounded-2xl"><CardHeader><CardTitle>Staff task queue</CardTitle></CardHeader><CardContent className="space-y-3"><div className="grid gap-3 sm:grid-cols-2"><Input value={task.title} onChange={e=>setTask({...task,title:e.target.value})} placeholder="Task title"/><Input value={task.assignedTo} onChange={e=>setTask({...task,assignedTo:e.target.value})} placeholder="Assigned to"/><Input type="date" value={task.dueDate} onChange={e=>setTask({...task,dueDate:e.target.value})}/><Button onClick={()=>void createTask()} disabled={!task.title.trim()}><Plus className="mr-2 h-4 w-4"/>Create task</Button></div><Textarea rows={3} value={task.description} onChange={e=>setTask({...task,description:e.target.value})} placeholder="Task details"/></CardContent></Card>
         <Card className="rounded-2xl"><CardHeader><CardTitle>Tasks</CardTitle></CardHeader><CardContent className="space-y-2">{tasks.map(t=><div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"><div><b>{t.title}</b><p className="text-xs text-muted-foreground">{t.assignedTo||"Unassigned"}{t.dueDate ? " · due "+t.dueDate : ""}</p><p className="mt-1 text-sm text-muted-foreground">{t.description}</p></div><Button size="sm" variant="outline" onClick={async()=>{await getJson("/api/advanced/staff/tasks/"+t.id,{method:"PATCH",body:JSON.stringify({status:t.status==="done"?"open":"done"})});await reload();}}>{t.status==="done"?"Reopen":"Mark done"}</Button></div>)}</CardContent></Card>
