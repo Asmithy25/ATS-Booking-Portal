@@ -42,7 +42,7 @@ function qJson(value: unknown) {
 async function aiText(instructions: string, input: string) {
   const key = String(process.env.OPENAI_API_KEY ?? "").trim();
   if (!key) throw Object.assign(new Error("Aydens Wellness Assistant is not configured yet. Add a fresh OPENAI_API_KEY to the Railway API service."), { statusCode: 503 });
-  if (/\\s/.test(key) || key.includes("OPENAI_API_KEY") || key.includes("OPENAI_MODEL") || key.includes("=")) {
+  if (/\s/.test(key) || key.includes("OPENAI_API_KEY") || key.includes("OPENAI_MODEL") || key.includes("=")) {
     throw Object.assign(new Error("Aydens Wellness Assistant has an invalid API key configuration. OPENAI_API_KEY must contain only the single secret key value."), { statusCode: 503 });
   }
   const model = process.env.OPENAI_MODEL || "gpt-6-luna";
