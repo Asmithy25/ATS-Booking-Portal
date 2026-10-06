@@ -52,16 +52,26 @@ export default function AdvancedWorkspace() {
   const reload = async () => {
     setLoading(true);
     try {
-      const data = await Promise.all([
+      const results = await Promise.allSettled([
         getJson<any>("/api/advanced/staff/care-overview"),
         getJson<Thread[]>("/api/advanced/staff/client-messages"),
         getJson<Assignment[]>("/api/advanced/staff/assignments"),
         getJson<UploadItem[]>("/api/advanced/staff/uploads"),
         getJson<Task[]>("/api/advanced/staff/tasks"),
       ]);
-      setOverview(data[0]); setThreads(data[1] || []); setAssignments(data[2] || []); setUploads(data[3] || []); setTasks(data[4] || []);
-    } catch (error:any) {
-      toast({variant:"destructive",title:"Care Operations could not load",description:error?.message || "Check permissions and refresh."});
+
+      const [overviewResult, messagesResult, assignmentsResult, uploadsResult, tasksResult] = results;
+      if (overviewResult.status === "fulfilled") setOverview(overviewResult.value);
+      if (messagesResult.status === "fulfilled") setThreads(messagesResult.value || []);
+      if (assignmentsResult.status === "fulfilled") setAssignments(assignmentsResult.value || []);
+      if (uploadsResult.status === "fulfilled") setUploads(uploadsResult.value || []);
+      if (tasksResult.status === "fulfilled") setTasks(tasksResult.value || []);
+
+      const rejected = results.filter((result) => result.status === "rejected");
+      if (rejected.length === results.length) {
+        const firstError = rejected[0].reason;
+        toast({variant:"destructive",title:"Care Operations could not load",description:firstError?.message || "Check permissions and refresh."});
+      }
     } finally { setLoading(false); }
   };
 
