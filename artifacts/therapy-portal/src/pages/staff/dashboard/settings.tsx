@@ -446,8 +446,6 @@ export default function Settings({ hidePersonal = false }: { hidePersonal?: bool
 
       <Form {...form}>
         <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
-          <Form {...hoursForm}>
-          )}
 
            {session?.isAdmin && <Card className="border-primary/20">
              <CardHeader>
@@ -478,7 +476,6 @@ export default function Settings({ hidePersonal = false }: { hidePersonal?: bool
                ))}
              </CardContent>
            </Card>}
-          </Form>
           
           {/* General Toggles */}
           <Card>
