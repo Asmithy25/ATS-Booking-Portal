@@ -38,6 +38,9 @@ const HomepagePreview = lazy(() => import('@/pages/staff/dashboard/homepage-prev
 const PublicUpdates = lazy(() => import('@/pages/public/updates'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
+const ClientTools = lazy(() => import('@/pages/client/tools'));
+const UploadPage = lazy(() => import('@/pages/public/upload'));
+const AdvancedWorkspace = lazy(() => import('@/pages/staff/dashboard/advanced-workspace'));
 const NotFound = lazy(() => import('@/pages/not-found'));
 
 const queryClient = new QueryClient();
@@ -75,6 +78,7 @@ function StaffRouter() {
         <Route path="/staff/founder-dashboard" component={FounderDashboard} />
         <Route path="/staff/search" component={GlobalSearch} />
         <Route path="/staff/system-health" component={SystemHealth} />
+        <Route path="/staff/operations" component={AdvancedWorkspace} />
         <Route path="/staff/settings" component={Settings} />
         <Route path="/staff/employees" component={Employees} />
         <Route component={NotFound} />
@@ -93,7 +97,9 @@ function Router() {
       <Route path="/staff" component={Login} />
       <Route path="/staff/login" component={Login} />
       <Route path="/portal/login" component={ClientAuth} />
+      <Route path="/portal/tools" component={ClientTools} />
       <Route path="/portal" component={ClientPortal} />
+      <Route path="/upload/:token" component={UploadPage} />
       <Route path="/staff/*" component={StaffRouter} />
       <Route component={NotFound} />
     </Switch>
