@@ -44,6 +44,7 @@ export default function AdvancedWorkspace() {
   const [aiPrompt,setAiPrompt] = useState("");
   const [preview,setPreview] = useState<any>(null);
   const [aiBusy,setAiBusy] = useState(false);
+  const [summaryBusy,setSummaryBusy] = useState(false);
   const [roles,setRoles] = useState<Role[]>([]);
   const [permissions,setPermissions] = useState<[string,string][]>([]);
   const [newRole,setNewRole] = useState("");
