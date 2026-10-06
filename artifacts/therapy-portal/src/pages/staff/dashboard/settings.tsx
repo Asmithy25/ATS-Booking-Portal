@@ -442,119 +442,11 @@ export default function Settings({ hidePersonal = false }: { hidePersonal?: bool
         </Button>
       </div>
 
-      <Card className="rounded-2xl border-primary/15">
-        <CardHeader>
-          {!hidePersonal && (
-<CardTitle>My Staff Portal</CardTitle>
-          <CardDescription>Personalize your workspace without changing the public website or anyone else’s portal.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-5 sm:grid-cols-2">
-          <div><label className="text-sm font-medium">Workspace feel</label>
-            <Select value={portalPrefs.layout} onValueChange={(value) => setPortalPrefs((current) => ({ ...current, layout: value }))}>
-              <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>
-                <SelectItem value="composed">Composed</SelectItem><SelectItem value="relaxed">Relaxed</SelectItem><SelectItem value="focused">Focused</SelectItem><SelectItem value="minimal">Minimal</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div><label className="text-sm font-medium">Spacing</label>
-            <Select value={portalPrefs.density} onValueChange={(value) => setPortalPrefs((current) => ({ ...current, density: value }))}>
-              <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>
-                <SelectItem value="comfortable">Comfortable</SelectItem><SelectItem value="compact">Compact</SelectItem><SelectItem value="spacious">Spacious</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div><label className="text-sm font-medium">Navigation</label>
-            <Select value={portalPrefs.navigation} onValueChange={(value) => setPortalPrefs((current) => ({ ...current, navigation: value }))}>
-              <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>
-                <SelectItem value="classic">Classic sidebar</SelectItem><SelectItem value="rail">Slim rail</SelectItem><SelectItem value="compact">Compact navigation</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div><label className="text-sm font-medium">Dashboard rhythm</label>
-            <Select value={portalPrefs.dashboard} onValueChange={(value) => setPortalPrefs((current) => ({ ...current, dashboard: value }))}>
-              <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>
-                <SelectItem value="balanced">Balanced</SelectItem><SelectItem value="cards">Card-forward</SelectItem><SelectItem value="flow">Flow-first</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="sm:col-span-2"><Button type="button" onClick={savePortalPreferences} disabled={portalPrefsSaving}>
-            {portalPrefsSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save My Workspace
-          </Button></div>
-        </CardContent>
-      </Card>
           )}
 
       <Form {...form}>
         <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
           <Form {...hoursForm}>
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4">
-                <div>
-                  {!hidePersonal && (
-<CardTitle>My Therapist Hours</CardTitle>
-                  <CardDescription>
-                    These are the hours shown publicly under {myHours?.name ? `${myHours.name}'s Hours` : 'your name'}.
-                    Only your own schedule is changed here.
-                  </CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  onClick={hoursForm.handleSubmit(onHoursSubmit)}
-                  disabled={isLoadingMyHours || updateMyHours.isPending}
-                >
-                  {updateMyHours.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  Save My Hours
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {isLoadingMyHours ? (
-                  <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
-                ) : (
-                  <div className="space-y-4">
-                    {DAYS.map((day) => (
-                      <div key={day} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-background">
-                        <div className="w-24 font-medium capitalize">{day}</div>
-                        <FormField
-                          control={hoursForm.control}
-                          name={`officeHours.${day}.closed`}
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <SwitchComponent checked={field.value} onCheckedChange={field.onChange} />
-                              </FormControl>
-                              <FormLabel className="font-normal text-sm w-16">Closed</FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                        {!hoursForm.watch(`officeHours.${day}.closed`) && (
-                          <>
-                            <FormField
-                              control={hoursForm.control}
-                              name={`officeHours.${day}.open`}
-                              render={({ field }) => (
-                                <FormItem className="flex-1">
-                                  <FormControl><Input type="time" {...field} /></FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            <span className="text-muted-foreground">to</span>
-                            <FormField
-                              control={hoursForm.control}
-                              name={`officeHours.${day}.close`}
-                              render={({ field }) => (
-                                <FormItem className="flex-1">
-                                  <FormControl><Input type="time" {...field} /></FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           )}
 
            {session?.isAdmin && <Card className="border-primary/20">
