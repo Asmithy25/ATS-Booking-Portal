@@ -77,7 +77,8 @@ router.get("/search", requirePermission("viewClients"), async (req, res) => {
           bookings.find((booking) => booking.clientAccountId !== null)?.clientAccountId ??
           matchingAccounts.find((account) => account.phone && normalizePhone(account.phone) === normalizedPhone)?.id ??
           null;
-        const clientAccountId = linkedAccountId ?? accountByPhone?.id ?? null;
+        const fallbackAccount = accountByPhone ?? (matchingAccounts.length === 1 ? matchingAccounts[0] : undefined);
+        const clientAccountId = linkedAccountId ?? fallbackAccount?.id ?? null;
 
         return {
           clientAccountId,
