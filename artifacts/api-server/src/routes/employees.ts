@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { staffAccountsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { ensureAdvancedStorage } from "../lib/advanced-storage";
 import { requireAdminAuth } from "../middleware/auth";
 import { hashPassword } from "../middleware/auth";
 import type { OfficeHours } from "@workspace/db";
@@ -98,11 +99,19 @@ router.patch("/:id", requireAdminAuth, async (req, res) => {
     }
     updates.officeHours = body.officeHours;
   }
-  if (body.role !== undefined && !["manager", "therapist", "customer_service_representative"].includes(body.role)) {
-    res.status(400).json({ error: "Invalid staff role." });
-    return;
+  if (body.role !== undefined) {
+    const role = body.role.trim().toLowerCase();
+    const builtIn = ["manager", "therapist", "customer_service_representative", "receptionist"];
+    if (!builtIn.includes(role)) {
+      await ensureAdvancedStorage();
+      const roleRows = await db.execute(sql`SELECT slug FROM custom_roles WHERE slug = ${role} LIMIT 1`);
+      if (!((roleRows as any).rows?.length ?? (Array.isArray(roleRows) ? roleRows.length : 0))) {
+        res.status(400).json({ error: "Invalid staff role." });
+        return;
+      }
+    }
+    updates.role = role;
   }
-  if (body.role !== undefined) updates.role = body.role;
   if (body.permissions !== undefined) updates.permissions = body.permissions;
   if (body.bio !== undefined) updates.bio = body.bio.slice(0, 1000);
   if (body.photoUrl !== undefined) updates.photoUrl = body.photoUrl.slice(0, 2048);
@@ -201,10 +210,27 @@ router.post("/", requireAdminAuth, async (req, res) => {
 
   const creator = (req as RequestWithSession).staffSession?.email ?? "admin";
   const passwordHash = hashPassword(password);
-
+  const requestedRole = (role ?? "therapist").trim().toLowerCase();
+  const builtInRoles = ["manager", "therapist", "customer_service_representative", "receptionist"];
+  let finalRole = requestedRole;
+  if (!builtInRoles.includes(finalRole)) {
+    await ensureAdvancedStorage();
+    const roleRows = await db.execute(sql`SELECT slug FROM custom_roles WHERE slug = ${finalRole} LIMIT 1`);
+    if (!((roleRows as any).rows?.length ?? (Array.isArray(roleRows) ? roleRows.length : 0))) {
+      res.status(400).json({ error: "Invalid staff role." });
+      return;
+    }
+  }
+  let finalPermissions = permissions ?? {};
+  if (!Object.keys(finalPermissions).length && finalRole === "receptionist") {
+    finalPermissions = { viewClients: true, editAppointments: true, sendEmails: true, viewClientMessages: true, manageUploads: true, manageTasks: true };
+  }
+  if (!Object.keys(finalPermissions).length && finalRole === "therapist") {
+    finalPermissions = { viewClients: true, editAppointments: true, viewAnalytics: true, manageAssignments: true, viewClientMessages: true };
+  }
   const [created] = await db
     .insert(staffAccountsTable)
-    .values({ email: key, name, passwordHash, role: role && ["manager", "therapist", "customer_service_representative"].includes(role) ? role : "therapist", permissions: permissions ?? {}, createdBy: creator })
+    .values({ email: key, name, passwordHash, role: finalRole, permissions: finalPermissions, createdBy: creator })
     .returning({
       id: staffAccountsTable.id,
       email: staffAccountsTable.email,
