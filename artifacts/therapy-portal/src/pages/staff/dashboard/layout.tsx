@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -137,6 +137,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/bookings', <Calendar className="h-4 w-4" />, 'Bookings')}
           {navItem('/staff/clients', <Users className="h-4 w-4" />, 'Clients')}
           {navItem('/staff/wellness', <NotebookPen className="h-4 w-4" />, 'Wellness Journey')}
+          {navItem('/staff/operations', <BriefcaseBusiness className="h-4 w-4" />, 'Care Operations')}
           {navItem('/staff/analytics', <BarChart3 className="h-4 w-4" />, 'Analytics')}
           {navItem('/staff/support', <MessageCircle className="h-4 w-4" />, 'Support inbox')}
           {navItem('/staff/notifications', <Bell className="h-4 w-4" />, 'Notification center')}
