@@ -40,7 +40,7 @@ function qJson(value: unknown) {
   return q(JSON.stringify(value ?? {})) + "::jsonb";
 }
 async function aiText(instructions: string, input: string) {
-  const key = process.env.OPENAI_API_KEY;
+  const key = process.env.OPENAI_API_KEY || process.env.AUBREY_API_CODE;
   if (!key) throw Object.assign(new Error("AI is not configured yet. Add OPENAI_API_KEY to the Railway API service."), { statusCode: 503 });
   const model = process.env.OPENAI_MODEL || "gpt-6-luna";
   const response = await fetch("https://api.openai.com/v1/responses", {
