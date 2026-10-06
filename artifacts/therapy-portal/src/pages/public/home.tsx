@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle, Leaf, Eye } from 'lucide-react';
+import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle, Leaf, Eye, Bot } from 'lucide-react';
 import { getThemeStyle } from '@/lib/theme';
 import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 import { WellnessLookup } from '@/components/WellnessLookup';
@@ -325,6 +325,16 @@ export default function Home() {
                     }}
                   >
                      {content.heroPrimaryButton}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="rounded-full text-base px-6 h-12 border-primary/25 bg-background/80"
+                    onClick={() => { window.location.href = '/portal/tools'; }}
+                  >
+                    <Bot className="mr-2 h-4 w-4" />
+                    Talk to Aydens Wellness Assistant
                   </Button>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground px-4">
                     <PhoneCall className="w-4 h-4" />
@@ -746,6 +756,17 @@ export default function Home() {
       </main>
 
       <PublicFooter />
+      <a
+        href="/portal/tools"
+        aria-label="Open Aydens Wellness Assistant"
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/95 px-3 py-3 text-sm font-semibold text-foreground shadow-xl backdrop-blur transition hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-primary sm:px-4"
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Bot className="h-4 w-4" />
+        </span>
+        <span className="hidden sm:inline">Aydens Wellness Assistant</span>
+        <span className="sm:hidden">Assistant</span>
+      </a>
     </div>
   );
 }
