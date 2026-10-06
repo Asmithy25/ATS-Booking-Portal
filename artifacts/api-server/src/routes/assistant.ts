@@ -3,6 +3,7 @@ import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { db, announcementsTable, auditLogsTable, bookingsTable, clientAccountsTable, settingsTable, wellnessResourcesTable } from "@workspace/db";
 import { requireClientAuth, type RequestWithClientSession } from "../middleware/auth";
 import { validateBookingSlot } from "../lib/scheduling";
+import { ensureAdvancedStorage } from "../lib/advanced-storage";
 
 const router = Router();
 
@@ -116,10 +117,7 @@ async function buildPublicContext() {
         officeHours: settings.officeHours,
         holidayHours: settings.holidayHours,
         closedDates: settings.closedDates,
-        bufferMinutes: settings.bufferMinutes,
         vacationMode: settings.vacationMode,
-        vacationStart: settings.vacationStart ?? "",
-        vacationEnd: settings.vacationEnd ?? "",
         heroTitle: settings.heroTitle,
         heroDescription: settings.heroDescription,
         homepageContent: Object.fromEntries(
@@ -404,12 +402,8 @@ async function runAssistant(req: Request, res: Response, persistentClientId: num
 
   let history: ChatMessage[] = [];
   if (persistentClientId) {
-    history = rows<ChatMessage>(await db
-      .select({ role: assistantMessagesRole(), body: assistantMessagesBody() })
-      .from(await assistantMessagePlaceholder())
-      .where(eq(await assistantMessagePlaceholderClient(), persistentClientId))
-      .orderBy(desc(await assistantMessagePlaceholderCreatedAt()))
-      .limit(MAX_HISTORY)).reverse() as ChatMessage[];
+    await ensureAdvancedStorage();
+    history = await assistantMessageRows(persistentClientId);
   } else {
     history = recentHistory(req.body?.history);
   }
@@ -458,8 +452,11 @@ async function runAssistant(req: Request, res: Response, persistentClientId: num
 // The existing advanced storage initializer creates this table. These helpers keep
 // this router isolated from the generated schema while retaining per-client isolation.
 async function assistantMessageRows(clientAccountId: number) {
+  await ensureAdvancedStorage();
+  const safeId = Number(clientAccountId);
+  if (!Number.isInteger(safeId) || safeId <= 0) return [];
   const result: any = await db.execute(
-    "SELECT role, body FROM assistant_messages WHERE client_account_id=" + clientAccountId + " ORDER BY created_at DESC LIMIT " + MAX_HISTORY,
+    sql.raw("SELECT role, body FROM assistant_messages WHERE client_account_id=" + safeId + " ORDER BY created_at DESC LIMIT " + MAX_HISTORY),
   );
   return rows<ChatMessage>(result).reverse();
 }
@@ -495,10 +492,3 @@ router.post("/public/assistant", async (req, res) => {
 
 export default router;
 
-// Tiny typed placeholders used only to keep TypeScript inference away from
-// a runtime schema import. They are never invoked by runAssistant.
-function assistantMessagesRole() { return "role" as any; }
-function assistantMessagesBody() { return "body" as any; }
-async function assistantMessagePlaceholder() { throw new Error("unreachable"); }
-async function assistantMessagePlaceholderClient() { throw new Error("unreachable"); }
-async function assistantMessagePlaceholderCreatedAt() { throw new Error("unreachable"); }
