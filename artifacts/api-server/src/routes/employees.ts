@@ -228,6 +228,12 @@ router.post("/", requireAdminAuth, async (req, res) => {
   if (!Object.keys(finalPermissions).length && finalRole === "therapist") {
     finalPermissions = { viewClients: true, editAppointments: true, viewAnalytics: true, manageAssignments: true, viewClientMessages: true };
   }
+  if (!Object.keys(finalPermissions).length && !builtInRoles.includes(finalRole)) {
+    await ensureAdvancedStorage();
+    const roleRows = await db.execute(sql`SELECT permissions FROM custom_roles WHERE slug = ${finalRole} LIMIT 1`);
+    const dynamicPermissions = (roleRows as any).rows?.[0]?.permissions;
+    if (dynamicPermissions && typeof dynamicPermissions === "object") finalPermissions = dynamicPermissions;
+  }
   const [created] = await db
     .insert(staffAccountsTable)
     .values({ email: key, name, passwordHash, role: finalRole, permissions: finalPermissions, createdBy: creator })
