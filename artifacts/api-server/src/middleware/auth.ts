@@ -199,7 +199,7 @@ export function hasPermission(
       "viewClients", "editAppointments", "sendEmails", "manageSettings",
       "postAnnouncements", "viewAnalytics", "viewAuditLogs",
       "manageUploads", "manageAssignments", "viewClientMessages", "manageTasks",
-      "manageResources", "viewSystemHealth",
+      "manageResources", "viewSystemHealth", "useAuroraAI",
     ],
     therapist: ["viewClients", "editAppointments", "viewAnalytics", "manageAssignments", "viewClientMessages"],
     customer_service_representative: ["viewClients", "editAppointments", "sendEmails", "viewClientMessages", "manageUploads"],
