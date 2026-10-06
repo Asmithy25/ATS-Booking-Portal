@@ -14,7 +14,7 @@ import {
   verifyPassword,
   verifyPayload,
 } from "../middleware/auth";
-import { ensureAdvancedStorage, getStaffSecurity } from "../lib/advanced-storage";
+import { ensureAdvancedStorage, getStaffSecurity, hashStaffPin, verifyStaffPin } from "../lib/advanced-storage";
 
 const router = Router();
 const exec = (query: string) => db.execute(sql.raw(query));
@@ -124,8 +124,9 @@ router.post("/staff/pin/change", requireAuth, async (req,res) => {
   const currentPin=text(req.body?.currentPin,6),newPin=text(req.body?.newPin,6);
   if(!/^\d{6}$/.test(currentPin)||!/^\d{6}$/.test(newPin)){res.status(400).json({error:"PINs must be exactly 6 digits."});return;}
   const security=await getStaffSecurity(access.email);
-  if(!security?.pin_hash||!verifyPassword(currentPin,security.pin_hash)){res.status(401).json({error:"Current PIN is incorrect."});return;}
-  await exec("UPDATE staff_security SET pin_hash="+q(hashPassword(newPin))+",last_pin_set_at=now(),updated_at=now() WHERE email="+q(access.email.toLowerCase()));
+  if(!security?.pin_hash||!verifyStaffPin(access.email,currentPin)){res.status(401).json({error:"Current PIN is incorrect."});return;}
+  if(/^(?:000000|111111|123456|654321)$/.test(newPin)){res.status(400).json({error:"Choose a less obvious PIN."});return;}
+  await exec("UPDATE staff_security SET pin_hash="+q(hashStaffPin(newPin))+",last_pin_set_at=now(),updated_at=now() WHERE email="+q(access.email.toLowerCase()));
   res.json({success:true});
 });
 router.post("/staff/passkey/options", async (req,res) => {
