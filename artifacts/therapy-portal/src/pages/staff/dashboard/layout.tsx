@@ -158,6 +158,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/staff-directory', <UserRound className="h-4 w-4" />, 'Staff Directory')}
           {session.isAdmin && navItem('/staff/founder-dashboard', <Crown className="h-4 w-4" />, 'Founder Dashboard')}
           {navItem('/staff/system-health', <Activity className="h-4 w-4" />, 'System Health')}
+          {navItem('/staff/operations', <BriefcaseBusiness className="h-4 w-4" />, 'Care Operations')}
 
           {/* Employees — admin only */}
           {session.isAdmin && (
