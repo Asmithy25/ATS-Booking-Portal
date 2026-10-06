@@ -84,6 +84,7 @@ export default function Employees() {
     officeHours: StaffHours;
   } | null>(null);
   const [resetPassword, setResetPassword] = useState('');
+  const [resetPinBusy, setResetPinBusy] = useState(false);
 
   const createEmployee = useCreateEmployee({
     mutation: {
@@ -139,6 +140,24 @@ export default function Employees() {
       },
     },
   });
+
+  const resetEmployeePin = async () => {
+    if (!selectedEmployee) return;
+    setResetPinBusy(true);
+    try {
+      await customFetch('/api/auth/staff-pin/reset', {
+        method: 'POST',
+        body: JSON.stringify({ email: selectedEmployee.email }),
+        responseType: 'json',
+      });
+      toast({ title: 'Staff PIN reset', description: 'The staff member will be required to create a new PIN at their next sign-in.' });
+    } catch (error) {
+      const msg = (error as { data?: { error?: string } })?.data?.error ?? 'Could not reset the PIN.';
+      toast({ variant: 'destructive', title: 'PIN reset failed', description: msg });
+    } finally {
+      setResetPinBusy(false);
+    }
+  };
 
   const openManage = (employee: StaffAccount) => {
     setSelectedEmployee(employee);
@@ -343,7 +362,18 @@ export default function Employees() {
                     Reset Password
                   </Button>
                 </div>
-              </div>
+
+
+              <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <KeyRound className="w-4 h-4 text-primary" />
+                  <h3 className="font-semibold">Reset Staff PIN</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">Clears this employee&apos;s PIN. They will set a new 6-digit PIN the next time they sign in.</p>
+                <Button type="button" variant="outline" disabled={resetPinBusy} onClick={() => { if (window.confirm('Reset ' + (selectedEmployee?.name || 'this staff member') + "'s staff PIN?")) void resetEmployeePin(); }}>
+                  {resetPinBusy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Reset PIN
+                </Button>
+              </div>              </div>
             </div>
           )}
           <DialogFooter>
