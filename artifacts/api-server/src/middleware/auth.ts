@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { db } from "@workspace/db";
 import { staffAccountsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { ensureAdvancedStorage, getStaffSecurity, setInitialStaffPin, verifyStaffPin } from "../lib/advanced-storage";
 
 const SESSION_COOKIE = "ats_session";
 const CLIENT_SESSION_COOKIE = "ats_client_session";
@@ -193,6 +194,7 @@ export function hasPermission(
     manager: ["viewClients", "editAppointments", "sendEmails", "manageSettings", "postAnnouncements", "viewAnalytics", "viewAuditLogs"],
     therapist: ["viewClients", "editAppointments", "viewAnalytics"],
     customer_service_representative: ["viewClients", "editAppointments", "sendEmails"],
+    receptionist: ["viewClients", "editAppointments", "sendEmails", "viewClientMessages", "manageUploads", "manageTasks"],
   };
   return roleDefaults[access.role]?.includes(permission) ?? false;
 }
