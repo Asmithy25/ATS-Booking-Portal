@@ -93,7 +93,7 @@ router.post("/staff-pin/reset", requireAuth, async (req, res): Promise<void> => 
   res.json({ success: true });
 });
 
-router.get("/security"/, requireAuth, async (req, res): Promise<void> => {
+router.get("/security", requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
   if (!access) { res.status(401).json({ error: "Unauthorized." }); return; }
   const isFounder = access.role === "founder";
