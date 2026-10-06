@@ -195,7 +195,6 @@ export function hasPermission(
     therapist: ["viewClients", "editAppointments", "viewAnalytics"],
     customer_service_representative: ["viewClients", "editAppointments", "sendEmails"],
     receptionist: ["viewClients", "editAppointments", "sendEmails", "viewClientMessages", "manageUploads", "manageTasks"],
-    receptionist: ["viewClients", "editAppointments", "sendEmails", "viewClientMessages", "manageUploads", "manageTasks"],
   };
   return roleDefaults[access.role]?.includes(permission) ?? false;
 }
