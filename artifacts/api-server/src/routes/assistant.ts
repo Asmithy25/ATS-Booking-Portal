@@ -212,7 +212,7 @@ const tools = [
   },
 ];
 
-async function callOpenAI(input: any[], instructions: string, previousResponseId?: string) {
+async function callOpenAI(input: any[], instructions: string, previousResponseId?: string, allowBookingTools = false) {
   const configuredKey = process.env.OPENAI_API_KEY ?? process.env.AUBREY_API_CODE ?? "";
   const key = String(configuredKey).trim();
   if (!key) throw Object.assign(new Error("Aydens Wellness Assistant is not configured yet."), { statusCode: 503 });
@@ -221,13 +221,13 @@ async function callOpenAI(input: any[], instructions: string, previousResponseId
   }
 
   const model = process.env.OPENAI_MODEL || "gpt-6-luna";
+  const activeTools = allowBookingTools ? tools : [];
   const body: Record<string, unknown> = {
     model,
     instructions,
     input,
-    tools,
-    tool_choice: "auto",
-    parallel_tool_calls: false,
+    tools: activeTools,
+    ...(activeTools.length ? { tool_choice: "auto", parallel_tool_calls: false } : {}),
     max_output_tokens: 1400,
   };
   if (previousResponseId) body.previous_response_id = previousResponseId;
@@ -411,13 +411,16 @@ async function runAssistant(req: Request, res: Response, persistentClientId: num
   history.push({ role: "user", body: message });
 
   try {
-    let response = await callOpenAI(history.map((item) => ({ role: item.role, content: item.body })), instructions);
+    const allowBookingTools = persistentClientId !== null;
+    let response = await callOpenAI(history.map((item) => ({ role: item.role, content: item.body })), instructions, undefined, allowBookingTools);
     const functionCalls = Array.isArray(response?.output) ? response.output.filter((item: any) => item?.type === "function_call") : [];
 
     if (functionCalls.length > 1) {
       response = await callOpenAI(
         history.map((item) => ({ role: item.role, content: item.body })),
         instructions + "\nFor safety, handle only one booking action per client message. Ask a clarifying question if multiple booking changes are requested at once.",
+        undefined,
+        allowBookingTools,
       );
     } else if (functionCalls.length === 1) {
       const call = functionCalls[0];
@@ -432,6 +435,7 @@ async function runAssistant(req: Request, res: Response, persistentClientId: num
         [{ type: "function_call_output", call_id: String(call.call_id), output: JSON.stringify(toolResult) }],
         instructions,
         String(response.id),
+        allowBookingTools,
       );
     }
 
