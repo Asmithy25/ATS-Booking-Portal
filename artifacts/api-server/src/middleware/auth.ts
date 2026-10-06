@@ -195,9 +195,14 @@ export function hasPermission(
     return access.permissions[permission] === true;
   }
   const roleDefaults: Record<string, string[]> = {
-    manager: ["viewClients", "editAppointments", "sendEmails", "manageSettings", "postAnnouncements", "viewAnalytics", "viewAuditLogs"],
-    therapist: ["viewClients", "editAppointments", "viewAnalytics"],
-    customer_service_representative: ["viewClients", "editAppointments", "sendEmails"],
+    manager: [
+      "viewClients", "editAppointments", "sendEmails", "manageSettings",
+      "postAnnouncements", "viewAnalytics", "viewAuditLogs",
+      "manageUploads", "manageAssignments", "viewClientMessages", "manageTasks",
+      "manageResources", "viewSystemHealth",
+    ],
+    therapist: ["viewClients", "editAppointments", "viewAnalytics", "manageAssignments", "viewClientMessages"],
+    customer_service_representative: ["viewClients", "editAppointments", "sendEmails", "viewClientMessages", "manageUploads"],
     receptionist: ["viewClients", "editAppointments", "sendEmails", "viewClientMessages", "manageUploads", "manageTasks"],
   };
   return roleDefaults[access.role]?.includes(permission) ?? false;
