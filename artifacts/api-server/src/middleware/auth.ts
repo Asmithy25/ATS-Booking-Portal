@@ -189,7 +189,11 @@ export function hasPermission(
   permission: string,
 ): boolean {
   if (access.role === "founder") return true;
-  if (access.permissions?.[permission] === true) return true;
+  // Explicit role permissions are authoritative. This lets the founder
+  // revoke a built-in role capability instead of having defaults re-grant it.
+  if (Object.prototype.hasOwnProperty.call(access.permissions ?? {}, permission)) {
+    return access.permissions[permission] === true;
+  }
   const roleDefaults: Record<string, string[]> = {
     manager: ["viewClients", "editAppointments", "sendEmails", "manageSettings", "postAnnouncements", "viewAnalytics", "viewAuditLogs"],
     therapist: ["viewClients", "editAppointments", "viewAnalytics"],
