@@ -19,6 +19,73 @@ const router = Router();
 const normalizeCode = (value: unknown) => String(value ?? "").toUpperCase().trim();
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
+// Public booking anti-abuse validation. Keep this deliberately conservative:
+// reject obvious spam/gibberish while allowing legitimate names and reasons.
+const TROLL_NAME_PATTERNS = [
+  /\btest(?:er|ing)?\b/i,
+  /\basdf+\b/i,
+  /\bqwerty+\b/i,
+  /\bzxcv+\b/i,
+  /\b(?:lol|lmao|lmfao|bruh|deez|nuts|ligma)\b/i,
+  /\b(?:n+o+b+o+d+y|f+u+c+k+|s+h+i+t+|b+i+t+c+h+|a+s+s+h+o+l+e)\b/i,
+  /\b(?:n[i1]gg(?:er|a)|f[a@]g(?:g|got)?|r[e3]t[a@]rd)\b/i,
+  /\b(?:poop|pee|penis|vagina|dick|pussy|boobs|cum)\b/i,
+  /(.)\1{4,}/i,
+];
+
+const TROLL_REASON_PATTERNS = [
+  /\b(?:test|testing|asdf|qwerty|zxcv)\b/i,
+  /\b(?:lol|lmao|lmfao|bruh|deez|nuts|ligma)\b/i,
+  /\b(?:fuck|shit|bitch|asshole|dick|pussy|penis|boobs|cum)\b/i,
+  /\b(?:kill myself|kys|go die)\b/i,
+];
+
+const URL_OR_HTML_PATTERN = /(https?:\/\/|www\.|<[^>]+>|javascript:)/i;
+
+function normalizeUserText(value: unknown, maxLength: number) {
+  return String(value ?? "").normalize("NFKC").replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function hasMostlyLetters(value: string) {
+  const letters = (value.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g) ?? []).length;
+  const nonWhitespace = (value.match(/\S/g) ?? []).length;
+  return letters >= 2 && letters / Math.max(1, nonWhitespace) >= 0.45;
+}
+
+function containsTrollPattern(value: string, patterns: RegExp[]) {
+  return patterns.some((pattern) => pattern.test(value));
+}
+
+function validatePublicBookingInput(clientName: unknown, reason: unknown) {
+  const name = normalizeUserText(clientName, 120);
+  const bookingReason = normalizeUserText(reason, 2000);
+
+  if (!name || !bookingReason) return { ok: false, error: "Please enter your name and a reason for the appointment." as const };
+  if (name.length < 2) return { ok: false, error: "Please enter your full name." as const };
+  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ .'\-]{1,119}$/.test(name)) {
+    return { ok: false, error: "Please enter a valid name." as const };
+  }
+  if (!hasMostlyLetters(name) || containsTrollPattern(name, TROLL_NAME_PATTERNS)) {
+    return { ok: false, error: "Please enter a real name so we can verify your appointment request." as const };
+  }
+
+  if (bookingReason.length < 10) {
+    return { ok: false, error: "Please provide a little more detail about what you would like support with." as const };
+  }
+  if (URL_OR_HTML_PATTERN.test(bookingReason)) {
+    return { ok: false, error: "Please remove links or web code from the appointment reason." as const };
+  }
+  if (!hasMostlyLetters(bookingReason) || containsTrollPattern(bookingReason, TROLL_REASON_PATTERNS)) {
+    return { ok: false, error: "Please provide a genuine reason for your appointment request." as const };
+  }
+  if ((bookingReason.match(/[!?.]{5,}/) ?? []).length > 0 || /(.)\1{7,}/i.test(bookingReason)) {
+    return { ok: false, error: "Please provide a genuine reason for your appointment request." as const };
+  }
+
+  return { ok: true, clientName: name, reason: bookingReason };
+}
+
+
 type BusinessHoursChallenge = {
   kind: "booking_business_hours";
   action: "create" | "update";
@@ -108,6 +175,11 @@ router.post("/", async (req, res) => {
     res.status(400).json({ error: "All fields are required." });
     return;
   }
+  const publicInput = validatePublicBookingInput(clientName, reason);
+  if (!publicInput.ok) {
+    res.status(422).json({ error: publicInput.error, code: "BOOKING_VALIDATION_FAILED" });
+    return;
+  }
   try {
     const slot = await validateBookingSlot(preferredDate, preferredTime);
     if (!slot.ok) {
@@ -116,7 +188,7 @@ router.post("/", async (req, res) => {
     }
     const confirmationCode = await createConfirmationCode();
     const clientAccountId = await resolveClientAccountId(phone);
-    const [created] = await db.insert(bookingsTable).values({ confirmationCode, clientAccountId, clientName, phone, reason, preferredDate, preferredTime, status: "pending" }).returning();
+    const [created] = await db.insert(bookingsTable).values({ confirmationCode, clientAccountId, clientName: publicInput.clientName, phone, reason: publicInput.reason, preferredDate, preferredTime, status: "pending" }).returning();
     await notifyBooking(created, "booking_confirmation");
     const prior = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.phone, phone));
     res.status(201).json({ ...serializeBooking(created), isReturningClient: prior.length > 1, previousSessionCount: Math.max(0, prior.length - 1) });
