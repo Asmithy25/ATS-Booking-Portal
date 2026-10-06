@@ -757,7 +757,7 @@ export default function Home() {
 
       <PublicFooter />
       <a
-        href="/portal/tools"
+        href="/assistant"
         aria-label="Open Aydens Wellness Assistant"
         className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/95 px-3 py-3 text-sm font-semibold text-foreground shadow-xl backdrop-blur transition hover:-translate-y-0.5 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-primary sm:px-4"
       >
