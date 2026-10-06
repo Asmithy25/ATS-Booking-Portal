@@ -362,7 +362,7 @@ export default function Employees() {
                     Reset Password
                   </Button>
                 </div>
-
+              </div>
 
               <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
