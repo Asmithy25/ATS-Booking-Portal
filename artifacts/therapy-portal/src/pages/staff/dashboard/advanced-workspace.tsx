@@ -83,7 +83,7 @@ export default function AdvancedWorkspace() {
     } catch(error:any) { toast({variant:"destructive",title:"Message failed",description:error?.message || "Please try again."}); }
   };
 
-  const createUpload = async () => {
+  const downloadUpload = async (id:number, name:string) => { try { const blob = await getJson<Blob>("/api/advanced/staff/uploads/"+id+"/download", { responseType:"blob" } as any); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href=url; anchor.download=name; anchor.click(); window.setTimeout(()=>URL.revokeObjectURL(url),1000); } catch (error:any) { toast({variant:"destructive",title:"Download failed",description:error?.message || "Please try again."}); } };\n\n  const createUpload = async () => {
     if (!selectedClient) { toast({variant:"destructive",title:"Select a client first"}); return; }
     try {
       const result = await getJson<{url:string}>("/api/advanced/staff/upload-requests",{method:"POST",body:JSON.stringify({clientId:selectedClient,label:uploadLabel,expiresInDays:Number(uploadDays)})});
@@ -211,7 +211,7 @@ export default function AdvancedWorkspace() {
           <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2"><Label>Upload label</Label><Input value={uploadLabel} onChange={e=>setUploadLabel(e.target.value)}/></div><div className="space-y-2"><Label>Expires in days</Label><Input type="number" min={1} max={90} value={uploadDays} onChange={e=>setUploadDays(e.target.value)}/></div></div>
           <Button onClick={()=>void createUpload()} disabled={!selectedClient}><FileUp className="mr-2 h-4 w-4"/>Create link</Button>
         </CardContent></Card>
-        <Card className="rounded-2xl"><CardHeader><CardTitle>Received files</CardTitle></CardHeader><CardContent className="space-y-2">{uploads.map(f=><div key={f.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"><div><b>{f.fileName}</b><p className="text-xs text-muted-foreground">{f.clientName} · {f.label} · {Math.ceil(f.sizeBytes/1024)} KB</p></div><a className="text-sm font-semibold text-primary hover:underline" href={"/api/advanced/staff/uploads/"+f.id+"/download"}>Download</a></div>)}</CardContent></Card>
+        <Card className="rounded-2xl"><CardHeader><CardTitle>Received files</CardTitle></CardHeader><CardContent className="space-y-2">{uploads.map(f=><div key={f.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"><div><b>{f.fileName}</b><p className="text-xs text-muted-foreground">{f.clientName} · {f.label} · {Math.ceil(f.sizeBytes/1024)} KB</p></div><Button size="sm" variant="outline" onClick={()=>void downloadUpload(f.id,f.fileName)}>Download</Button></div>)}</CardContent></Card>
       </TabsContent>
 
       <TabsContent value="tasks" className="space-y-5">
