@@ -5,7 +5,7 @@ import { db } from "@workspace/db";
 import { staffAccountsTable, clientAccountsTable, bookingsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { repairClientData } from "../lib/client-data-repair";
-import { ensureAdvancedStorage, getStaffSecurity, setInitialStaffPin, verifyStaffPin, resetStaffPin } from "../lib/advanced-storage";
+import { ensureAdvancedStorage, getStaffPinPolicy, getStaffSecurity, setInitialStaffPin, verifyStaffPin, resetStaffPin, isAllowedPinLength, isObviousStaffPin } from "../lib/advanced-storage";
 
 const router = Router();
 
@@ -27,12 +27,13 @@ router.post("/login", async (req, res) => {
     await ensureAdvancedStorage();
     const security = await getStaffSecurity(key);
     if (!security?.pin_hash) {
-      const setupToken = signPayload({ auth: "pin_setup", email: key, name: hardcoded.name, exp: String(Date.now() + 10 * 60 * 1000) });
+      const pinLength = await getStaffPinPolicy();
+      const setupToken = signPayload({ auth: "pin_setup", email: key, name: hardcoded.name, pinLength, exp: String(Date.now() + 10 * 60 * 1000) });
       res.status(428).json({ error: "PIN setup required.", pinSetupRequired: true, setupToken, staffName: hardcoded.name });
       return;
     }
     if (typeof pin !== "string" || !(await verifyStaffPin(key, pin))) {
-      res.status(401).json({ error: "A valid 6-digit PIN is required." });
+      res.status(401).json({ error: "A valid staff PIN is required." });
       return;
     }
     issueSession(res, key, hardcoded.name, keepSignedIn);
@@ -49,7 +50,8 @@ router.post("/login", async (req, res) => {
   await ensureAdvancedStorage();
   const security = await getStaffSecurity(key);
   if (!security?.pin_hash) {
-    const setupToken = signPayload({ auth: "pin_setup", email: key, name: rows[0].name, exp: String(Date.now() + 10 * 60 * 1000) });
+    const pinLength = await getStaffPinPolicy();
+    const setupToken = signPayload({ auth: "pin_setup", email: key, name: rows[0].name, pinLength, exp: String(Date.now() + 10 * 60 * 1000) });
     res.status(428).json({ error: "PIN setup required.", pinSetupRequired: true, setupToken, staffName: rows[0].name });
     return;
   }
@@ -62,6 +64,8 @@ router.post("/login", async (req, res) => {
   res.json({ success: true, staffName: rows[0].name, role: rows[0].role, permissions: rows[0].permissions });
 });
 
+router.get("/staff-pin/policy", async (_req, res): Promise<void> => { const pinLength = await getStaffPinPolicy(); res.json({ pinLength, allowedLengths: [4, 6, 8] }); });
+
 router.post("/staff-pin/setup", async (req, res): Promise<void> => {
   const pending = req.body?.setupToken ? verifyPayload(String(req.body.setupToken)) : null;
   const pin = typeof req.body?.pin === "string" ? req.body.pin.trim() : "";
@@ -69,10 +73,8 @@ router.post("/staff-pin/setup", async (req, res): Promise<void> => {
     res.status(401).json({ error: "PIN setup has expired. Sign in again." });
     return;
   }
-  if (!/^\d{6}$/.test(pin) || /^(?:000000|111111|123456|654321)$/.test(pin)) {
-    res.status(400).json({ error: "Choose a 6-digit PIN that is not an obvious sequence." });
-    return;
-  }
+  const pinLength = isAllowedPinLength(Number(pending.pinLength)) ? Number(pending.pinLength) : await getStaffPinPolicy();
+  if (pin.length !== pinLength || !/^\d+$/.test(pin) || isObviousStaffPin(pin)) { res.status(400).json({ error: "Choose a valid " + pinLength + "-digit PIN that is not an obvious sequence." }); return; }
   await setInitialStaffPin(pending.email, pin);
   issueSession(res, pending.email, pending.name, true);
   res.json({ success: true, staffName: pending.name });
@@ -110,6 +112,7 @@ router.get("/security", requireAuth, async (req, res): Promise<void> => {
     sessionRememberDays: 30,
     passwordChangeSupported: !isFounder,
     permissionNames: Object.entries(access.permissions ?? {}).filter(([, allowed]) => allowed).map(([name]) => name),
+    pinLength: await getStaffPinPolicy(),
     accountCreatedAt,
   });
 });

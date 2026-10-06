@@ -1,0 +1,20 @@
+import { useEffect, useState } from "react";
+import { customFetch } from "@workspace/api-client-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { MessageCircle, Send, Check, RotateCcw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+export default function PublicSupport(){
+ const {toast}=useToast();const [threads,setThreads]=useState<any[]>([]);const [active,setActive]=useState<number|null>(null);const [draft,setDraft]=useState("");
+ const load=async()=>{try{setThreads(await customFetch<any[]>("/api/final/staff-public-support",{responseType:"json"}));}catch(e:any){toast({variant:"destructive",title:"Public Support unavailable",description:e?.message||"You may not have client messaging access."});}};
+ useEffect(()=>{void load();},[]);
+ const reply=async()=>{if(!active||!draft.trim())return;try{await customFetch("/api/final/staff-public-support/"+active+"/reply",{method:"POST",body:JSON.stringify({message:draft}),responseType:"json"});setDraft("");await load();}catch(e:any){toast({variant:"destructive",title:"Reply failed",description:e?.message||"Try again."});}};
+ const toggle=async(id:number,status:string)=>{await customFetch("/api/final/staff-public-support/"+id,{method:"PATCH",body:JSON.stringify({status}),responseType:"json"});await load();};
+ const current=threads.find(t=>t.id===active);
+ return <div className="max-w-6xl space-y-7"><div><p className="text-sm text-muted-foreground">Website conversations</p><h1 className="flex items-center gap-2 font-serif text-4xl"><MessageCircle className="h-7 w-7 text-primary"/>Public Support</h1><p className="mt-2 text-sm text-muted-foreground">Conversations started from the public website. Private client-portal support stays separate.</p></div>
+ <div className="grid gap-5 lg:grid-cols-[.8fr,1.2fr]"><Card className="rounded-2xl"><CardHeader><CardTitle>Conversations</CardTitle><CardDescription>{threads.length} total</CardDescription></CardHeader><CardContent className="space-y-2">{threads.length?threads.map(t=><button key={t.id} type="button" onClick={()=>setActive(t.id)} className={"w-full rounded-xl border p-3 text-left "+(active===t.id?"border-primary bg-primary/5":"")}><div className="flex items-center justify-between gap-2"><span className="truncate font-medium">{t.name}</span><Badge>{t.status}</Badge></div><p className="mt-1 truncate text-xs text-muted-foreground">{t.subject}</p><p className="truncate text-xs text-muted-foreground">{t.email}</p></button>):<p className="text-sm text-muted-foreground">No public support conversations yet.</p>}</CardContent></Card>
+ <Card className="rounded-2xl"><CardHeader><CardTitle>{current?.subject||"Select a conversation"}</CardTitle><CardDescription>{current?current.name+" · "+current.email:"Choose a conversation from the left."}</CardDescription></CardHeader><CardContent>{current?<><div className="space-y-3">{current.messages?.map((m:any)=><div key={m.id} className={"rounded-xl p-3 text-sm "+(m.senderType==="staff"?"ml-4 bg-primary/10":"mr-4 bg-muted")}><p className="text-xs font-semibold text-muted-foreground">{m.senderName}</p><p className="mt-1 whitespace-pre-wrap">{m.body}</p></div>)}</div><div className="mt-4 flex gap-2"><Textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Reply to the visitor…"/><Button className="self-end" onClick={()=>void reply()} disabled={!draft.trim()}><Send className="h-4 w-4"/></Button></div><div className="mt-3 flex gap-2">{current.status==="open"?<Button size="sm" variant="outline" onClick={()=>void toggle(current.id,"closed")}><Check className="mr-1 h-4 w-4"/>Close</Button>:<Button size="sm" variant="outline" onClick={()=>void toggle(current.id,"open")}><RotateCcw className="mr-1 h-4 w-4"/>Reopen</Button>}</div></>:<div className="py-14 text-center text-sm text-muted-foreground">Select a conversation to view it.</div>}</CardContent></Card></div>
+ </div>;
+}

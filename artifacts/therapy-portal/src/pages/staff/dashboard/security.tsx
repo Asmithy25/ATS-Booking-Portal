@@ -16,6 +16,7 @@ type Info = {
   passwordChangeSupported: boolean;
   permissionNames: string[];
   pinConfigured?: boolean;
+  pinLength?: 4 | 6 | 8;
   passkeys?: { id:string; transports:string[] }[];
 };
 
@@ -72,8 +73,9 @@ export default function Security() {
 
   const changePin=async(event:FormEvent)=>{
     event.preventDefault();
-    if(!/^\d{6}$/.test(newPin)||newPin!==confirmPin){
-      toast({variant:'destructive',title:'Check your PIN',description:'Use a 6-digit PIN and make both fields match.'});
+    const pinLength=info?.pinLength ?? 6;
+    if(!/^\d{4,8}$/.test(newPin)||newPin.length!==pinLength||newPin!==confirmPin){
+      toast({variant:'destructive',title:'Check your PIN',description:`Use a ${pinLength}-digit PIN and make both fields match.`});
       return;
     }
     setPinSaving(true);
@@ -158,8 +160,8 @@ export default function Security() {
       </Card>
 
       <Card className="rounded-2xl">
-        <CardHeader><CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary"/>Staff PIN</CardTitle><CardDescription>Six digits, required even after biometric passkey verification.</CardDescription></CardHeader>
-        <CardContent><form className="space-y-4" onSubmit={changePin}><Input inputMode="numeric" maxLength={6} type="password" placeholder="Current PIN" value={currentPin} onChange={e=>setCurrentPin(e.target.value.replace(/\D/g,''))}/><Input inputMode="numeric" maxLength={6} type="password" placeholder="New 6-digit PIN" value={newPin} onChange={e=>setNewPin(e.target.value.replace(/\D/g,''))}/><Input inputMode="numeric" maxLength={6} type="password" placeholder="Confirm new PIN" value={confirmPin} onChange={e=>setConfirmPin(e.target.value.replace(/\D/g,''))}/><Button type="submit" disabled={pinSaving||newPin.length!==6}><KeyRound className="mr-2 h-4 w-4"/>{pinSaving?'Changing…':'Change PIN'}</Button></form></CardContent>
+        <CardHeader><CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary"/>Staff PIN</CardTitle><CardDescription>{info?.pinLength ?? 6} digits, required even after biometric passkey verification.</CardDescription></CardHeader>
+        <CardContent><form className="space-y-4" onSubmit={changePin}><Input inputMode="numeric" maxLength={8} type="password" placeholder="Current PIN" value={currentPin} onChange={e=>setCurrentPin(e.target.value.replace(/\D/g,''))}/><Input inputMode="numeric" maxLength={8} type="password" placeholder={`New ${info?.pinLength ?? 6}-digit PIN`} value={newPin} onChange={e=>setNewPin(e.target.value.replace(/\D/g,''))}/><Input inputMode="numeric" maxLength={8} type="password" placeholder="Confirm new PIN" value={confirmPin} onChange={e=>setConfirmPin(e.target.value.replace(/\D/g,''))}/><Button type="submit" disabled={pinSaving||newPin.length!==(info?.pinLength ?? 6)}><KeyRound className="mr-2 h-4 w-4"/>{pinSaving?'Changing…':'Change PIN'}</Button></form></CardContent>
       </Card>
     </div>
 

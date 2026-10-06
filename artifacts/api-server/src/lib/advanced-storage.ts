@@ -33,6 +33,16 @@ export async function ensureAdvancedStorage(): Promise<void> {
   if (!ready) {
     ready = (async () => {
       await exec("CREATE TABLE IF NOT EXISTS staff_security (email text PRIMARY KEY,pin_hash text,passkeys jsonb NOT NULL DEFAULT '[]'::jsonb,last_pin_set_at timestamp,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())");
+      await exec("CREATE TABLE IF NOT EXISTS staff_security_policy (id integer PRIMARY KEY DEFAULT 1,pin_length integer NOT NULL DEFAULT 6,updated_at timestamp NOT NULL DEFAULT now())");
+      await exec("INSERT INTO staff_security_policy(id,pin_length,updated_at) VALUES (1,6,now()) ON CONFLICT(id) DO NOTHING");
+      await exec("CREATE TABLE IF NOT EXISTS staff_requests (id serial PRIMARY KEY,requester_email text NOT NULL,assignee_email text NOT NULL,title text NOT NULL,description text NOT NULL DEFAULT '',priority text NOT NULL DEFAULT 'normal',status text NOT NULL DEFAULT 'open',due_date text,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())");
+      await exec("CREATE TABLE IF NOT EXISTS staff_request_comments (id serial PRIMARY KEY,request_id integer NOT NULL,author_email text NOT NULL,author_name text NOT NULL,body text NOT NULL,created_at timestamp NOT NULL DEFAULT now())");
+      await exec("CREATE TABLE IF NOT EXISTS public_support_threads (id serial PRIMARY KEY,token text NOT NULL UNIQUE,name text NOT NULL,email text NOT NULL,phone text NOT NULL DEFAULT '',subject text NOT NULL DEFAULT 'Support request',status text NOT NULL DEFAULT 'open',client_account_id integer,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())");
+      await exec("CREATE TABLE IF NOT EXISTS public_support_messages (id serial PRIMARY KEY,thread_id integer NOT NULL,sender_type text NOT NULL,sender_name text NOT NULL,body text NOT NULL,read_by_staff boolean NOT NULL DEFAULT false,read_by_visitor boolean NOT NULL DEFAULT false,created_at timestamp NOT NULL DEFAULT now())");
+      await exec("CREATE INDEX IF NOT EXISTS idx_staff_requests_assignee ON staff_requests(assignee_email,status,updated_at)");
+      await exec("CREATE INDEX IF NOT EXISTS idx_staff_requests_requester ON staff_requests(requester_email,status,updated_at)");
+      await exec("CREATE INDEX IF NOT EXISTS idx_public_support_updated ON public_support_threads(status,updated_at)");
+      await exec("CREATE INDEX IF NOT EXISTS idx_public_support_messages ON public_support_messages(thread_id,created_at)");
       await exec("CREATE TABLE IF NOT EXISTS custom_roles (id serial PRIMARY KEY,slug text NOT NULL UNIQUE,name text NOT NULL,built_in boolean NOT NULL DEFAULT false,permissions jsonb NOT NULL DEFAULT '{}'::jsonb,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())");
       await exec("CREATE TABLE IF NOT EXISTS assistant_messages (id serial PRIMARY KEY,client_account_id integer NOT NULL,role text NOT NULL,body text NOT NULL,created_at timestamp NOT NULL DEFAULT now())");
       await exec("CREATE TABLE IF NOT EXISTS upload_requests (id serial PRIMARY KEY,token text NOT NULL UNIQUE,client_account_id integer NOT NULL,label text NOT NULL,created_by text NOT NULL,expires_at timestamp NOT NULL,created_at timestamp NOT NULL DEFAULT now())");
@@ -86,6 +96,28 @@ export async function setInitialStaffPin(email: string, pin: string) {
 export async function verifyStaffPin(email: string, pin: string) {
   const security = await getStaffSecurity(email);
   return Boolean(security?.pin_hash && verifyStaffPinHash(pin, security.pin_hash));
+}
+
+export const PIN_LENGTH_OPTIONS = [4, 6, 8] as const;
+export type StaffPinLength = typeof PIN_LENGTH_OPTIONS[number];
+export function isAllowedPinLength(value: unknown): value is StaffPinLength {
+  return PIN_LENGTH_OPTIONS.includes(Number(value) as StaffPinLength);
+}
+export function isObviousStaffPin(pin: string): boolean {
+  if (/^(\d)\1+$/.test(pin)) return true;
+  return "0123456789".includes(pin) || "9876543210".includes(pin);
+}
+export async function getStaffPinPolicy(): Promise<StaffPinLength> {
+  await ensureAdvancedStorage();
+  const result: any = await exec("SELECT pin_length FROM staff_security_policy WHERE id=1 LIMIT 1");
+  const value = Number((result?.rows || result || [])[0]?.pin_length);
+  return isAllowedPinLength(value) ? value : 6;
+}
+export async function setStaffPinPolicy(length: StaffPinLength): Promise<StaffPinLength> {
+  if (!isAllowedPinLength(length)) throw new Error("PIN length must be 4, 6, or 8.");
+  await ensureAdvancedStorage();
+  await exec("INSERT INTO staff_security_policy(id,pin_length,updated_at) VALUES (1,"+Number(length)+",now()) ON CONFLICT(id) DO UPDATE SET pin_length=EXCLUDED.pin_length,updated_at=now()");
+  return length;
 }
 
 export async function resetStaffPin(email: string) {

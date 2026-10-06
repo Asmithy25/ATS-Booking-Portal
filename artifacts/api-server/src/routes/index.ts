@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import assistantRouter from "./assistant";
 import advancedRouter from "./advanced";
+import finalStaffRouter from "./finalStaff";
+import finalAuroraRouter from "./finalAurora";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import bookingsRouter from "./bookings";
@@ -28,5 +30,7 @@ router.use("/settings/staff-preferences", staffPreferencesRouter);
 router.use("/workspace", workspaceRouter);
 router.use("/advanced", assistantRouter);
 router.use("/advanced", advancedRouter);
+router.use("/final", finalStaffRouter);
+router.use("/final/aurora", finalAuroraRouter);
 
 export default router;

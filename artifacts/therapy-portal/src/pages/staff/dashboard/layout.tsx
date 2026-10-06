@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 
+function toHsl(hex: string) { const value=/^#[0-9a-fA-F]{6}$/.test(hex)?hex:'#7B4A2F'; const r=parseInt(value.slice(1,3),16)/255,g=parseInt(value.slice(3,5),16)/255,b=parseInt(value.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),l=(max+min)/2; if(max===min)return `0 0% ${Math.round(l*100)}%`; const d=max-min,s=l>.5?d/(2-max-min):d/(max+min); let h=0;if(max===r)h=(g-b)/d+(g<b?6:0);else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;return `${Math.round(h*60)} ${Math.round(s*100)}% ${Math.round(l*100)}%`; }
+
 export default function StaffDashboardLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced' });
+  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#7B4A2F', sidebarColor: '#3F3028', appearance: 'system', sidebarLabels: true, sidebarWidth: 'standard' });
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
@@ -53,6 +55,11 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         density: typeof detail.density === 'string' ? detail.density : current.density,
         navigation: typeof detail.navigation === 'string' ? detail.navigation : current.navigation,
         dashboard: typeof detail.dashboard === 'string' ? detail.dashboard : current.dashboard,
+        accentColor: typeof detail.accentColor === 'string' ? detail.accentColor : current.accentColor,
+        sidebarColor: typeof detail.sidebarColor === 'string' ? detail.sidebarColor : current.sidebarColor,
+        appearance: typeof detail.appearance === 'string' ? detail.appearance : current.appearance,
+        sidebarLabels: typeof detail.sidebarLabels === 'boolean' ? detail.sidebarLabels : current.sidebarLabels,
+        sidebarWidth: typeof detail.sidebarWidth === 'string' ? detail.sidebarWidth : current.sidebarWidth,
       }));
     };
     window.addEventListener('ats-staff-preferences-updated', handlePreferencesUpdated);
@@ -61,13 +68,18 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
 
   useEffect(() => {
     if (!session?.authenticated) return;
-    customFetch<{ layout?: string; density?: string; navigation?: string; dashboard?: string }>('/api/settings/staff-preferences')
+    customFetch<{ layout?: string; density?: string; navigation?: string; dashboard?: string; accentColor?: string; sidebarColor?: string; appearance?: string; sidebarLabels?: boolean; sidebarWidth?: string }>('/api/settings/staff-preferences')
       .then((value) => value && setPortalPrefs((current) => ({
         ...current,
         layout: value.layout ?? current.layout,
         density: value.density ?? current.density,
         navigation: value.navigation ?? current.navigation,
         dashboard: value.dashboard ?? current.dashboard,
+        accentColor: value.accentColor ?? current.accentColor,
+        sidebarColor: value.sidebarColor ?? current.sidebarColor,
+        appearance: value.appearance ?? current.appearance,
+        sidebarLabels: value.sidebarLabels ?? current.sidebarLabels,
+        sidebarWidth: value.sidebarWidth ?? current.sidebarWidth,
       })))
       .catch(() => undefined);
     const loadNotifications = () => customFetch('/api/settings/staff-preferences/notifications')
@@ -105,15 +117,26 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         }`}
       >
         {icon}
-        <span className={portalPrefs.navigation === "rail" ? "hidden md:inline-block md:sr-only" : ""}>{label}</span>
+        <span className={portalPrefs.sidebarLabels && portalPrefs.navigation !== "rail" ? "" : "sr-only"}>{label}</span>
       </Link>
     );
   };
 
   return (
-      <div className={`ats-staff-shell min-h-screen flex text-foreground dark:bg-background ats-paper ${portalPrefs.layout === "relaxed" ? "bg-[#f4f0ea]" : portalPrefs.layout === "focused" ? "bg-[#eef1f5]" : portalPrefs.layout === "minimal" ? "bg-background" : "bg-[#edf0eb]"}`}>
+      <div className={portalPrefs.appearance === "dark" ? "dark" : ""}>
+      <div
+        className={`ats-staff-shell min-h-screen flex text-foreground ats-paper ${portalPrefs.layout === "relaxed" ? "bg-[#f4f0ea]" : portalPrefs.layout === "focused" ? "bg-[#eef1f5]" : portalPrefs.layout === "minimal" ? "bg-background" : "bg-[#edf0eb]"}`}
+        style={{
+          "--primary": toHsl(portalPrefs.accentColor),
+          "--ring": toHsl(portalPrefs.accentColor),
+          "--secondary": toHsl(portalPrefs.accentColor),
+          "--sidebar": toHsl(portalPrefs.sidebarColor),
+          "--sidebar-primary": toHsl(portalPrefs.accentColor),
+          "--sidebar-accent": toHsl(portalPrefs.accentColor),
+        } as React.CSSProperties}
+      >
       {/* Sidebar */}
-      <aside className={`${portalPrefs.navigation === "rail" ? "w-20" : portalPrefs.navigation === "compact" ? "w-56" : "w-64"} bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col fixed h-full z-30 transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`${portalPrefs.sidebarWidth === "narrow" ? "w-52" : portalPrefs.sidebarWidth === "wide" ? "w-80" : portalPrefs.navigation === "rail" ? "w-20" : portalPrefs.navigation === "compact" ? "w-56" : "w-64"} bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col fixed h-full z-30 transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="border-b border-sidebar-border p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-sidebar-primary p-1">
@@ -139,7 +162,10 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/wellness', <NotebookPen className="h-4 w-4" />, 'Wellness Journey')}
           {navItem('/staff/operations', <BriefcaseBusiness className="h-4 w-4" />, 'Care Operations')}
           {navItem('/staff/analytics', <BarChart3 className="h-4 w-4" />, 'Analytics')}
+          {navItem('/staff/requests', <ClipboardList className="h-4 w-4" />, 'Staff Requests')}
+          {((session.isAdmin || (session as any).permissions?.useAuroraAI === true)) && navItem('/staff/aurora', <Sparkles className="h-4 w-4" />, 'Aydens Wellness Staff Assistant')}
           {navItem('/staff/support', <MessageCircle className="h-4 w-4" />, 'Support inbox')}
+          {((session.isAdmin || (session as any).permissions?.viewClientMessages === true)) && navItem('/staff/public-support', <MessageCircle className="h-4 w-4" />, 'Public Support')}
           {navItem('/staff/notifications', <Bell className="h-4 w-4" />, 'Notification center')}
            {navItem('/staff/team-chat', <MessageCircle className="h-4 w-4" />, 'Team chat')}
            {navItem('/staff/team', <UsersRound className="h-4 w-4" />, 'Team workspace')}
@@ -148,7 +174,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
            {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/rollout', <Megaphone className="h-4 w-4" />, 'Rollout')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/announcements', <Megaphone className="h-4 w-4" />, 'Announcements')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Activity history')}
-          {navItem('/staff/settings', <SettingsIcon className="h-4 w-4" />, 'Settings')}
+          {navItem('/staff/my-settings', <SettingsIcon className="h-4 w-4" />, 'My Settings')}
+          {session.isAdmin && navItem('/staff/website-settings', <Eye className="h-4 w-4" />, 'Website Settings')}
+          {session.isAdmin && navItem('/staff/management-settings', <ShieldCheck className="h-4 w-4" />, 'Management Settings')}
           {navItem('/staff/feedback', <Star className="h-4 w-4" />, 'Feedback')}
           {navItem('/staff/homepage-preview', <Eye className="h-4 w-4" />, 'Homepage preview')}
           {navItem('/staff/security', <ShieldCheck className="h-4 w-4" />, 'Security')}
@@ -182,7 +210,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
       {mobileOpen && <button aria-label="Close navigation" data-testid="button-close-sidebar" className="fixed inset-0 z-20 bg-[hsl(25_29%_21%_/.35)] md:hidden" onClick={() => setMobileOpen(false)} />}
 
       {/* Main Content */}
-      <main className={`flex-1 p-4 pt-20 md:p-10 md:pt-9 ${portalPrefs.navigation === "rail" ? "md:ml-20" : portalPrefs.navigation === "compact" ? "md:ml-56" : "md:ml-64"} ${portalPrefs.density === "compact" ? "staff-compact" : portalPrefs.density === "spacious" ? "staff-spacious" : "staff-comfortable"}`}>
+      <main className={`flex-1 p-4 pt-20 md:p-10 md:pt-9 ${portalPrefs.sidebarWidth === "narrow" ? "md:ml-52" : portalPrefs.sidebarWidth === "wide" ? "md:ml-80" : portalPrefs.navigation === "rail" ? "md:ml-20" : portalPrefs.navigation === "compact" ? "md:ml-56" : "md:ml-64"} ${portalPrefs.density === "compact" ? "staff-compact" : portalPrefs.density === "spacious" ? "staff-spacious" : "staff-comfortable"}`}>
         <div className="fixed top-0 left-0 right-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center bg-secondary p-1">
@@ -239,6 +267,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {children}
         </div>
       </main>
+      </div>
     </div>
   );
 }

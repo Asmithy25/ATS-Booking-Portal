@@ -132,7 +132,7 @@ const BACKUP_OPTIONS: Array<{
   },
 ];
 
-export default function Settings() {
+export default function Settings({ hidePersonal = false }: { hidePersonal?: boolean } = {}) {
   const { data: session } = useGetAuthMe({
     query: { queryKey: getGetAuthMeQueryKey(), retry: false },
   });
@@ -444,7 +444,8 @@ export default function Settings() {
 
       <Card className="rounded-2xl border-primary/15">
         <CardHeader>
-          <CardTitle>My Staff Portal</CardTitle>
+          {!hidePersonal && (
+<CardTitle>My Staff Portal</CardTitle>
           <CardDescription>Personalize your workspace without changing the public website or anyone else’s portal.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5 sm:grid-cols-2">
@@ -481,6 +482,7 @@ export default function Settings() {
           </Button></div>
         </CardContent>
       </Card>
+          )}
 
       <Form {...form}>
         <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
@@ -488,7 +490,8 @@ export default function Settings() {
             <Card>
               <CardHeader className="flex flex-row items-start justify-between gap-4">
                 <div>
-                  <CardTitle>My Therapist Hours</CardTitle>
+                  {!hidePersonal && (
+<CardTitle>My Therapist Hours</CardTitle>
                   <CardDescription>
                     These are the hours shown publicly under {myHours?.name ? `${myHours.name}'s Hours` : 'your name'}.
                     Only your own schedule is changed here.
@@ -552,6 +555,7 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
+          )}
 
            {session?.isAdmin && <Card className="border-primary/20">
              <CardHeader>

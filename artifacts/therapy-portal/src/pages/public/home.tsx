@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle, Leaf, Eye, Bot } from 'lucide-react';
+import { PhoneCall, Calendar, Mail, Clock, Loader2, Sparkles, AlertCircle, Leaf, Eye, Bot, MessageCircle } from 'lucide-react';
 import { getThemeStyle } from '@/lib/theme';
 import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 import { WellnessLookup } from '@/components/WellnessLookup';
@@ -326,6 +326,7 @@ export default function Home() {
                   >
                      {content.heroPrimaryButton}
                   </Button>
+                  <Button type="button" variant="ghost" size="lg" className="rounded-full text-base px-6 h-12" onClick={() => { window.location.href = '/support'; }}><MessageCircle className="mr-2 h-4 w-4" /> Talk to the team</Button>
                   <Button
                     type="button"
                     variant="outline"

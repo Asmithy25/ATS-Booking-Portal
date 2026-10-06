@@ -42,6 +42,12 @@ const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const ClientTools = lazy(() => import('@/pages/client/tools'));
 const UploadPage = lazy(() => import('@/pages/public/upload'));
 const AdvancedWorkspace = lazy(() => import('@/pages/staff/dashboard/advanced-workspace'));
+const MySettings = lazy(() => import('@/pages/staff/dashboard/my-settings'));
+const WebsiteSettings = lazy(() => import('@/pages/staff/dashboard/website-settings'));
+const ManagementSettings = lazy(() => import('@/pages/staff/dashboard/management-settings'));
+const StaffRequests = lazy(() => import('@/pages/staff/dashboard/staff-requests'));
+const Aurora = lazy(() => import('@/pages/staff/dashboard/aurora'));
+const StaffPublicSupport = lazy(() => import('@/pages/staff/dashboard/public-support'));
 const NotFound = lazy(() => import('@/pages/not-found'));
 
 const queryClient = new QueryClient();
@@ -80,7 +86,13 @@ function StaffRouter() {
         <Route path="/staff/search" component={GlobalSearch} />
         <Route path="/staff/system-health" component={SystemHealth} />
         <Route path="/staff/operations" component={AdvancedWorkspace} />
-        <Route path="/staff/settings" component={Settings} />
+        <Route path="/staff/my-settings" component={MySettings} />
+        <Route path="/staff/website-settings" component={WebsiteSettings} />
+        <Route path="/staff/management-settings" component={ManagementSettings} />
+        <Route path="/staff/requests" component={StaffRequests} />
+        <Route path="/staff/aurora" component={Aurora} />
+        <Route path="/staff/public-support" component={StaffPublicSupport} />
+        <Route path="/staff/settings" component={MySettings} />
         <Route path="/staff/employees" component={Employees} />
         <Route component={NotFound} />
       </Switch>
@@ -96,6 +108,8 @@ function Router() {
       <Route path="/booking" component={BookingManage} />
       <Route path="/updates" component={PublicUpdates} />
       <Route path="/assistant" component={PublicAssistant} />
+      <Route path="/support/:token" component={PublicSupport} />
+      <Route path="/support" component={PublicSupport} />
       <Route path="/staff" component={Login} />
       <Route path="/staff/login" component={Login} />
       <Route path="/portal/login" component={ClientAuth} />

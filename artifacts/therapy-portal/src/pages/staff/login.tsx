@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,7 +16,7 @@ import { Link } from 'wouter';
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
-  pin: z.string().regex(/^\d{6}$/, 'PIN must be exactly 6 digits').or(z.literal('')),
+  pin: z.string().regex(/^\d{4,8}$/, 'PIN must be 4, 6, or 8 digits').or(z.literal('')),
   keepSignedIn: z.boolean().default(false),
 });
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -40,6 +40,8 @@ export default function Login() {
   const [passkeyPendingToken, setPasskeyPendingToken] = useState('');
   const [passkeyPin, setPasskeyPin] = useState('');
   const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [pinLength, setPinLength] = useState<4|6|8>(6);
+  useEffect(() => { customFetch<{pinLength:4|6|8}>('/api/auth/staff-pin/policy',{responseType:'json'}).then((value)=>setPinLength(value.pinLength)).catch(()=>undefined); }, []);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -58,21 +60,22 @@ export default function Login() {
         setLocation('/staff/dashboard');
       }
     } catch (error) {
-      const err = error as { status?: number; data?: { error?: string; pinSetupRequired?: boolean; setupToken?: string; staffName?: string } };
+      const err = error as { status?: number; data?: { error?: string; pinSetupRequired?: boolean; setupToken?: string; staffName?: string; pinLength?: 4|6|8 } };
       if (err.status === 428 && err.data?.pinSetupRequired && err.data.setupToken) {
         setSetupToken(err.data.setupToken);
+        setPinLength(err.data.pinLength ?? pinLength);
         setSetupPin('');
         setSetupConfirm('');
         toast({ title: 'Set your staff PIN', description: 'Your account needs a PIN before access can be completed.' });
         return;
       }
-      toast({ variant: 'destructive', title: 'Login failed', description: err.data?.error || 'Check your email, password, and 6-digit PIN.' });
+      toast({ variant: 'destructive', title: 'Login failed', description: err.data?.error || 'Check your email, password, and staff PIN.' });
     }
   };
 
   const finishPinSetup = async () => {
-    if (!/^\d{6}$/.test(setupPin) || setupPin !== setupConfirm || /^(?:000000|111111|123456|654321)$/.test(setupPin)) {
-      toast({ variant:'destructive', title:'Choose a valid PIN', description:'Use a 6-digit PIN and confirm it. Avoid obvious sequences.' });
+    if (setupPin.length!==pinLength || !/^\d+$/.test(setupPin) || setupPin !== setupConfirm) {
+      toast({ variant:'destructive', title:'Choose a valid PIN', description:'Use a '+pinLength+'-digit PIN and avoid obvious sequences.' });
       return;
     }
     try {
@@ -137,7 +140,7 @@ export default function Login() {
       });
       setPasskeyPendingToken(verified.pendingToken);
       const existingPin = form.getValues('pin');
-      if (/^\d{6}$/.test(existingPin)) {
+      if (/^\d{4,8}$/.test(existingPin)) {
         await customFetch('/api/advanced/staff/passkey/complete',{method:'POST',body:JSON.stringify({pendingToken:verified.pendingToken,pin:existingPin}),responseType:'json'});
         toast({title:'Welcome back',description:'Passkey and PIN verified.'});
         setLocation('/staff/dashboard');
@@ -151,7 +154,7 @@ export default function Login() {
   };
 
   const finishPasskey = async () => {
-    if (!passkeyPendingToken || !/^\d{6}$/.test(passkeyPin)) return;
+    if (!passkeyPendingToken || !/^\d{4,8}$/.test(passkeyPin)) return;
     try {
       await customFetch('/api/advanced/staff/passkey/complete',{method:'POST',body:JSON.stringify({pendingToken:passkeyPendingToken,pin:passkeyPin}),responseType:'json'});
       toast({title:'Welcome back',description:'Passkey and PIN verified.'});
@@ -169,11 +172,11 @@ export default function Login() {
           <section className="w-full rounded-2xl border border-border bg-card p-7 shadow-xl sm:p-12">
             <Link href="/" className="mb-10 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground"><ArrowLeft className="h-4 w-4"/> Practice home</Link>
             <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center bg-secondary p-1"><img src={logoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><div><p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff security</p><h1 className="font-serif text-4xl">Set your PIN.</h1></div></div>
-            <p className="mt-5 text-sm leading-6 text-muted-foreground">Your staff account now requires a password plus a 6-digit PIN. This PIN is also required after biometric passkey sign-in.</p>
+            <p className="mt-5 text-sm leading-6 text-muted-foreground">Your staff account now requires a password plus {pinLength}-digit PIN. This PIN is also required after biometric passkey sign-in.</p>
             <div className="mt-8 space-y-4">
-              <div className="space-y-2"><label className="text-sm font-medium">Create 6-digit PIN</label><Input inputMode="numeric" maxLength={6} type="password" value={setupPin} onChange={(e)=>setSetupPin(e.target.value.replace(/\D/g,''))} autoComplete="new-password"/></div>
-              <div className="space-y-2"><label className="text-sm font-medium">Confirm PIN</label><Input inputMode="numeric" maxLength={6} type="password" value={setupConfirm} onChange={(e)=>setSetupConfirm(e.target.value.replace(/\D/g,''))} autoComplete="new-password"/></div>
-              <Button className="w-full" onClick={()=>void finishPinSetup()} disabled={setupPin.length!==6||setupConfirm.length!==6}>Set PIN & continue <ArrowUpRight className="ml-2 h-4 w-4"/></Button>
+              <div className="space-y-2"><label className="text-sm font-medium">Create {pinLength}-digit PIN</label><Input inputMode="numeric" maxLength={pinLength} type="password" value={setupPin} onChange={(e)=>setSetupPin(e.target.value.replace(/\D/g,''))} autoComplete="new-password"/></div>
+              <div className="space-y-2"><label className="text-sm font-medium">Confirm PIN</label><Input inputMode="numeric" maxLength={pinLength} type="password" value={setupConfirm} onChange={(e)=>setSetupConfirm(e.target.value.replace(/\D/g,''))} autoComplete="new-password"/></div>
+              <Button className="w-full" onClick={()=>void finishPinSetup()} disabled={setupPin.length!==pinLength||setupConfirm.length!==pinLength}>Set PIN & continue <ArrowUpRight className="ml-2 h-4 w-4"/></Button>
             </div>
           </section>
         </div>
@@ -190,8 +193,8 @@ export default function Login() {
             <p className="mt-5 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Second factor required</p>
             <h1 className="mt-2 font-serif text-4xl">Enter your PIN.</h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">Your fingerprint or Face ID was verified. Your staff PIN is still required.</p>
-            <div className="mt-6 space-y-2"><label className="text-sm font-medium">6-digit PIN</label><Input inputMode="numeric" maxLength={6} type="password" value={passkeyPin} onChange={(e)=>setPasskeyPin(e.target.value.replace(/\D/g,''))} autoComplete="one-time-code"/></div>
-            <Button className="mt-5 w-full" onClick={()=>void finishPasskey()} disabled={passkeyPin.length!==6}>Finish sign in</Button>
+            <div className="mt-6 space-y-2"><label className="text-sm font-medium">Staff PIN</label><Input inputMode="numeric" maxLength={8} type="password" value={passkeyPin} onChange={(e)=>setPasskeyPin(e.target.value.replace(/\D/g,''))} autoComplete="one-time-code"/></div>
+            <Button className="mt-5 w-full" onClick={()=>void finishPasskey()} disabled={passkeyPin.length<4||passkeyPin.length>8}>Finish sign in</Button>
           </section>
         </div>
       </div>
@@ -213,11 +216,11 @@ export default function Login() {
         <section className="flex items-center p-7 sm:p-12">
           <div className="w-full">
             <Link href="/" className="mb-12 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-destructive"><ArrowLeft className="h-4 w-4"/> Practice home</Link>
-            <div className="mb-9"><span className="flex h-12 w-12 items-center justify-center bg-secondary p-1 lg:hidden"><img src={logoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><p className="mt-7 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff access</p><h2 className="mt-3 font-serif text-5xl font-normal leading-none">Welcome back.</h2><p className="mt-4 text-sm leading-6 text-muted-foreground">Sign in with your password and required 6-digit PIN.</p></div>
+            <div className="mb-9"><span className="flex h-12 w-12 items-center justify-center bg-secondary p-1 lg:hidden"><img src={logoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><p className="mt-7 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff access</p><h2 className="mt-3 font-serif text-5xl font-normal leading-none">Welcome back.</h2><p className="mt-4 text-sm leading-6 text-muted-foreground">Sign in with your password and required {pinLength}-digit PIN.</p></div>
             <form onSubmit={form.handleSubmit(signIn)} className="space-y-5">
               <div className="space-y-2"><label className="text-sm font-medium">Email Address</label><Input autoComplete="username" placeholder="ayden@aydenstherapyservices.com" {...form.register('email')}/>{form.formState.errors.email&&<p className="text-xs text-destructive">{form.formState.errors.email.message}</p>}</div>
               <div className="space-y-2"><label className="text-sm font-medium">Password</label><Input autoComplete="current-password" type="password" placeholder="Enter your password" {...form.register('password')}/>{form.formState.errors.password&&<p className="text-xs text-destructive">{form.formState.errors.password.message}</p>}</div>
-              <div className="space-y-2"><label className="text-sm font-medium">6-digit PIN</label><Input inputMode="numeric" maxLength={6} type="password" placeholder="Required every time" autoComplete="one-time-code" {...form.register('pin')} onChange={(e)=>form.setValue('pin',e.target.value.replace(/\D/g,''),{shouldValidate:true})}/>{form.formState.errors.pin&&<p className="text-xs text-destructive">{form.formState.errors.pin.message}</p>}</div>
+              <div className="space-y-2"><label className="text-sm font-medium">Staff PIN</label><Input inputMode="numeric" maxLength={8} type="password" placeholder="Required every time" autoComplete="one-time-code" {...form.register('pin')} onChange={(e)=>form.setValue('pin',e.target.value.replace(/\D/g,''),{shouldValidate:true})}/>{form.formState.errors.pin&&<p className="text-xs text-destructive">{form.formState.errors.pin.message}</p>}</div>
               <div className="flex items-center gap-3 py-1"><Checkbox checked={form.watch('keepSignedIn')} onCheckedChange={(value)=>form.setValue('keepSignedIn',Boolean(value))}/><span className="text-sm">Keep me signed in</span></div>
               <Button type="submit" className="h-12 w-full" disabled={form.formState.isSubmitting}><ShieldCheck className="mr-2 h-4 w-4"/>{form.formState.isSubmitting?'Signing in…':'Sign in securely'}<ArrowUpRight className="ml-auto h-4 w-4"/></Button>
             </form>
