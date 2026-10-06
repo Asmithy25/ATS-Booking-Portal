@@ -83,7 +83,9 @@ export default function AdvancedWorkspace() {
     } catch(error:any) { toast({variant:"destructive",title:"Message failed",description:error?.message || "Please try again."}); }
   };
 
-  const downloadUpload = async (id:number, name:string) => { try { const blob = await getJson<Blob>("/api/advanced/staff/uploads/"+id+"/download", { responseType:"blob" } as any); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href=url; anchor.download=name; anchor.click(); window.setTimeout(()=>URL.revokeObjectURL(url),1000); } catch (error:any) { toast({variant:"destructive",title:"Download failed",description:error?.message || "Please try again."}); } };\n\n  const createUpload = async () => {
+  const downloadUpload = async (id:number, name:string) => { try { const blob = await getJson<Blob>("/api/advanced/staff/uploads/"+id+"/download", { responseType:"blob" } as any); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href=url; anchor.download=name; anchor.click(); window.setTimeout(()=>URL.revokeObjectURL(url),1000); } catch (error:any) { toast({variant:"destructive",title:"Download failed",description:error?.message || "Please try again."}); } };
+
+  const createUpload = async () => {
     if (!selectedClient) { toast({variant:"destructive",title:"Select a client first"}); return; }
     try {
       const result = await getJson<{url:string}>("/api/advanced/staff/upload-requests",{method:"POST",body:JSON.stringify({clientId:selectedClient,label:uploadLabel,expiresInDays:Number(uploadDays)})});
