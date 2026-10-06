@@ -40,8 +40,11 @@ function qJson(value: unknown) {
   return q(JSON.stringify(value ?? {})) + "::jsonb";
 }
 async function aiText(instructions: string, input: string) {
-  const key = process.env.OPENAI_API_KEY || process.env.AUBREY_API_CODE;
-  if (!key) throw Object.assign(new Error("AI is not configured yet. Add OPENAI_API_KEY to the Railway API service."), { statusCode: 503 });
+  const key = String(process.env.OPENAI_API_KEY ?? "").trim();
+  if (!key) throw Object.assign(new Error("Aydens Wellness Assistant is not configured yet. Add a fresh OPENAI_API_KEY to the Railway API service."), { statusCode: 503 });
+  if (/\\s/.test(key) || key.includes("OPENAI_API_KEY") || key.includes("OPENAI_MODEL") || key.includes("=")) {
+    throw Object.assign(new Error("Aydens Wellness Assistant has an invalid API key configuration. OPENAI_API_KEY must contain only the single secret key value."), { statusCode: 503 });
+  }
   const model = process.env.OPENAI_MODEL || "gpt-6-luna";
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -195,6 +198,41 @@ router.post("/client/messages",requireClientAuth,async(req,res)=>{const id=clien
 router.get("/staff/client-messages",requireAuth,async(req,res)=>{const access=await staffCapability(req,res,"viewClientMessages");if(!access)return;const threads=rows(await exec("SELECT t.id,t.subject,t.status,t.client_account_id AS \"clientAccountId\",c.name AS \"clientName\",c.email AS \"clientEmail\",t.created_at AS \"createdAt\",t.updated_at AS \"updatedAt\" FROM support_threads t JOIN client_accounts c ON c.id=t.client_account_id ORDER BY t.updated_at DESC"));const result:any[]=[];for(const thread of threads){const messages=rows(await exec("SELECT id,sender_type AS \"senderType\",sender_name AS \"senderName\",body,created_at AS \"createdAt\" FROM support_messages WHERE thread_id="+Number(thread.id)+" ORDER BY created_at ASC"));result.push({...thread,messages});}res.json(result);});
 router.post("/staff/client-messages",requireAuth,async(req,res)=>{const access=await staffCapability(req,res,"viewClientMessages");if(!access)return;let threadId=Number(req.body?.threadId);if(!Number.isInteger(threadId)||threadId<=0){const target=Number(req.body?.clientId);if(!Number.isInteger(target)||target<=0){res.status(400).json({error:"Choose a client."});return;}threadId=Number(rows<{id:number}>(await exec("INSERT INTO support_threads(client_account_id,subject,status,created_at,updated_at) VALUES ("+target+","+q(text(req.body?.subject||"Message from Aydens Wellness Services",160))+",'open',now(),now()) RETURNING id"))[0]?.id);}const message=text(req.body?.message,4000);if(message)await exec("INSERT INTO support_messages(thread_id,sender_type,sender_name,body,created_at) VALUES ("+threadId+",'staff',"+q(access.name)+","+q(message)+",now())");await exec("UPDATE support_threads SET status='open',updated_at=now() WHERE id="+threadId);res.status(201).json({success:true,threadId});});
 router.patch("/staff/client-messages/:id",requireAuth,async(req,res)=>{const access=await staffCapability(req,res,"viewClientMessages");if(!access)return;const status=text(req.body?.status,20);if(!["open","closed"].includes(status)){res.status(400).json({error:"Invalid status."});return;}await exec("UPDATE support_threads SET status="+q(status)+",updated_at=now() WHERE id="+Number(req.params.id));res.json({success:true});});
+
+// Public Aydens Wellness Assistant (no client account required)
+const publicAssistantRate = new Map<string, number[]>();
+
+router.post("/public/assistant", async (req,res)=>{
+  const ip=String(req.headers["x-forwarded-for"]||req.socket.remoteAddress||"unknown").split(",")[0].trim();
+  const now=Date.now();
+  const recent=(publicAssistantRate.get(ip)||[]).filter((stamp)=>now-stamp<60*60*1000);
+  if(recent.length>=30){res.status(429).json({error:"Aydens Wellness Assistant is getting a lot of requests right now. Please try again in a little while."});return;}
+  recent.push(now);publicAssistantRate.set(ip,recent);
+
+  const message=text(req.body?.message,4000);
+  if(!message){res.status(400).json({error:"Message cannot be empty."});return;}
+  const incoming=Array.isArray(req.body?.history)?req.body.history:[];
+  const history=incoming
+    .filter((item:any)=>item&&["user","assistant"].includes(item.role)&&typeof item.body==="string")
+    .slice(-12)
+    .map((item:any)=>({role:item.role,body:String(item.body).slice(0,4000)}));
+  history.push({role:"user",body:message});
+  const instructions=[
+    "You are Aubrey, the Aydens Wellness Assistant.",
+    "Your client-facing name is Aydens Wellness Assistant. Never claim to be human, a therapist, doctor, or emergency service.",
+    "Provide general wellness information, reflection prompts, planning help, organization help, and encouragement.",
+    "Do not diagnose, prescribe, make clinical determinations, or provide emergency response.",
+    "If someone describes immediate danger or a medical emergency, encourage them to contact local emergency services or a trusted person who can help immediately.",
+    "Do not request highly sensitive personal information unless it is genuinely necessary for the question.",
+    "Keep replies warm, calm, practical, concise, and easy to understand.",
+  ].join("\n");
+  try{
+    const reply=await aiText(instructions,history.map((item:any)=>item.role+": "+item.body).join("\n"));
+    res.json({reply,name:"Aydens Wellness Assistant"});
+  }catch(error:any){
+    res.status(error?.statusCode===503?503:502).json({error:error?.message||"Aydens Wellness Assistant is unavailable right now."});
+  }
+});
 
 // Aubrey
 router.get("/client/assistant/history",requireClientAuth,async(req,res)=>{const id=clientId(req);if(!id){res.status(401).json({error:"Client account required."});return;}await ensureAdvancedStorage();res.json(rows(await exec("SELECT id,role,body,created_at AS \"createdAt\" FROM assistant_messages WHERE client_account_id="+id+" ORDER BY created_at ASC LIMIT 80")));});
