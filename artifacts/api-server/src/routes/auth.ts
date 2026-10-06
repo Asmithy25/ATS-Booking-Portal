@@ -5,16 +5,17 @@ import { db } from "@workspace/db";
 import { staffAccountsTable, clientAccountsTable, bookingsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { repairClientData } from "../lib/client-data-repair";
+import { ensureAdvancedStorage, getStaffSecurity, setInitialStaffPin, verifyStaffPin, resetStaffPin } from "../lib/advanced-storage";
 
 const router = Router();
 
 router.post("/login", async (req, res) => {
-  const { email, password, keepSignedIn } = req.body as {
+  const { email, password, pin, keepSignedIn } = req.body as {
     email: string;
     password: string;
+    pin?: string;
     keepSignedIn: boolean;
   };
-
   const key = (email ?? "").toLowerCase().trim();
 
   const hardcoded = STAFF_ACCOUNTS[key];
@@ -23,19 +24,37 @@ router.post("/login", async (req, res) => {
       res.status(401).json({ error: "Invalid email or password." });
       return;
     }
+    await ensureAdvancedStorage();
+    const security = await getStaffSecurity(key);
+    if (!security?.pin_hash) {
+      const setupToken = signPayload({ auth: "pin_setup", email: key, name: hardcoded.name, exp: String(Date.now() + 10 * 60 * 1000) });
+      res.status(428).json({ error: "PIN setup required.", pinSetupRequired: true, setupToken, staffName: hardcoded.name });
+      return;
+    }
+    if (typeof pin !== "string" || !(await verifyStaffPin(key, pin))) {
+      res.status(401).json({ error: "A valid 6-digit PIN is required." });
+      return;
+    }
     issueSession(res, key, hardcoded.name, keepSignedIn);
     res.json({ success: true, staffName: hardcoded.name, role: "founder", permissions: {} });
     return;
   }
 
-  const rows = await db
-    .select()
-    .from(staffAccountsTable)
-    .where(eq(staffAccountsTable.email, key))
-    .limit(1);
-
+  const rows = await db.select().from(staffAccountsTable).where(eq(staffAccountsTable.email, key)).limit(1);
   if (!rows.length || !verifyPassword(password, rows[0].passwordHash)) {
     res.status(401).json({ error: "Invalid email or password." });
+    return;
+  }
+
+  await ensureAdvancedStorage();
+  const security = await getStaffSecurity(key);
+  if (!security?.pin_hash) {
+    const setupToken = signPayload({ auth: "pin_setup", email: key, name: rows[0].name, exp: String(Date.now() + 10 * 60 * 1000) });
+    res.status(428).json({ error: "PIN setup required.", pinSetupRequired: true, setupToken, staffName: rows[0].name });
+    return;
+  }
+  if (typeof pin !== "string" || !(await verifyStaffPin(key, pin))) {
+    res.status(401).json({ error: "A valid 6-digit PIN is required." });
     return;
   }
 
@@ -43,7 +62,38 @@ router.post("/login", async (req, res) => {
   res.json({ success: true, staffName: rows[0].name, role: rows[0].role, permissions: rows[0].permissions });
 });
 
-router.get("/security", requireAuth, async (req, res): Promise<void> => {
+router.post("/staff-pin/setup", async (req, res): Promise<void> => {
+  const pending = req.body?.setupToken ? verifyPayload(String(req.body.setupToken)) : null;
+  const pin = typeof req.body?.pin === "string" ? req.body.pin.trim() : "";
+  if (!pending || pending.auth !== "pin_setup" || !pending.email || !pending.name || Number(pending.exp) < Date.now()) {
+    res.status(401).json({ error: "PIN setup has expired. Sign in again." });
+    return;
+  }
+  if (!/^\d{6}$/.test(pin) || /^(?:000000|111111|123456|654321)$/.test(pin)) {
+    res.status(400).json({ error: "Choose a 6-digit PIN that is not an obvious sequence." });
+    return;
+  }
+  await setInitialStaffPin(pending.email, pin);
+  issueSession(res, pending.email, pending.name, true);
+  res.json({ success: true, staffName: pending.name });
+});
+
+router.post("/staff-pin/reset", requireAuth, async (req, res): Promise<void> => {
+  const access = await getStaffAccess(req);
+  if (!access || access.role !== "founder") {
+    res.status(403).json({ error: "Founder access required." });
+    return;
+  }
+  const email = String(req.body?.email ?? "").toLowerCase().trim();
+  if (!email) {
+    res.status(400).json({ error: "Staff email is required." });
+    return;
+  }
+  await resetStaffPin(email);
+  res.json({ success: true });
+});
+
+router.get("/security"/, requireAuth, async (req, res): Promise<void> => {
   const access = await getStaffAccess(req);
   if (!access) { res.status(401).json({ error: "Unauthorized." }); return; }
   const isFounder = access.role === "founder";
