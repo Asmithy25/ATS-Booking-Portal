@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db, announcementsTable, auditLogsTable, bookingsTable, clientAccountsTable, settingsTable, wellnessResourcesTable } from "@workspace/db";
 import { requireClientAuth, type RequestWithClientSession } from "../middleware/auth";
 import { validateBookingSlot } from "../lib/scheduling";
