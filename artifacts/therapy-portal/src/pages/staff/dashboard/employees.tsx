@@ -373,7 +373,7 @@ export default function Employees() {
                 <Button type="button" variant="outline" disabled={resetPinBusy} onClick={() => { if (window.confirm('Reset ' + (selectedEmployee?.name || 'this staff member') + "'s staff PIN?")) void resetEmployeePin(); }}>
                   {resetPinBusy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Reset PIN
                 </Button>
-              </div>              </div>
+              </div>
             </div>
           )}
           <DialogFooter>
