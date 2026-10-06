@@ -40,10 +40,22 @@ function qJson(value: unknown) {
   return q(JSON.stringify(value ?? {})) + "::jsonb";
 }
 async function aiText(instructions: string, input: string) {
-  const key = String(process.env.OPENAI_API_KEY ?? "").trim();
-  if (!key) throw Object.assign(new Error("Aydens Wellness Assistant is not configured yet. Add a fresh OPENAI_API_KEY to the Railway API service."), { statusCode: 503 });
+  // Backward-compatible: the project previously stored Aubrey's OpenAI key
+  // under AUBREY_API_CODE. Prefer the canonical OPENAI_API_KEY when present.
+  const configuredKey = process.env.OPENAI_API_KEY ?? process.env.AUBREY_API_CODE ?? "";
+  const key = String(configuredKey).trim();
+  const keySource = process.env.OPENAI_API_KEY ? "OPENAI_API_KEY" : process.env.AUBREY_API_CODE ? "AUBREY_API_CODE" : null;
+  if (!key) {
+    throw Object.assign(
+      new Error("Aydens Wellness Assistant is not configured yet. Add OPENAI_API_KEY to the Railway API service (or use the existing AUBREY_API_CODE variable)."),
+      { statusCode: 503 },
+    );
+  }
   if (/\s/.test(key) || key.includes("OPENAI_API_KEY") || key.includes("OPENAI_MODEL") || key.includes("=")) {
-    throw Object.assign(new Error("Aydens Wellness Assistant has an invalid API key configuration. OPENAI_API_KEY must contain only the single secret key value."), { statusCode: 503 });
+    throw Object.assign(
+      new Error(`Aydens Wellness Assistant has an invalid ${keySource ?? "AI"} key configuration. Store only the single secret key value, without OPENAI_API_KEY= or quotes.`),
+      { statusCode: 503 },
+    );
   }
   const model = process.env.OPENAI_MODEL || "gpt-6-luna";
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -52,7 +64,16 @@ async function aiText(instructions: string, input: string) {
     body: JSON.stringify({ model, instructions, input, max_output_tokens: 1400 }),
   });
   const data = await response.json() as any;
-  if (!response.ok) throw Object.assign(new Error(data?.error?.message || "AI request failed."), { statusCode: response.status });
+  if (!response.ok) {
+    const providerMessage = String(data?.error?.message || "AI request failed.");
+    if (response.status === 401 || response.status === 403) {
+      throw Object.assign(
+        new Error(`OpenAI rejected the configured Aubrey key. Check that the key is active, belongs to the intended OpenAI project, and that the project has API billing/usage access. Provider response: ${providerMessage}`),
+        { statusCode: response.status },
+      );
+    }
+    throw Object.assign(new Error(providerMessage), { statusCode: response.status });
+  }
   return String(data?.output_text || "");
 }
 function parseJson(value: string) {
