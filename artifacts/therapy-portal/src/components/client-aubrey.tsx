@@ -70,6 +70,12 @@ export default function ClientAubrey() {
           <div>
             <div className="flex flex-wrap items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /><CardTitle>Aydens Wellness Assistant</CardTitle><Badge variant="secondary">Aubrey</Badge></div>
             <CardDescription className="mt-2 max-w-2xl leading-6">A private AI wellness support space for general guidance, planning, reflection, and encouragement.</CardDescription>
+            <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+              <div className="rounded-xl border border-border/70 bg-background/60 px-3 py-2">Aydens Wellness Services information, hours, contact details & public updates</div>
+              <div className="rounded-xl border border-border/70 bg-background/60 px-3 py-2">General wellness guidance, planning, reflection & encouragement</div>
+              <div className="rounded-xl border border-border/70 bg-background/60 px-3 py-2">Booking questions using your confirmation code</div>
+              <div className="rounded-xl border border-border/70 bg-background/60 px-3 py-2">Eligible appointment cancellations & rescheduling</div>
+            </div>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={clearConversation} disabled={!hasConversation && !error}><RotateCcw className="h-4 w-4" />Clear chat</Button>
         </div>
