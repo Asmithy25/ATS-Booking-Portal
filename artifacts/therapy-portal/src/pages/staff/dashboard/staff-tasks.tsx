@@ -1,0 +1,18 @@
+import { useEffect, useState } from "react";
+import { customFetch } from "@workspace/api-client-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { CheckCircle2, ClipboardList, Plus } from "lucide-react";
+
+export default function StaffTasks(){
+ const {toast}=useToast();const [tasks,setTasks]=useState<any[]>([]),[title,setTitle]=useState(""),[description,setDescription]=useState(""),[assignedTo,setAssignedTo]=useState(""),[dueDate,setDueDate]=useState("");
+ const load=async()=>{try{setTasks(await customFetch<any[]>("/api/advanced/staff/tasks",{responseType:"json"}));}catch(e:any){toast({variant:"destructive",title:"Tasks could not load",description:e?.message||"Refresh and try again."});}};
+ useEffect(()=>{void load();},[]);
+ const add=async(e:React.FormEvent)=>{e.preventDefault();if(!title.trim())return;try{await customFetch("/api/advanced/staff/tasks",{method:"POST",body:JSON.stringify({title,description,assignedTo,dueDate:dueDate||null}),responseType:"json"});setTitle("");setDescription("");setAssignedTo("");setDueDate("");await load();toast({title:"Task created"});}catch(e:any){toast({variant:"destructive",title:"Could not create task",description:e?.message||"Try again."});}};
+ const update=async(id:number,status:string)=>{try{await customFetch("/api/advanced/staff/tasks/"+id,{method:"PATCH",body:JSON.stringify({status}),responseType:"json"});await load();}catch{}};
+ return <div className="space-y-7"><div><p className="text-sm text-muted-foreground">Internal follow-ups, reminders, and ownership.</p><h1 className="text-3xl font-serif font-bold">Staff Tasks</h1></div><div className="grid gap-6 lg:grid-cols-[.8fr_1.2fr]"><Card className="rounded-2xl"><CardHeader><CardTitle>Create task</CardTitle><CardDescription>Keep operational work out of the client timeline.</CardDescription></CardHeader><CardContent><form onSubmit={add} className="space-y-4"><Input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Task title"/><Textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Details"/><Input value={assignedTo} onChange={e=>setAssignedTo(e.target.value)} placeholder="Assigned to"/><Input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/><Button><Plus className="mr-2 h-4 w-4"/>Create task</Button></form></CardContent></Card><Card className="rounded-2xl"><CardHeader><CardTitle>Task board</CardTitle><CardDescription>{tasks.filter(t=>t.status!=="done").length} open tasks.</CardDescription></CardHeader><CardContent className="space-y-3">{tasks.map((t:any)=><div key={t.id} className="rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{t.title}</p><p className="text-sm text-muted-foreground">{t.description}</p><p className="mt-2 text-xs text-muted-foreground">{t.assignedTo||"Unassigned"}{t.dueDate?" · Due "+t.dueDate:""}</p></div><Badge variant={t.status==="done"?"default":"secondary"}>{t.status}</Badge></div><div className="mt-3 flex flex-wrap gap-2">{["open","in_progress","done"].map(s=><Button key={s} size="sm" variant={t.status===s?"default":"outline"} onClick={()=>void update(t.id,s)}>{s==="done"?<CheckCircle2 className="mr-1 h-3.5 w-3.5"/>:null}{s.replace("_"," ")}</Button>)}</div></div>)}</CardContent></Card></div></div>;
+}
