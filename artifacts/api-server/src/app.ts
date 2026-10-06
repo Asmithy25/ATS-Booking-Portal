@@ -32,7 +32,11 @@ app.use(
 );
 app.use(
   cors({
-    origin: true,
+    origin(origin, callback) {
+      const allowed = new Set(["https://atsbookingportal.up.railway.app","http://localhost:3000","http://localhost:3001","http://localhost:5173","http://127.0.0.1:3000","http://127.0.0.1:3001","http://127.0.0.1:5173"]);
+      if (!origin || allowed.has(origin)) { callback(null, true); return; }
+      callback(new Error("Origin is not allowed by the AWS API."));
+    },
     credentials: true,
   }),
 );
