@@ -114,6 +114,18 @@ export default function AdvancedWorkspace() {
     finally { setAiBusy(false); }
   };
 
+  const summarizePreview = async () => {
+    if (!preview?.instructions || summaryBusy) return;
+    setSummaryBusy(true);
+    try {
+      const result = await getJson<{summary:string}>("/api/advanced/staff/assignment-summarize",{method:"POST",body:JSON.stringify({content:preview.instructions})});
+      setPreview((current:any)=>current ? {...current,summary:result.summary} : current);
+      toast({title:"Assignment summary updated"});
+    } catch(error:any) {
+      toast({variant:"destructive",title:"Summary failed",description:error?.message || "Please try again."});
+    } finally { setSummaryBusy(false); }
+  };
+
   const sendAssignment = async () => {
     if (!selectedClient || !preview) return;
     try {
