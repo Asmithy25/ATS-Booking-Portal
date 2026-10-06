@@ -115,7 +115,7 @@ export default function AdvancedWorkspace() {
     if (!selectedClient || !preview) return;
     try {
       await getJson("/api/advanced/staff/assignments/send",{method:"POST",body:JSON.stringify({
-        clientId:selectedClient,title:preview.title,summary:preview.summary,instructions:preview.instructions,
+        clientId:selectedClient,previewToken:preview.previewToken,title:preview.title,summary:preview.summary,instructions:preview.instructions,
         type:preview.type,frequency:preview.frequency || "one_time",dueDate:preview.dueDate || null,config:preview.config
       })});
       setPreview(null); setAiPrompt(""); await reload(); toast({title:"Assignment sent",description:"The client has been notified."});
