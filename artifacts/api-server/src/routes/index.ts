@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import assistantRouter from "./assistant";
 import advancedRouter from "./advanced";
 import healthRouter from "./health";
 import authRouter from "./auth";
@@ -25,6 +26,7 @@ router.use("/backup", backupRouter);
 router.use("/mobile", mobileRouter);
 router.use("/settings/staff-preferences", staffPreferencesRouter);
 router.use("/workspace", workspaceRouter);
+router.use("/advanced", assistantRouter);
 router.use("/advanced", advancedRouter);
 
 export default router;
