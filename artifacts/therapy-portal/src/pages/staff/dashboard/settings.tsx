@@ -442,7 +442,6 @@ export default function Settings({ hidePersonal = false }: { hidePersonal?: bool
         </Button>
       </div>
 
-          )}
 
       <Form {...form}>
         <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
