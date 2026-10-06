@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
-import { useGetAuthMe, getGetAuthMeQueryKey } from '@workspace/api-client-react';
+import { useGetAuthMe, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
 import {
   useListEmployees,
   useCreateEmployee,
@@ -58,15 +58,28 @@ export default function Employees() {
     }
   }, [session, loadingSession, setLocation]);
 
+  useEffect(() => {
+    if (!session?.isAdmin) return;
+    customFetch<{ roles: Array<{ slug: string; name: string }> }>('/api/advanced/staff/roles', { responseType: 'json' })
+      .then((result) => setRoles((result.roles || []).map((role) => ({ slug: role.slug, name: role.name }))))
+      .catch(() => setRoles([
+        { slug: 'manager', name: 'Manager' },
+        { slug: 'therapist', name: 'Therapist' },
+        { slug: 'customer_service_representative', name: 'Customer Service Representative' },
+        { slug: 'receptionist', name: 'Receptionist' },
+      ]));
+  }, [session?.isAdmin]);
+
   const { data: employees, isLoading: loadingEmployees } = useListEmployees();
 
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'therapist' });
+  const [roles, setRoles] = useState<Array<{ slug: string; name: string }>>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<StaffAccount | null>(null);
   const [staffDraft, setStaffDraft] = useState<{
     name: string;
     email: string;
-    role: 'manager' | 'therapist' | 'customer_service_representative';
+    role: string;
     permissions: Record<string, boolean>;
     officeHours: StaffHours;
   } | null>(null);
@@ -76,7 +89,7 @@ export default function Employees() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey() });
-        setForm({ name: '', email: '', password: '' });
+        setForm({ name: '', email: '', password: '', role: 'therapist' });
         toast({ title: 'Staff account created.' });
       },
       onError: (err) => {
@@ -161,7 +174,8 @@ export default function Employees() {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
-      },
+        role: form.role,
+      } as any,
     });
   };
 
@@ -212,7 +226,7 @@ export default function Employees() {
                 </div>
               </div>
 
-              <div className="rounded-xl border p-4">
+                      <div className="rounded-xl border p-4">
                 <div className="mb-4">
                   <h3 className="font-semibold">Role & Permissions</h3>
                   <p className="text-sm text-muted-foreground">Role defaults provide a starting point. Individual permissions can be adjusted below.</p>
@@ -222,12 +236,15 @@ export default function Employees() {
                   <select
                     id="manage-role"
                     value={staffDraft.role}
-                    onChange={(e) => setStaffDraft((draft) => draft ? { ...draft, role: e.target.value as typeof draft.role } : draft)}
+                    onChange={(e) => setStaffDraft((draft) => draft ? { ...draft, role: e.target.value } : draft)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   >
-                    <option value="manager">Manager</option>
-                    <option value="therapist">Therapist</option>
-                    <option value="customer_service_representative">Customer Service Representative</option>
+                    {(roles.length ? roles : [
+                      { slug: 'manager', name: 'Manager' },
+                      { slug: 'therapist', name: 'Therapist' },
+                      { slug: 'customer_service_representative', name: 'Customer Service Representative' },
+                      { slug: 'receptionist', name: 'Receptionist' },
+                    ]).map((role) => <option key={role.slug} value={role.slug}>{role.name}</option>)}
                   </select>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -352,7 +369,7 @@ export default function Employees() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="space-y-1.5">
               <Label htmlFor="emp-name">Full Name</Label>
               <Input
@@ -373,6 +390,17 @@ export default function Employees() {
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 required
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="emp-role">Role</Label>
+              <select id="emp-role" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                {(roles.length ? roles : [
+                  { slug: 'manager', name: 'Manager' },
+                  { slug: 'therapist', name: 'Therapist' },
+                  { slug: 'customer_service_representative', name: 'Customer Service Representative' },
+                  { slug: 'receptionist', name: 'Receptionist' },
+                ]).map((role) => <option key={role.slug} value={role.slug}>{role.name}</option>)}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="emp-password">Temporary Password</Label>
