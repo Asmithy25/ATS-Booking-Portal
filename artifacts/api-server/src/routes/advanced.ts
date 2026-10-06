@@ -74,7 +74,17 @@ async function aiText(instructions: string, input: string) {
     }
     throw Object.assign(new Error(providerMessage), { statusCode: response.status });
   }
-  return String(data?.output_text || "");
+  const direct = String(data?.output_text || "").trim();
+  if (direct) return direct;
+  const fallback = Array.isArray(data?.output)
+    ? data.output.flatMap((item: any) => Array.isArray(item?.content) ? item.content : [])
+        .filter((item: any) => item?.type === "output_text" && typeof item?.text === "string")
+        .map((item: any) => item.text)
+        .join("\n")
+        .trim()
+    : "";
+  if (fallback) return fallback;
+  throw Object.assign(new Error("Aydens Wellness Assistant returned no text output. Please try again."), { statusCode: 502 });
 }
 function parseJson(value: string) {
   return JSON.parse(value.trim());
