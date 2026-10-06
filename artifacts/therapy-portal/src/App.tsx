@@ -36,6 +36,7 @@ const GlobalSearch = lazy(() => import('@/pages/staff/dashboard/global-search'))
 const SystemHealth = lazy(() => import('@/pages/staff/dashboard/system-health'));
 const HomepagePreview = lazy(() => import('@/pages/staff/dashboard/homepage-preview'));
 const PublicUpdates = lazy(() => import('@/pages/public/updates'));
+const PublicAssistant = lazy(() => import('@/pages/public/assistant'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const ClientTools = lazy(() => import('@/pages/client/tools'));
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/booking/:code" component={BookingManage} />
       <Route path="/booking" component={BookingManage} />
       <Route path="/updates" component={PublicUpdates} />
+      <Route path="/assistant" component={PublicAssistant} />
       <Route path="/staff" component={Login} />
       <Route path="/staff/login" component={Login} />
       <Route path="/portal/login" component={ClientAuth} />
