@@ -7,6 +7,7 @@ import { customFetch } from '@workspace/api-client-react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, ArrowUpRight, Fingerprint, Loader2, ShieldCheck } from 'lucide-react';
@@ -81,7 +82,7 @@ export default function Login() {
     try {
       await customFetch('/api/auth/staff-pin/setup', {
         method:'POST',
-        body:JSON.stringify({ setupToken, pin:setupPin }),
+        body:JSON.stringify({ setupToken, pin:setupPin, pinLength }),
         responseType:'json',
       });
       toast({ title:'PIN configured', description:'Your staff session is now active.' });
@@ -172,8 +173,9 @@ export default function Login() {
           <section className="w-full rounded-2xl border border-border bg-card p-7 shadow-xl sm:p-12">
             <Link href="/" className="mb-10 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground"><ArrowLeft className="h-4 w-4"/> Practice home</Link>
             <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center bg-secondary p-1"><img src={logoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><div><p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff security</p><h1 className="font-serif text-4xl">Set your PIN.</h1></div></div>
-            <p className="mt-5 text-sm leading-6 text-muted-foreground">Your staff account now requires a password plus {pinLength}-digit PIN. This PIN is also required after biometric passkey sign-in.</p>
+            <p className="mt-5 text-sm leading-6 text-muted-foreground">Choose your personal PIN length. Your selection applies only to your staff account.</p>
             <div className="mt-8 space-y-4">
+              <div className="space-y-2"><label className="text-sm font-medium">PIN length</label><Select value={String(pinLength)} onValueChange={(value)=>{ const next=Number(value) as 4|6|8; setPinLength(next); setSetupPin(''); setSetupConfirm(''); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="4">4 digits</SelectItem><SelectItem value="6">6 digits</SelectItem><SelectItem value="8">8 digits</SelectItem></SelectContent></Select></div>
               <div className="space-y-2"><label className="text-sm font-medium">Create {pinLength}-digit PIN</label><Input inputMode="numeric" maxLength={pinLength} type="password" value={setupPin} onChange={(e)=>setSetupPin(e.target.value.replace(/\D/g,''))} autoComplete="new-password"/></div>
               <div className="space-y-2"><label className="text-sm font-medium">Confirm PIN</label><Input inputMode="numeric" maxLength={pinLength} type="password" value={setupConfirm} onChange={(e)=>setSetupConfirm(e.target.value.replace(/\D/g,''))} autoComplete="new-password"/></div>
               <Button className="w-full" onClick={()=>void finishPinSetup()} disabled={setupPin.length!==pinLength||setupConfirm.length!==pinLength}>Set PIN & continue <ArrowUpRight className="ml-2 h-4 w-4"/></Button>
@@ -193,8 +195,8 @@ export default function Login() {
             <p className="mt-5 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Second factor required</p>
             <h1 className="mt-2 font-serif text-4xl">Enter your PIN.</h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">Your fingerprint or Face ID was verified. Your staff PIN is still required.</p>
-            <div className="mt-6 space-y-2"><label className="text-sm font-medium">Staff PIN</label><Input inputMode="numeric" maxLength={8} type="password" value={passkeyPin} onChange={(e)=>setPasskeyPin(e.target.value.replace(/\D/g,''))} autoComplete="one-time-code"/></div>
-            <Button className="mt-5 w-full" onClick={()=>void finishPasskey()} disabled={passkeyPin.length<4||passkeyPin.length>8}>Finish sign in</Button>
+            <div className="mt-6 space-y-2"><label className="text-sm font-medium">Staff PIN</label><Input inputMode="numeric" maxLength={pinLength} type="password" value={passkeyPin} onChange={(e)=>setPasskeyPin(e.target.value.replace(/\D/g,'').slice(0,pinLength))} autoComplete="one-time-code"/></div>
+            <Button className="mt-5 w-full" onClick={()=>void finishPasskey()} disabled={passkeyPin.length!==pinLength}>Finish sign in</Button>
           </section>
         </div>
       </div>
