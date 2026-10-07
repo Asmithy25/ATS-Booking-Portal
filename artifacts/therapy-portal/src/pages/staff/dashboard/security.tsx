@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Fingerprint, KeyRound, LockKeyhole, ShieldCheck, Trash2 } from 'lucide-react';
 
@@ -41,6 +42,7 @@ export default function Security() {
   const [saving,setSaving]=useState(false);
   const [pinSaving,setPinSaving]=useState(false);
   const [passkeySaving,setPasskeySaving]=useState(false);
+  const [pinPolicySaving,setPinPolicySaving]=useState(false);
 
   const load=async()=>{
     try{
@@ -71,7 +73,7 @@ export default function Security() {
     }finally{setSaving(false);}
   };
 
-  const changePin=async(event:FormEvent)=>{
+  const savePinPolicy=async(value:string)=>{\n    const pinLength=Number(value);\n    setPinPolicySaving(true);\n    try{\n      const result=await customFetch<any>('/api/advanced/staff/security/policy',{method:'PUT',body:JSON.stringify({pinLength}),responseType:'json'});\n      setInfo(current=>current?{...current,pinLength:result.pinLength}:current);\n      toast({title:'Staff PIN policy updated',description:'New staff PIN setup will require '+result.pinLength+' digits.'});\n    }catch(error:any){\n      toast({variant:'destructive',title:'Could not update PIN policy',description:error?.message||'Please try again.'});\n    }finally{setPinPolicySaving(false);}\n  };\n\n  const changePin=async(event:FormEvent)=>{
     event.preventDefault();
     const pinLength=info?.pinLength ?? 6;
     if(!/^\d{4,8}$/.test(newPin)||newPin.length!==pinLength||newPin!==confirmPin){
