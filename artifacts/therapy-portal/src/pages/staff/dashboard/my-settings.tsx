@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { customFetch, useGetAuthMe } from "@workspace/api-client-react";
+import { customFetch, useGetAuthMe, getGetAuthMeQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ const DEFAULTS={layout:"composed",density:"comfortable",navigation:"classic",das
 const PRESETS=[["Earth","#7B4A2F","#3F3028"],["Forest","#3F6B4B","#263D31"],["Plum","#714C76","#33263A"],["Ocean","#3B5F7A","#233545"],["Rose","#9A5B68","#442C31"]];
 
 export default function MySettings(){
- const {data:session}=useGetAuthMe({query:{retry:false}});
+ const {data:session}=useGetAuthMe({query:{queryKey:getGetAuthMeQueryKey(),retry:false}});
  const {toast}=useToast();
  const [prefs,setPrefs]=useState(DEFAULTS);
  const [saving,setSaving]=useState(false);
