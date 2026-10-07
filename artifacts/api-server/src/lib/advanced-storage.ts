@@ -5,9 +5,11 @@ import crypto from "node:crypto";
 let ready: Promise<void> | null = null;
 const exec = (query: string) => db.execute(sql.raw(query));
 
+
 export type StaffSecurityRecord = {
   email: string;
   pin_hash: string | null;
+  pin_length: StaffPinLength | null;
   passkeys: Array<{ id: string; publicKey: string; signCount: number; transports?: string[] }>;
 };
 
@@ -32,7 +34,8 @@ export function verifyStaffPinHash(pin: string, encoded: string) {
 export async function ensureAdvancedStorage(): Promise<void> {
   if (!ready) {
     ready = (async () => {
-      await exec("CREATE TABLE IF NOT EXISTS staff_security (email text PRIMARY KEY,pin_hash text,passkeys jsonb NOT NULL DEFAULT '[]'::jsonb,last_pin_set_at timestamp,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())");
+      await exec("CREATE TABLE IF NOT EXISTS staff_security (email text PRIMARY KEY,pin_hash text,pin_length integer NOT NULL DEFAULT 6,passkeys jsonb NOT NULL DEFAULT '[]'::jsonb,last_pin_set_at timestamp,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())");
+      await exec("ALTER TABLE staff_security ADD COLUMN IF NOT EXISTS pin_length integer NOT NULL DEFAULT 6");
       await exec("CREATE TABLE IF NOT EXISTS staff_security_policy (id integer PRIMARY KEY DEFAULT 1,pin_length integer NOT NULL DEFAULT 6,updated_at timestamp NOT NULL DEFAULT now())");
       await exec("INSERT INTO staff_security_policy(id,pin_length,updated_at) VALUES (1,6,now()) ON CONFLICT(id) DO NOTHING");
       await exec("CREATE TABLE IF NOT EXISTS staff_requests (id serial PRIMARY KEY,requester_email text NOT NULL,assignee_email text NOT NULL,title text NOT NULL,description text NOT NULL DEFAULT '',priority text NOT NULL DEFAULT 'normal',status text NOT NULL DEFAULT 'open',due_date text,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())");
@@ -78,7 +81,7 @@ function quote(value: string) {
 
 export async function getStaffSecurity(email: string): Promise<StaffSecurityRecord | null> {
   await ensureAdvancedStorage();
-  const result: any = await exec("SELECT email,pin_hash,passkeys FROM staff_security WHERE email=" + quote(email.toLowerCase().trim()) + " LIMIT 1");
+  const result: any = await exec("SELECT email,pin_hash,pin_length,passkeys FROM staff_security WHERE email=" + quote(email.toLowerCase().trim()) + " LIMIT 1");
   return (result?.rows || result || [])[0] || null;
 }
 
@@ -87,10 +90,11 @@ export async function staffPinConfigured(email: string) {
   return Boolean(security?.pin_hash);
 }
 
-export async function setInitialStaffPin(email: string, pin: string) {
+export async function setInitialStaffPin(email: string, pin: string, pinLength?: StaffPinLength) {
   await ensureAdvancedStorage();
   const normalized = email.toLowerCase().trim();
-  await exec("INSERT INTO staff_security(email,pin_hash,passkeys,last_pin_set_at,created_at,updated_at) VALUES (" + quote(normalized) + "," + quote(hashStaffPin(pin)) + ",'[]'::jsonb,now(),now(),now()) ON CONFLICT(email) DO UPDATE SET pin_hash=EXCLUDED.pin_hash,last_pin_set_at=now(),updated_at=now()");
+  const length = isAllowedPinLength(pinLength) ? Number(pinLength) : await getStaffPinPolicy();
+  await exec("INSERT INTO staff_security(email,pin_hash,pin_length,passkeys,last_pin_set_at,created_at,updated_at) VALUES (" + quote(normalized) + "," + quote(hashStaffPin(pin)) + "," + length + ",'[]'::jsonb,now(),now(),now()) ON CONFLICT(email) DO UPDATE SET pin_hash=EXCLUDED.pin_hash,pin_length=" + length + ",last_pin_set_at=now(),updated_at=now()");
 }
 
 export async function verifyStaffPin(email: string, pin: string) {
@@ -107,6 +111,18 @@ export function isObviousStaffPin(pin: string): boolean {
   if (/^(\d)\1+$/.test(pin)) return true;
   return "0123456789".includes(pin) || "9876543210".includes(pin);
 }
+export async function getStaffPinLength(email: string): Promise<StaffPinLength> {
+  const security = await getStaffSecurity(email);
+  return isAllowedPinLength(security?.pin_length) ? Number(security?.pin_length) as StaffPinLength : await getStaffPinPolicy();
+}
+
+export async function setStaffPinLength(email: string, length: StaffPinLength): Promise<StaffPinLength> {
+  if (!isAllowedPinLength(length)) throw new Error("PIN length must be 4, 6, or 8.");
+  await ensureAdvancedStorage();
+  await exec("UPDATE staff_security SET pin_length="+Number(length)+",updated_at=now() WHERE email="+quote(email.toLowerCase().trim()));
+  return length;
+}
+
 export async function getStaffPinPolicy(): Promise<StaffPinLength> {
   await ensureAdvancedStorage();
   const result: any = await exec("SELECT pin_length FROM staff_security_policy WHERE id=1 LIMIT 1");
