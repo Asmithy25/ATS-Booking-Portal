@@ -158,7 +158,7 @@
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
 
-  --background: 0 0% 0%;
+  --background: 24 18% 11%;
   --foreground: 38 32% 95%;
   --border: 24 14% 26%;
   
@@ -223,7 +223,7 @@
 
 .dark body {
   background-color: hsl(var(--background));
-  background-image: none;
+  background-image: radial-gradient(circle at 12% 8%, hsl(75 18% 84% / .16), transparent 28rem), radial-gradient(circle at 90% 12%, hsl(35 45% 56% / .10), transparent 24rem);
 }
 
 @media (prefers-reduced-motion: reduce) {
