@@ -14,7 +14,7 @@ import {
   verifyPassword,
   verifyPayload,
 } from "../middleware/auth";
-import { ensureAdvancedStorage, getStaffSecurity, hashStaffPin, verifyStaffPin } from "../lib/advanced-storage";
+import { ensureAdvancedStorage, getStaffSecurity, getStaffPinLength, hashStaffPin, isAllowedPinLength, isObviousStaffPin, verifyStaffPin } from "../lib/advanced-storage";
 
 const router = Router();
 const exec = (query: string) => db.execute(sql.raw(query));
@@ -156,17 +156,22 @@ router.get("/staff/care-overview", requireAuth, async (req,res) => {
 router.get("/staff/security-center", requireAuth, async (req,res) => {
   const access=await getStaffAccess(req);if(!access){res.status(401).json({error:"Unauthorized."});return;}
   const security=await getStaffSecurity(access.email);
-  res.json({email:access.email,pinConfigured:Boolean(security?.pin_hash),passkeys:(security?.passkeys||[]).map((p:any)=>({id:p.id,transports:p.transports||[]}))});
+  res.json({email:access.email,pinConfigured:Boolean(security?.pin_hash),pinLength:await getStaffPinLength(access.email),passkeys:(security?.passkeys||[]).map((p:any)=>({id:p.id,transports:p.transports||[]}))});
 });
 router.post("/staff/pin/change", requireAuth, async (req,res) => {
   const access=await getStaffAccess(req);if(!access){res.status(401).json({error:"Unauthorized."});return;}
-  const currentPin=text(req.body?.currentPin,6),newPin=text(req.body?.newPin,6);
-  if(!/^\d{6}$/.test(currentPin)||!/^\d{6}$/.test(newPin)){res.status(400).json({error:"PINs must be exactly 6 digits."});return;}
   const security=await getStaffSecurity(access.email);
-  if(!security?.pin_hash||!verifyStaffPin(access.email,currentPin)){res.status(401).json({error:"Current PIN is incorrect."});return;}
-  if(/^(?:000000|111111|123456|654321)$/.test(newPin)){res.status(400).json({error:"Choose a less obvious PIN."});return;}
-  await exec("UPDATE staff_security SET pin_hash="+q(hashStaffPin(newPin))+",last_pin_set_at=now(),updated_at=now() WHERE email="+q(access.email.toLowerCase()));
-  res.json({success:true});
+  const currentLength=isAllowedPinLength(security?.pin_length)?Number(security?.pin_length):await getStaffPinLength(access.email);
+  const requestedLength=Number(req.body?.pinLength);
+  const newLength=isAllowedPinLength(requestedLength)?requestedLength:currentLength;
+  const currentPin=text(req.body?.currentPin,8),newPin=text(req.body?.newPin,8);
+  if(!/^\d+$/.test(currentPin)||currentPin.length!==currentLength||!/^\d+$/.test(newPin)||newPin.length!==newLength){
+    res.status(400).json({error:"Enter your current "+currentLength+"-digit PIN and a new "+newLength+"-digit PIN."});return;
+  }
+  if(!security?.pin_hash||!(await verifyStaffPin(access.email,currentPin))){res.status(401).json({error:"Current PIN is incorrect."});return;}
+  if(isObviousStaffPin(newPin)){res.status(400).json({error:"Choose a less obvious PIN."});return;}
+  await exec("UPDATE staff_security SET pin_hash="+q(hashStaffPin(newPin))+",pin_length="+newLength+",last_pin_set_at=now(),updated_at=now() WHERE email="+q(access.email.toLowerCase()));
+  res.json({success:true,pinLength:newLength});
 });
 router.post("/staff/passkey/options", async (req,res) => {
   const email=text(req.body?.email,320).toLowerCase(),password=text(req.body?.password,500);
@@ -199,15 +204,16 @@ router.post("/staff/passkey/verify", async (req,res) => {
   }catch(error:any){res.status(401).json({error:error?.message||"Passkey authentication failed."});}
 });
 router.post("/staff/passkey/complete", async (req,res) => {
-  const pending=req.body?.pendingToken?verifyPayload(req.body.pendingToken):null,pin=text(req.body?.pin,6);
+  const pending=req.body?.pendingToken?verifyPayload(req.body.pendingToken):null;
   if(!pending||pending.auth!=="passkey"||!pending.email||!pending.name||Number(pending.exp)<Date.now()){res.status(401).json({error:"Passkey sign-in expired."});return;}
-  if(!/^\d{6}$/.test(pin)){res.status(400).json({error:"PIN must be exactly 6 digits."});return;}
-  const security=await getStaffSecurity(pending.email);if(!security?.pin_hash||!verifyPassword(pin,security.pin_hash)){res.status(401).json({error:"Invalid PIN."});return;}
+  const pinLength=await getStaffPinLength(pending.email),pin=text(req.body?.pin,8);
+  if(!/^\d+$/.test(pin)||pin.length!==pinLength){res.status(400).json({error:"PIN must be exactly "+pinLength+" digits."});return;}
+  const security=await getStaffSecurity(pending.email);if(!security?.pin_hash||!(await verifyStaffPin(pending.email,pin))){res.status(401).json({error:"Invalid PIN."});return;}
   issueStaffSession(res,pending.email,pending.name);res.json({success:true,staffName:pending.name});
 });
 router.post("/staff/passkey/register-options", requireAuth, async (req,res) => {
   const access=await getStaffAccess(req);if(!access){res.status(401).json({error:"Unauthorized."});return;}
-  const security=await getStaffSecurity(access.email);if(!security?.pin_hash){res.status(409).json({error:"Set your 6-digit PIN before registering a passkey."});return;}
+  const security=await getStaffSecurity(access.email);if(!security?.pin_hash){res.status(409).json({error:"Set your staff PIN before registering a passkey."});return;}
   const challenge=b64url(crypto.randomBytes(32)),origin=safeOrigin(req),rpId=new URL(origin).hostname;
   await exec("INSERT INTO passkey_challenges(email,challenge,origin,rp_id,purpose,expires_at,created_at) VALUES ("+q(access.email.toLowerCase())+","+q(challenge)+","+q(origin)+","+q(rpId)+",'register',now()+interval '5 minutes',now())");
   res.json({challenge,rp:{name:"Aydens Wellness Services",id:rpId},user:{id:b64url(crypto.createHash("sha256").update(access.email).digest().subarray(0,16)),name:access.email,displayName:access.name},pubKeyCredParams:[{type:"public-key",alg:-7}],authenticatorSelection:{authenticatorAttachment:"platform",residentKey:"preferred",userVerification:"required"},timeout:120000,attestation:"none"});
