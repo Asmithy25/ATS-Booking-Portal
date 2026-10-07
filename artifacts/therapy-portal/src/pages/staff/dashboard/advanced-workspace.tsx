@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { customFetch } from "@workspace/api-client-react";
-import { useGetAuthMe } from "@workspace/api-client-react";
+import { useGetAuthMe, getGetAuthMeQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ const getJson = async <T,>(url:string, options?:RequestInit) =>
   customFetch<T>(url, { ...options, responseType:"json" });
 
 export default function AdvancedWorkspace() {
-  const { data: session, isLoading: sessionLoading } = useGetAuthMe({ query:{ retry:false } });
+  const { data: session, isLoading: sessionLoading } = useGetAuthMe({ query:{ queryKey:getGetAuthMeQueryKey(), retry:false } });
   const { toast } = useToast();
   const [tab,setTab] = useState("overview");
   const [loading,setLoading] = useState(false);
