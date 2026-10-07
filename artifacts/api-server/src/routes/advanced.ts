@@ -196,7 +196,7 @@ router.post("/staff/passkey/verify", async (req,res) => {
     const flags=authData[32];if(!(flags&1)||!(flags&4))throw new Error("Fingerprint/Face ID verification was not completed.");
     const counter=authData.readUInt32BE(33);if(credential.signCount&&counter&&counter<=credential.signCount)throw new Error("Passkey counter verification failed.");
     const signed=Buffer.concat([authData,crypto.createHash("sha256").update(fromB64url(clientDataRaw)).digest()]);
-    if(!crypto.verify("sha256",signed,{key:fromB64url(credential.publicKey),dsaEncoding:"der"},signatureToDer(fromB64url(sigRaw))))throw new Error("Passkey signature could not be verified.");
+    if(!crypto.verify("sha256",signed,{key:fromB64url(credential.publicKey),format:"der",type:"spki",dsaEncoding:"der"},signatureToDer(fromB64url(sigRaw))))throw new Error("Passkey signature could not be verified.");
     const name=await staffName(email);if(!name)throw new Error("Staff account not found.");
     const next=(security?.passkeys||[]).map((p:any)=>p.id===id?{...p,signCount:counter}:p);
     await exec("UPDATE staff_security SET passkeys="+qJson(next)+",updated_at=now() WHERE email="+q(email));
