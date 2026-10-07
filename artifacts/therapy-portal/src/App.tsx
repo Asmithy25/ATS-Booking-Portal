@@ -37,6 +37,7 @@ const SystemHealth = lazy(() => import('@/pages/staff/dashboard/system-health'))
 const HomepagePreview = lazy(() => import('@/pages/staff/dashboard/homepage-preview'));
 const PublicUpdates = lazy(() => import('@/pages/public/updates'));
 const PublicAssistant = lazy(() => import('@/pages/public/assistant'));
+const PublicSupport = lazy(() => import('@/pages/public/support'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const ClientTools = lazy(() => import('@/pages/client/tools'));
