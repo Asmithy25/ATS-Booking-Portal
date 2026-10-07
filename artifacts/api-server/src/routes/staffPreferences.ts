@@ -118,7 +118,7 @@ router.put("/", requireAuth, async (req, res) => {
   const validHex = (value: unknown) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value);
   const accentColor = validHex(body.accentColor) ? String(body.accentColor) : DEFAULTS.accentColor;
   const sidebarColor = validHex(body.sidebarColor) ? String(body.sidebarColor) : DEFAULTS.sidebarColor;
-  await db.execute(sql`INSERT INTO staff_portal_preferences (staff_email, layout, density, navigation, dashboard, updated_at)
+  await db.execute(sql`INSERT INTO staff_portal_preferences (staff_email, layout, density, navigation, dashboard, accent_color, sidebar_color, appearance, sidebar_labels, sidebar_width, updated_at)
     VALUES (${access.email}, ${layout}, ${density}, ${navigation}, ${dashboard}, ${accentColor}, ${sidebarColor}, ${appearance}, ${sidebarLabels}, ${sidebarWidth}, now())
     ON CONFLICT (staff_email) DO UPDATE SET layout=${layout}, density=${density}, navigation=${navigation}, dashboard=${dashboard}, accent_color=${accentColor}, sidebar_color=${sidebarColor}, appearance=${appearance}, sidebar_labels=${sidebarLabels}, sidebar_width=${sidebarWidth}, updated_at=now()`);
   res.json({ ...DEFAULTS, layout, density, navigation, dashboard, accentColor, sidebarColor, appearance, sidebarLabels, sidebarWidth, staffEmail: access.email });
