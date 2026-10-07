@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   auditLogsTable,
@@ -188,7 +188,7 @@ router.post("/", async (req, res) => {
     }
     const confirmationCode = await createConfirmationCode();
     const clientAccountId = await resolveClientAccountId(phone);
-    const [created] = await db.insert(bookingsTable).values({ confirmationCode, clientAccountId, clientName: publicInput.clientName, phone, reason: publicInput.reason, preferredDate, preferredTime, status: "pending" }).returning();
+    const createdRows = await db.execute(sql`INSERT INTO bookings (confirmation_code, client_account_id, client_name, phone, reason, preferred_date, preferred_time, status) VALUES (${confirmationCode}, ${clientAccountId}, ${publicInput.clientName}, ${phone}, ${publicInput.reason}, ${preferredDate}, ${preferredTime}, ${"pending"}) RETURNING *`);\n    const created = (Array.isArray(createdRows) ? createdRows[0] : (createdRows as any).rows?.[0]) as typeof bookingsTable.$inferSelect | undefined;
     await notifyBooking(created, "booking_confirmation");
     const prior = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.phone, phone));
     res.status(201).json({ ...serializeBooking(created), isReturningClient: prior.length > 1, previousSessionCount: Math.max(0, prior.length - 1) });
