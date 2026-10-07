@@ -148,18 +148,6 @@ export default function Login() {
     } finally { setPasskeyBusy(false); }
   };
 
-  const finishPasskey = async () => {
-    if (!passkeyPendingToken || !/^\d{4,8}$/.test(passkeyPin)) return;
-    try {
-      await customFetch('/api/advanced/staff/passkey/complete',{method:'POST',body:JSON.stringify({pendingToken:passkeyPendingToken,pin:passkeyPin}),responseType:'json'});
-      toast({title:'Welcome back',description:'Passkey and PIN verified.'});
-      setLocation('/staff/dashboard');
-    } catch (error) {
-      const err = error as { data?: { error?: string } };
-      toast({variant:'destructive',title:'PIN verification failed',description:err.data?.error || 'Enter your current staff PIN.'});
-    }
-  };
-
   if (setupToken) {
     return (
       <div className="min-h-screen bg-[#edf0eb] p-4 text-foreground dark:bg-background sm:p-8">
