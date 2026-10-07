@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import { getStaffAccess, requireAuth } from "../middleware/auth";
 
 const router = Router();
-const DEFAULTS = { layout: "composed", density: "comfortable", navigation: "classic", dashboard: "balanced", accentColor: "#7B4A2F", sidebarColor: "#3F3028", appearance: "system", sidebarLabels: true, sidebarWidth: "standard" };
+const DEFAULTS = { layout: "composed", density: "comfortable", navigation: "classic", dashboard: "balanced", accentColor: "#7B4A2F", sidebarColor: "#3F3028", darkBackgroundColor: "#000000", appearance: "system", sidebarLabels: true, sidebarWidth: "standard" };
 const NOTIFICATION_DEFAULTS = {
   appointmentAlerts: true,
   teamAssignments: true,
@@ -24,6 +24,7 @@ async function ensureTable() {
     dashboard text NOT NULL DEFAULT 'balanced',
     accent_color text NOT NULL DEFAULT '#7B4A2F',
     sidebar_color text NOT NULL DEFAULT '#3F3028',
+    dark_background_color text NOT NULL DEFAULT '#000000',
     appearance text NOT NULL DEFAULT 'system',
     sidebar_labels boolean NOT NULL DEFAULT true,
     sidebar_width text NOT NULL DEFAULT 'standard',
@@ -37,10 +38,11 @@ router.get("/", requireAuth, async (req, res) => {
   await ensureTable();
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS accent_color text NOT NULL DEFAULT '#7B4A2F'`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS sidebar_color text NOT NULL DEFAULT '#3F3028'`);
+  await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS dark_background_color text NOT NULL DEFAULT '#000000'`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS appearance text NOT NULL DEFAULT 'system'`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS sidebar_labels boolean NOT NULL DEFAULT true`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS sidebar_width text NOT NULL DEFAULT 'standard'`);
-  const result = await db.execute(sql`SELECT staff_email, layout, density, navigation, dashboard, accent_color AS "accentColor", sidebar_color AS "sidebarColor", appearance, sidebar_labels AS "sidebarLabels", sidebar_width AS "sidebarWidth", updated_at FROM staff_portal_preferences WHERE staff_email = ${access.email} LIMIT 1`);
+  const result = await db.execute(sql`SELECT staff_email, layout, density, navigation, dashboard, accent_color AS "accentColor", sidebar_color AS "sidebarColor", dark_background_color AS "darkBackgroundColor", appearance, sidebar_labels AS "sidebarLabels", sidebar_width AS "sidebarWidth", updated_at FROM staff_portal_preferences WHERE staff_email = ${access.email} LIMIT 1`);
   const row = Array.isArray(result) ? result[0] : (result as any).rows?.[0];
   res.json(row ? { ...DEFAULTS, ...row, staffEmail: access.email } : { ...DEFAULTS, staffEmail: access.email });
 });
@@ -118,10 +120,11 @@ router.put("/", requireAuth, async (req, res) => {
   const validHex = (value: unknown) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value);
   const accentColor = validHex(body.accentColor) ? String(body.accentColor) : DEFAULTS.accentColor;
   const sidebarColor = validHex(body.sidebarColor) ? String(body.sidebarColor) : DEFAULTS.sidebarColor;
-  await db.execute(sql`INSERT INTO staff_portal_preferences (staff_email, layout, density, navigation, dashboard, accent_color, sidebar_color, appearance, sidebar_labels, sidebar_width, updated_at)
-    VALUES (${access.email}, ${layout}, ${density}, ${navigation}, ${dashboard}, ${accentColor}, ${sidebarColor}, ${appearance}, ${sidebarLabels}, ${sidebarWidth}, now())
-    ON CONFLICT (staff_email) DO UPDATE SET layout=${layout}, density=${density}, navigation=${navigation}, dashboard=${dashboard}, accent_color=${accentColor}, sidebar_color=${sidebarColor}, appearance=${appearance}, sidebar_labels=${sidebarLabels}, sidebar_width=${sidebarWidth}, updated_at=now()`);
-  res.json({ ...DEFAULTS, layout, density, navigation, dashboard, accentColor, sidebarColor, appearance, sidebarLabels, sidebarWidth, staffEmail: access.email });
+  const darkBackgroundColor = validHex(body.darkBackgroundColor) ? String(body.darkBackgroundColor) : DEFAULTS.darkBackgroundColor;
+  await db.execute(sql`INSERT INTO staff_portal_preferences (staff_email, layout, density, navigation, dashboard, accent_color, sidebar_color, dark_background_color, appearance, sidebar_labels, sidebar_width, updated_at)
+    VALUES (${access.email}, ${layout}, ${density}, ${navigation}, ${dashboard}, ${accentColor}, ${sidebarColor}, ${darkBackgroundColor}, ${appearance}, ${sidebarLabels}, ${sidebarWidth}, now())
+    ON CONFLICT (staff_email) DO UPDATE SET layout=${layout}, density=${density}, navigation=${navigation}, dashboard=${dashboard}, accent_color=${accentColor}, sidebar_color=${sidebarColor}, dark_background_color=${darkBackgroundColor}, appearance=${appearance}, sidebar_labels=${sidebarLabels}, sidebar_width=${sidebarWidth}, updated_at=now()`);
+  res.json({ ...DEFAULTS, layout, density, navigation, dashboard, accentColor, sidebarColor, darkBackgroundColor, appearance, sidebarLabels, sidebarWidth, staffEmail: access.email });
 });
 
 export default router;
