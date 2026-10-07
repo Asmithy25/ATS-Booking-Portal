@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Palette, RotateCcw, Save, Settings2 } from "lucide-react";
-import Security from "./security";
 
 const DEFAULTS={layout:"composed",density:"comfortable",navigation:"classic",dashboard:"balanced",accentColor:"#7B4A2F",sidebarColor:"#3F3028",appearance:"system",sidebarLabels:true,sidebarWidth:"standard"};
 const PRESETS=[["Earth","#7B4A2F","#3F3028"],["Forest","#3F6B4B","#263D31"],["Plum","#714C76","#33263A"],["Ocean","#3B5F7A","#233545"],["Rose","#9A5B68","#442C31"]];
@@ -40,6 +39,5 @@ export default function MySettings(){
    </CardContent>
   </Card>
   <Card className="rounded-2xl"><CardHeader><CardTitle className="flex items-center gap-2"><Settings2 className="h-5 w-5"/>My access</CardTitle><CardDescription>Your role and current explicit permissions.</CardDescription></CardHeader><CardContent><Badge>{session?.role||"staff"}</Badge><div className="mt-4 flex flex-wrap gap-2">{Object.entries((session as any)?.permissions||{}).filter(([,v])=>v===true).map(([k])=><Badge key={k} variant="outline">{k}</Badge>)}</div></CardContent></Card>
-  <Security/>
  </div>;
 }
