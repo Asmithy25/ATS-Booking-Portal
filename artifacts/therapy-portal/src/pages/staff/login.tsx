@@ -38,9 +38,7 @@ export default function Login() {
   const [setupToken, setSetupToken] = useState('');
   const [setupPin, setSetupPin] = useState('');
   const [setupConfirm, setSetupConfirm] = useState('');
-  const [passkeyPendingToken, setPasskeyPendingToken] = useState('');
-  const [passkeyPin, setPasskeyPin] = useState('');
-  const [passkeyBusy, setPasskeyBusy] = useState(false);
+      const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [pinLength, setPinLength] = useState<4|6|8>(6);
   useEffect(() => { customFetch<{pinLength:4|6|8}>('/api/auth/staff-pin/policy',{responseType:'json'}).then((value)=>setPinLength(value.pinLength)).catch(()=>undefined); }, []);
 
@@ -128,7 +126,7 @@ export default function Login() {
       }) as PublicKeyCredential | null;
       if (!credential) throw new Error('No passkey credential was returned.');
       const assertion = credential.response as AuthenticatorAssertionResponse;
-      const verified = await customFetch<{ pendingToken:string }>('/api/advanced/staff/passkey/verify', {
+      const verified = await customFetch<{ authenticated:boolean; staffName:string; secondFactor:string }>('/api/advanced/staff/passkey/verify', {
         method:'POST',
         body:JSON.stringify({
           email,
@@ -136,17 +134,13 @@ export default function Login() {
           clientDataJSON:bytesToBase64Url(assertion.clientDataJSON),
           authenticatorData:bytesToBase64Url(assertion.authenticatorData),
           signature:bytesToBase64Url(assertion.signature),
+          keepSignedIn:form.getValues('keepSignedIn'),
         }),
         responseType:'json',
       });
-      setPasskeyPendingToken(verified.pendingToken);
-      const existingPin = form.getValues('pin');
-      if (/^\d{4,8}$/.test(existingPin)) {
-        await customFetch('/api/advanced/staff/passkey/complete',{method:'POST',body:JSON.stringify({pendingToken:verified.pendingToken,pin:existingPin}),responseType:'json'});
-        toast({title:'Welcome back',description:'Passkey and PIN verified.'});
+      if (verified.authenticated) {
+        toast({title:'Welcome back',description:'Password and passkey verified.'});
         setLocation('/staff/dashboard');
-      } else {
-        toast({title:'Biometric verified',description:'Enter your staff PIN to finish signing in.'});
       }
     } catch (error) {
       const err = error as { data?: { error?: string } };
@@ -186,23 +180,6 @@ export default function Login() {
     );
   }
 
-  if (passkeyPendingToken) {
-    return (
-      <div className="min-h-screen bg-[#edf0eb] p-4 text-foreground dark:bg-background sm:p-8">
-        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-xl items-center">
-          <section className="w-full rounded-2xl border border-border bg-card p-7 shadow-xl sm:p-12">
-            <Fingerprint className="h-8 w-8 text-primary"/>
-            <p className="mt-5 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Second factor required</p>
-            <h1 className="mt-2 font-serif text-4xl">Enter your PIN.</h1>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">Your fingerprint or Face ID was verified. Your staff PIN is still required.</p>
-            <div className="mt-6 space-y-2"><label className="text-sm font-medium">Staff PIN</label><Input inputMode="numeric" maxLength={pinLength} type="password" value={passkeyPin} onChange={(e)=>setPasskeyPin(e.target.value.replace(/\D/g,'').slice(0,pinLength))} autoComplete="one-time-code"/></div>
-            <Button className="mt-5 w-full" onClick={()=>void finishPasskey()} disabled={passkeyPin.length!==pinLength}>Finish sign in</Button>
-          </section>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#edf0eb] p-4 text-foreground dark:bg-background sm:p-8">
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-stretch overflow-hidden rounded-2xl border border-border bg-card shadow-xl lg:grid-cols-[1fr_420px]">
@@ -213,22 +190,22 @@ export default function Login() {
             <h1 className="mt-5 max-w-md font-serif text-7xl font-normal leading-[.87]">Clarity for the work that matters.</h1>
             <p className="mt-7 max-w-sm text-sm leading-7 text-primary-foreground/70">A private operational space for appointments, client care, and the details that help the practice move well.</p>
           </div>
-          <div className="border-t border-primary-foreground/15 pt-5 text-xs text-primary-foreground/60"><div className="flex items-center gap-2 text-primary-foreground"><ShieldCheck className="h-4 w-4 text-secondary"/> Password + PIN protected</div><p className="mt-2">Biometric passkeys can be added as a secondary sign-in method.</p></div>
+          <div className="border-t border-primary-foreground/15 pt-5 text-xs text-primary-foreground/60"><div className="flex items-center gap-2 text-primary-foreground"><ShieldCheck className="h-4 w-4 text-secondary"/> Password + PIN or passkey protected</div><p className="mt-2">Use either your personal PIN or registered passkey as the second verification method.</p></div>
         </section>
         <section className="flex items-center p-7 sm:p-12">
           <div className="w-full">
             <Link href="/" className="mb-12 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-destructive"><ArrowLeft className="h-4 w-4"/> Practice home</Link>
-            <div className="mb-9"><span className="flex h-12 w-12 items-center justify-center bg-secondary p-1 lg:hidden"><img src={logoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><p className="mt-7 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff access</p><h2 className="mt-3 font-serif text-5xl font-normal leading-none">Welcome back.</h2><p className="mt-4 text-sm leading-6 text-muted-foreground">Sign in with your password and required {pinLength}-digit PIN.</p></div>
+            <div className="mb-9"><span className="flex h-12 w-12 items-center justify-center bg-secondary p-1 lg:hidden"><img src={logoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><p className="mt-7 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff access</p><h2 className="mt-3 font-serif text-5xl font-normal leading-none">Welcome back.</h2><p className="mt-4 text-sm leading-6 text-muted-foreground">Sign in with your password and either your {pinLength}-digit PIN or registered passkey.</p></div>
             <form onSubmit={form.handleSubmit(signIn)} className="space-y-5">
               <div className="space-y-2"><label className="text-sm font-medium">Email Address</label><Input autoComplete="username" placeholder="ayden@aydenstherapyservices.com" {...form.register('email')}/>{form.formState.errors.email&&<p className="text-xs text-destructive">{form.formState.errors.email.message}</p>}</div>
               <div className="space-y-2"><label className="text-sm font-medium">Password</label><Input autoComplete="current-password" type="password" placeholder="Enter your password" {...form.register('password')}/>{form.formState.errors.password&&<p className="text-xs text-destructive">{form.formState.errors.password.message}</p>}</div>
-              <div className="space-y-2"><label className="text-sm font-medium">Staff PIN</label><Input inputMode="numeric" maxLength={8} type="password" placeholder="Required every time" autoComplete="one-time-code" {...form.register('pin')} onChange={(e)=>form.setValue('pin',e.target.value.replace(/\D/g,''),{shouldValidate:true})}/>{form.formState.errors.pin&&<p className="text-xs text-destructive">{form.formState.errors.pin.message}</p>}</div>
+              <div className="space-y-2"><label className="text-sm font-medium">Staff PIN</label><Input inputMode="numeric" maxLength={8} type="password" placeholder={'Use your '+pinLength+'-digit PIN'} autoComplete="one-time-code" {...form.register('pin')} onChange={(e)=>form.setValue('pin',e.target.value.replace(/\D/g,''),{shouldValidate:true})}/>{form.formState.errors.pin&&<p className="text-xs text-destructive">{form.formState.errors.pin.message}</p>}</div>
               <div className="flex items-center gap-3 py-1"><Checkbox checked={form.watch('keepSignedIn')} onCheckedChange={(value)=>form.setValue('keepSignedIn',Boolean(value))}/><span className="text-sm">Keep me signed in</span></div>
               <Button type="submit" className="h-12 w-full" disabled={form.formState.isSubmitting}><ShieldCheck className="mr-2 h-4 w-4"/>{form.formState.isSubmitting?'Signing in…':'Sign in securely'}<ArrowUpRight className="ml-auto h-4 w-4"/></Button>
             </form>
             <div className="my-6 flex items-center gap-3"><div className="h-px flex-1 bg-border"/><span className="text-[10px] uppercase tracking-wider text-muted-foreground">Secondary option</span><div className="h-px flex-1 bg-border"/></div>
             <Button type="button" variant="outline" className="h-12 w-full" onClick={()=>void startPasskey()} disabled={passkeyBusy}><Fingerprint className="mr-2 h-4 w-4"/>{passkeyBusy?'Verifying device…':'Use fingerprint / Face ID'} </Button>
-            <p className="mt-3 text-center text-xs text-muted-foreground">Passkey verification is followed by your required PIN.</p>
+            <p className="mt-3 text-center text-xs text-muted-foreground">Your passkey replaces the PIN as the second verification method.</p>
           </div>
         </section>
       </div>
