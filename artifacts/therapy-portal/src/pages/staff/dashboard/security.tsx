@@ -332,7 +332,7 @@ export default function Security() {
       <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Fingerprint className="h-5 w-5 text-primary" /> Biometric passkeys</CardTitle>
-          <CardDescription>Register this device's fingerprint or Face ID. The passkey is stored only on your staff account, and your PIN remains a required second step.</CardDescription>
+          <CardDescription>Register this device's fingerprint or Face ID. The passkey is stored only on your staff account, and can replace the PIN as your second verification method.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button onClick={() => void registerPasskey()} disabled={passkeySaving || !info?.pinConfigured}>
