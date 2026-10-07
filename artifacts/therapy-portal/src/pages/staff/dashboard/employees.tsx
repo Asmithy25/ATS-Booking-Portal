@@ -10,7 +10,7 @@ import {
   useResetEmployeePassword,
   getListEmployeesQueryKey,
 } from '@workspace/api-client-react';
-import type { StaffAccount } from '@workspace/api-client-react';
+import type { StaffAccount, StaffAccountUpdate } from '@workspace/api-client-react';
 import { useLocation } from 'wouter';
 import {
   Table,
@@ -179,7 +179,7 @@ export default function Employees() {
 
   const saveEmployee = () => {
     if (!selectedEmployee || !staffDraft) return;
-    updateEmployee.mutate({ id: selectedEmployee.id, data: staffDraft });
+    updateEmployee.mutate({ id: selectedEmployee.id, data: { ...staffDraft, role: staffDraft.role as StaffAccountUpdate['role'] } });
   };
 
   const handleCreate = (e: React.FormEvent) => {
