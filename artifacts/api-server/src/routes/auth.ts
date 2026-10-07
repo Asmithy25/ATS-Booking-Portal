@@ -56,7 +56,7 @@ router.post("/login", async (req, res) => {
     return;
   }
   if (typeof pin !== "string" || !(await verifyStaffPin(key, pin))) {
-    res.status(401).json({ error: "A valid " + (await getStaffPinPolicy()) + "-digit PIN is required." });
+    res.status(401).json({ error: "A valid " + (await getStaffPinLength(key)) + "-digit PIN is required." });
     return;
   }
 
