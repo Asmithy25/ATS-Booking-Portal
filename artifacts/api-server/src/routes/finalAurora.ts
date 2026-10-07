@@ -52,9 +52,21 @@ async function auroraText(instructions:string,input:string){
   const response=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{authorization:"Bearer "+key,"content-type":"application/json"},body:JSON.stringify({model:process.env.OPENAI_AURORA_MODEL||process.env.OPENAI_MODEL||"gpt-6-luna",instructions,input,max_output_tokens:1800})});
   const data:any=await response.json();
   if(!response.ok) throw Object.assign(new Error(data?.error?.message||"Aurora request failed."),{statusCode:response.status});
-  const output=String(data?.output_text||"").trim();
+  const outputTextCandidates:string[]=[];
+  if(typeof data?.output_text==="string") outputTextCandidates.push(data.output_text);
+  for(const item of Array.isArray(data?.output)?data.output:[]){
+    if(Array.isArray(item?.content)){
+      for(const part of item.content){
+        if(typeof part?.text==="string") outputTextCandidates.push(part.text);
+        if(typeof part?.value==="string") outputTextCandidates.push(part.value);
+      }
+    }
+    if(typeof item?.text==="string") outputTextCandidates.push(item.text);
+  }
+  const output=outputTextCandidates.map((value)=>String(value).trim()).filter(Boolean).join("\n").trim();
   if(output)return output;
-  throw Object.assign(new Error("Aurora returned no text."),{statusCode:502});
+  if(data?.status==="completed") return JSON.stringify({response:"Aurora completed the request but returned an empty message.",action:null});
+  throw Object.assign(new Error("Aurora returned no usable text."),{statusCode:502});
 }
 
 router.get("/context",requireAuth,async(req,res)=>{const access=await capability(req,res);if(!access)return;res.json(await contextFor(access));});
