@@ -5,7 +5,7 @@ import { db } from "@workspace/db";
 import { staffAccountsTable, clientAccountsTable, bookingsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { repairClientData } from "../lib/client-data-repair";
-import { ensureAdvancedStorage, getStaffPinPolicy, getStaffSecurity, setInitialStaffPin, verifyStaffPin, resetStaffPin, isAllowedPinLength, isObviousStaffPin } from "../lib/advanced-storage";
+import { ensureAdvancedStorage, getStaffPinPolicy, getStaffSecurity, setInitialStaffPin, verifyStaffPin, resetStaffPin, isAllowedPinLength, isObviousStaffPin, getStaffPinLength } from "../lib/advanced-storage";
 
 const router = Router();
 
@@ -33,7 +33,7 @@ router.post("/login", async (req, res) => {
       return;
     }
     if (typeof pin !== "string" || !(await verifyStaffPin(key, pin))) {
-      res.status(401).json({ error: "A valid staff PIN is required." });
+      res.status(401).json({ error: "A valid " + (await getStaffPinLength(key)) + "-digit PIN is required." });
       return;
     }
     issueSession(res, key, hardcoded.name, keepSignedIn);
@@ -73,9 +73,10 @@ router.post("/staff-pin/setup", async (req, res): Promise<void> => {
     res.status(401).json({ error: "PIN setup has expired. Sign in again." });
     return;
   }
-  const pinLength = isAllowedPinLength(Number(pending.pinLength)) ? Number(pending.pinLength) : await getStaffPinPolicy();
+  const requestedLength = Number(req.body?.pinLength);
+  const pinLength = isAllowedPinLength(requestedLength) ? requestedLength : (isAllowedPinLength(Number(pending.pinLength)) ? Number(pending.pinLength) : await getStaffPinPolicy());
   if (pin.length !== pinLength || !/^\d+$/.test(pin) || isObviousStaffPin(pin)) { res.status(400).json({ error: "Choose a valid " + pinLength + "-digit PIN that is not an obvious sequence." }); return; }
-  await setInitialStaffPin(pending.email, pin);
+  await setInitialStaffPin(pending.email, pin, pinLength);
   issueSession(res, pending.email, pending.name, true);
   res.json({ success: true, staffName: pending.name });
 });
@@ -112,7 +113,7 @@ router.get("/security", requireAuth, async (req, res): Promise<void> => {
     sessionRememberDays: 30,
     passwordChangeSupported: !isFounder,
     permissionNames: Object.entries(access.permissions ?? {}).filter(([, allowed]) => allowed).map(([name]) => name),
-    pinLength: await getStaffPinPolicy(),
+    pinLength: await getStaffPinLength(access.email),
     accountCreatedAt,
   });
 });
