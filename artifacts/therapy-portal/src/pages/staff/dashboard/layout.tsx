@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useTheme } from '@/components/theme-provider';
 import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 
 function toHsl(hex: string) { const value=/^#[0-9a-fA-F]{6}$/.test(hex)?hex:'#7B4A2F'; const r=parseInt(value.slice(1,3),16)/255,g=parseInt(value.slice(3,5),16)/255,b=parseInt(value.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),l=(max+min)/2; if(max===min)return `0 0% ${Math.round(l*100)}%`; const d=max-min,s=l>.5?d/(2-max-min):d/(max+min); let h=0;if(max===r)h=(g-b)/d+(g<b?6:0);else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;return `${Math.round(h*60)} ${Math.round(s*100)}% ${Math.round(l*100)}%`; }
@@ -14,10 +15,12 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#7B4A2F', sidebarColor: '#3F3028', appearance: 'system', sidebarLabels: true, sidebarWidth: 'standard' });
+  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#7B4A2F', sidebarColor: '#3F3028', darkBackgroundColor: '#000000', appearance: 'system', sidebarLabels: true, sidebarWidth: 'standard' });
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
+  const { theme } = useTheme();
+  const isStaffDarkMode = portalPrefs.appearance === 'dark' || (portalPrefs.appearance === 'system' && theme === 'dark');
 
   const { data: session, isLoading, error } = useGetAuthMe({
     query: {
@@ -57,6 +60,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         dashboard: typeof detail.dashboard === 'string' ? detail.dashboard : current.dashboard,
         accentColor: typeof detail.accentColor === 'string' ? detail.accentColor : current.accentColor,
         sidebarColor: typeof detail.sidebarColor === 'string' ? detail.sidebarColor : current.sidebarColor,
+        darkBackgroundColor: typeof detail.darkBackgroundColor === 'string' ? detail.darkBackgroundColor : current.darkBackgroundColor,
         appearance: typeof detail.appearance === 'string' ? detail.appearance : current.appearance,
         sidebarLabels: typeof detail.sidebarLabels === 'boolean' ? detail.sidebarLabels : current.sidebarLabels,
         sidebarWidth: typeof detail.sidebarWidth === 'string' ? detail.sidebarWidth : current.sidebarWidth,
@@ -68,7 +72,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
 
   useEffect(() => {
     if (!session?.authenticated) return;
-    customFetch<{ layout?: string; density?: string; navigation?: string; dashboard?: string; accentColor?: string; sidebarColor?: string; appearance?: string; sidebarLabels?: boolean; sidebarWidth?: string }>('/api/settings/staff-preferences')
+    customFetch<{ layout?: string; density?: string; navigation?: string; dashboard?: string; accentColor?: string; sidebarColor?: string; darkBackgroundColor?: string; appearance?: string; sidebarLabels?: boolean; sidebarWidth?: string }>('/api/settings/staff-preferences')
       .then((value) => value && setPortalPrefs((current) => ({
         ...current,
         layout: value.layout ?? current.layout,
@@ -77,6 +81,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         dashboard: value.dashboard ?? current.dashboard,
         accentColor: value.accentColor ?? current.accentColor,
         sidebarColor: value.sidebarColor ?? current.sidebarColor,
+        darkBackgroundColor: value.darkBackgroundColor ?? current.darkBackgroundColor,
         appearance: value.appearance ?? current.appearance,
         sidebarLabels: value.sidebarLabels ?? current.sidebarLabels,
         sidebarWidth: value.sidebarWidth ?? current.sidebarWidth,
@@ -123,9 +128,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   };
 
   return (
-      <div className={portalPrefs.appearance === "dark" ? "dark" : ""}>
+      <div className={isStaffDarkMode ? "dark" : ""}>
       <div
-        className={`ats-staff-shell min-h-screen flex text-foreground ats-paper ${portalPrefs.layout === "relaxed" ? "bg-[#f4f0ea]" : portalPrefs.layout === "focused" ? "bg-[#eef1f5]" : portalPrefs.layout === "minimal" ? "bg-background" : "bg-[#edf0eb]"}`}
+        className={`ats-staff-shell min-h-screen flex text-foreground ${isStaffDarkMode ? "" : "ats-paper " + (portalPrefs.layout === "relaxed" ? "bg-[#f4f0ea]" : portalPrefs.layout === "focused" ? "bg-[#eef1f5]" : portalPrefs.layout === "minimal" ? "bg-background" : "bg-[#edf0eb]")}`}
         style={{
           "--primary": toHsl(portalPrefs.accentColor),
           "--ring": toHsl(portalPrefs.accentColor),
@@ -133,6 +138,8 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           "--sidebar": toHsl(portalPrefs.sidebarColor),
           "--sidebar-primary": toHsl(portalPrefs.accentColor),
           "--sidebar-accent": toHsl(portalPrefs.accentColor),
+          backgroundColor: isStaffDarkMode ? portalPrefs.darkBackgroundColor : undefined,
+          backgroundImage: isStaffDarkMode ? "none" : undefined,
         } as React.CSSProperties}
       >
       {/* Sidebar */}
