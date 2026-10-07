@@ -132,7 +132,7 @@ const BACKUP_OPTIONS: Array<{
   },
 ];
 
-export default function Settings({ hidePersonal = false }: { hidePersonal?: boolean } = {}) {
+export default function Settings() {
   const { data: session } = useGetAuthMe({
     query: { queryKey: getGetAuthMeQueryKey(), retry: false },
   });
@@ -152,25 +152,6 @@ export default function Settings({ hidePersonal = false }: { hidePersonal?: bool
   const [lastImport, setLastImport] = useState<BackupImportResult | null>(null);
   const [homepageDraft, setHomepageDraft] = useState<Record<string, any>>({});
   const [homepageSaving, setHomepageSaving] = useState(false);
-  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced' });
-  const [portalPrefsSaving, setPortalPrefsSaving] = useState(false);
-  const savePortalPreferences = async () => {
-    setPortalPrefsSaving(true);
-    try {
-      await customFetch('/api/settings/staff-preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(portalPrefs),
-      });
-      window.dispatchEvent(new CustomEvent('ats-staff-preferences-updated', { detail: portalPrefs }));
-      toast({ title: 'Workspace saved', description: 'Your staff portal preferences were updated.' });
-    } catch {
-      toast({ title: 'Could not save workspace', description: 'Please try again.', variant: 'destructive' });
-    } finally {
-      setPortalPrefsSaving(false);
-    }
-  };
   const hoursForm = useForm<{ officeHours: SettingsFormValues['officeHours'] }>({
     resolver: zodResolver(z.object({
       officeHours: settingsSchema.shape.officeHours,
