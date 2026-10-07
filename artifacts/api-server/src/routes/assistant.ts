@@ -247,7 +247,7 @@ async function callOpenAI(input: any[], instructions: string, previousResponseId
 
 async function safeBooking(code: string, reqClientId: number | null) {
   const normalizedCode = normalizeBookingCode(code);
-  if (!normalizedCode) return { ok: false, error: "An exact confirmation code is required." };
+  if (!normalizedCode) return { ok: false as const, error: "An exact confirmation code is required." };
   const [booking] = await db
     .select({
       id: bookingsTable.id,
@@ -260,11 +260,11 @@ async function safeBooking(code: string, reqClientId: number | null) {
     .from(bookingsTable)
     .where(eq(bookingsTable.confirmationCode, normalizedCode))
     .limit(1);
-  if (!booking) return { ok: false, error: "No booking was found with that confirmation code." };
+  if (!booking) return { ok: false as const, error: "No booking was found with that confirmation code." };
   if (reqClientId && booking.clientAccountId && booking.clientAccountId !== reqClientId) {
-    return { ok: false, error: "That booking does not belong to the signed-in client." };
+    return { ok: false as const, error: "That booking does not belong to the signed-in client." };
   }
-  return { ok: true, booking };
+  return { ok: true as const, booking };
 }
 
 async function runBookingTool(name: string, args: any, reqClientId: number | null) {
