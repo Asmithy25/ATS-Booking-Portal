@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { customFetch, useGetAuthMe } from "@workspace/api-client-react";
+import { customFetch, useGetAuthMe, getGetAuthMeQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, Send, CheckCircle2, ShieldCheck } from "lucide-react";
 export default function Aurora(){
- const {data:session}=useGetAuthMe({query:{retry:false}});const {toast}=useToast();
+ const {data:session}=useGetAuthMe({query:{queryKey:getGetAuthMeQueryKey(),retry:false}});const {toast}=useToast();
  const [messages,setMessages]=useState<any[]>([]);const [input,setInput]=useState("");const [action,setAction]=useState<any>(null);const [busy,setBusy]=useState(false);
  const ask=async()=>{if(!input.trim())return;const text=input.trim();setBusy(true);try{const result=await customFetch<any>("/api/final/aurora/plan",{method:"POST",body:JSON.stringify({message:text}),responseType:"json"});setMessages(m=>m.concat([{role:"user",body:text},{role:"assistant",body:result.response}]));setAction(result.action||null);setInput("");}catch(e:any){toast({variant:"destructive",title:"Aydens Wellness Staff Assistant unavailable",description:e?.message||"Check the AI configuration or your permissions."});}finally{setBusy(false);}};
  const apply=async()=>{if(!action)return;setBusy(true);try{await customFetch("/api/final/aurora/execute",{method:"POST",body:JSON.stringify({action,request:messages.filter(m=>m.role==="user").at(-1)?.body||""}),responseType:"json"});toast({title:"Aurora completed the action"});setMessages(m=>m.concat([{role:"system",body:"The confirmed action was applied successfully."}]));setAction(null);}catch(e:any){toast({variant:"destructive",title:"Action blocked",description:e?.message||"That action is outside your current staff permissions."});}finally{setBusy(false);}};
