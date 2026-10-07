@@ -74,7 +74,7 @@ router.post("/staff-pin/setup", async (req, res): Promise<void> => {
     return;
   }
   const requestedLength = Number(req.body?.pinLength);
-  const pinLength = isAllowedPinLength(requestedLength) ? requestedLength : (isAllowedPinLength(Number(pending.pinLength)) ? Number(pending.pinLength) : await getStaffPinPolicy());
+  const pinLength = isAllowedPinLength(requestedLength) ? (requestedLength as 4 | 6 | 8) : (isAllowedPinLength(Number(pending.pinLength)) ? (Number(pending.pinLength) as 4 | 6 | 8) : await getStaffPinPolicy());
   if (pin.length !== pinLength || !/^\d+$/.test(pin) || isObviousStaffPin(pin)) { res.status(400).json({ error: "Choose a valid " + pinLength + "-digit PIN that is not an obvious sequence." }); return; }
   await setInitialStaffPin(pending.email, pin, pinLength);
   issueSession(res, pending.email, pending.name, true);
