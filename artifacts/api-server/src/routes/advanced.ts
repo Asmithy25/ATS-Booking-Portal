@@ -128,8 +128,10 @@ function signatureToDer(value: Buffer) {
   const body = Buffer.concat([Buffer.from([0x02,r.length]),r,Buffer.from([0x02,s.length]),s]);
   return Buffer.concat([Buffer.from([0x30,body.length]),body]);
 }
-function issueStaffSession(res: Response, email: string, name: string) {
-  res.cookie(SESSION_COOKIE, signPayload({ email, name }), { httpOnly:true, sameSite:"none", secure:process.env.NODE_ENV === "production", path:"/" });
+function issueStaffSession(res: Response, email: string, name: string, keepSignedIn=false) {
+  const cookieOptions: any = { httpOnly:true, sameSite:"none", secure:process.env.NODE_ENV === "production", path:"/" };
+  if (keepSignedIn) cookieOptions.maxAge = 30 * 24 * 60 * 60 * 1000;
+  res.cookie(SESSION_COOKIE, signPayload({ email, name }), cookieOptions);
 }
 async function verifyStaffPassword(email: string, password: string) {
   const key = email.toLowerCase().trim();
@@ -177,7 +179,7 @@ router.post("/staff/passkey/options", async (req,res) => {
   const email=text(req.body?.email,320).toLowerCase(),password=text(req.body?.password,500);
   if(!email||!password||!(await verifyStaffPassword(email,password))){res.status(401).json({error:"Invalid email or password."});return;}
   const security=await getStaffSecurity(email);
-  if(!security?.pin_hash||!(security.passkeys||[]).length){res.status(404).json({error:"Set a PIN and register a passkey first."});return;}
+  if(!(security?.passkeys||[]).length){res.status(404).json({error:"Register a passkey first."});return;}
   const challenge=b64url(crypto.randomBytes(32)),origin=safeOrigin(req),rpId=new URL(origin).hostname;
   await exec("INSERT INTO passkey_challenges(email,challenge,origin,rp_id,purpose,expires_at,created_at) VALUES ("+q(email)+","+q(challenge)+","+q(origin)+","+q(rpId)+",'authenticate',now()+interval '5 minutes',now())");
   res.json({challenge,rpId,timeout:120000,userVerification:"required",allowCredentials:(security.passkeys||[]).map((p:any)=>({type:"public-key",id:p.id,transports:p.transports||[]}))});
@@ -200,16 +202,12 @@ router.post("/staff/passkey/verify", async (req,res) => {
     const name=await staffName(email);if(!name)throw new Error("Staff account not found.");
     const next=(security?.passkeys||[]).map((p:any)=>p.id===id?{...p,signCount:counter}:p);
     await exec("UPDATE staff_security SET passkeys="+qJson(next)+",updated_at=now() WHERE email="+q(email));
-    res.json({authenticated:true,pendingToken:signPayload({email,name,auth:"passkey",exp:String(Date.now()+300000)}),staffName:name});
+    issueStaffSession(res,email,name,Boolean(req.body?.keepSignedIn));
+    res.json({authenticated:true,staffName:name,secondFactor:"passkey"});
   }catch(error:any){res.status(401).json({error:error?.message||"Passkey authentication failed."});}
 });
 router.post("/staff/passkey/complete", async (req,res) => {
-  const pending=req.body?.pendingToken?verifyPayload(req.body.pendingToken):null;
-  if(!pending||pending.auth!=="passkey"||!pending.email||!pending.name||Number(pending.exp)<Date.now()){res.status(401).json({error:"Passkey sign-in expired."});return;}
-  const pinLength=await getStaffPinLength(pending.email),pin=text(req.body?.pin,8);
-  if(!/^\d+$/.test(pin)||pin.length!==pinLength){res.status(400).json({error:"PIN must be exactly "+pinLength+" digits."});return;}
-  const security=await getStaffSecurity(pending.email);if(!security?.pin_hash||!(await verifyStaffPin(pending.email,pin))){res.status(401).json({error:"Invalid PIN."});return;}
-  issueStaffSession(res,pending.email,pending.name);res.json({success:true,staffName:pending.name});
+  res.status(410).json({error:"Passkey verification is now the complete second-factor step. Start passkey sign-in again."});
 });
 router.post("/staff/passkey/register-options", requireAuth, async (req,res) => {
   const access=await getStaffAccess(req);if(!access){res.status(401).json({error:"Unauthorized."});return;}
