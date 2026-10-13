@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { useToast } from '@/hooks/use-toast';
 import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 
 function toHsl(hex: string) { const value=/^#[0-9a-fA-F]{6}$/.test(hex)?hex:'#7B4A2F'; const r=parseInt(value.slice(1,3),16)/255,g=parseInt(value.slice(3,5),16)/255,b=parseInt(value.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),l=(max+min)/2; if(max===min)return `0 0% ${Math.round(l*100)}%`; const d=max-min,s=l>.5?d/(2-max-min):d/(max+min); let h=0;if(max===r)h=(g-b)/d+(g<b?6:0);else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;return `${Math.round(h*60)} ${Math.round(s*100)}% ${Math.round(l*100)}%`; }
@@ -19,6 +19,39 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
   const isStaffDarkMode = portalPrefs.appearance === 'dark';
+  const { toast } = useToast();
+
+  // The staff workspace has its own persisted appearance. Do not use the
+  // public/client ThemeProvider here: it must not leak the staff theme elsewhere.
+  const saveStaffAppearance = async (appearance: 'light' | 'dark') => {
+    const previousAppearance = portalPrefs.appearance === 'dark' ? 'dark' : 'light';
+    const optimistic = { ...portalPrefs, appearance };
+    setPortalPrefs(optimistic);
+    window.dispatchEvent(new CustomEvent('ats-staff-preferences-updated', { detail: optimistic }));
+    try {
+      const saved = await customFetch<any>('/api/settings/staff-preferences', {
+        method: 'PUT',
+        body: JSON.stringify(optimistic),
+        responseType: 'json',
+      });
+      const merged = { ...optimistic, ...saved };
+      setPortalPrefs(merged);
+      window.dispatchEvent(new CustomEvent('ats-staff-preferences-updated', { detail: merged }));
+      toast({
+        title: appearance === 'dark' ? 'Dark mode enabled' : 'Light mode enabled',
+        description: 'Your appearance preference is saved for your staff account.',
+      });
+    } catch (error) {
+      const restored = { ...optimistic, appearance: previousAppearance };
+      setPortalPrefs(restored);
+      window.dispatchEvent(new CustomEvent('ats-staff-preferences-updated', { detail: restored }));
+      toast({
+        variant: 'destructive',
+        title: 'Appearance could not be saved',
+        description: error instanceof Error ? error.message : 'Please try again.',
+      });
+    }
+  };
 
   const { data: session, isLoading, error } = useGetAuthMe({
     query: {
@@ -279,7 +312,16 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
                   </Button>
                 </div>}
               </div>
-              <ThemeToggle compact />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={isStaffDarkMode ? 'Switch staff portal to light mode' : 'Switch staff portal to dark mode'}
+                title={isStaffDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                onClick={() => void saveStaffAppearance(isStaffDarkMode ? 'light' : 'dark')}
+              >
+                {isStaffDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
               <Button type="button" variant="secondary" className="hidden sm:inline-flex" onClick={() => setLocation('/staff/bookings')}>
                 Open bookings <ArrowUpRight className="h-4 w-4" />
               </Button>
