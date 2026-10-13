@@ -3,8 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
-import { useGetSettings } from '@workspace/api-client-react';
-import { getThemeStyle } from '@/lib/theme';
 
 import Home from '@/pages/public/home';
 const BookingManage = lazy(() => import('@/pages/public/booking-manage'));
@@ -52,11 +50,6 @@ const StaffPublicSupport = lazy(() => import('@/pages/staff/dashboard/public-sup
 const NotFound = lazy(() => import('@/pages/not-found'));
 
 const queryClient = new QueryClient();
-
-function ThemeSettingsBridge({ children }: { children: React.ReactNode }) {
-  const { data: settings } = useGetSettings();
-  return <div style={getThemeStyle(settings)} className="min-h-screen">{children}</div>;
-}
 
 function StaffRouter() {
   return (
@@ -127,8 +120,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <ThemeSettingsBridge>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
             <Suspense
               fallback={
                 <div className="min-h-screen flex items-center justify-center bg-background text-primary">
@@ -138,8 +130,7 @@ function App() {
             >
               <Router />
             </Suspense>
-          </WouterRouter>
-        </ThemeSettingsBridge>
+        </WouterRouter>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

@@ -2,6 +2,7 @@ export type HomepageContent = Record<string, any> & { sectionVisibility: Record<
 
 export const DEFAULT_HOMEPAGE_CONTENT = {
   sectionVisibility: { hero: true, about: true, wellness: true, booking: true, announcements: true, footer: true },
+  websiteCustomizationEnabled: false,
   heroGreeting: "Good morning",
   heroWelcome: "Welcome — this is a space for you.",
   heroQuoteEnabled: true,
@@ -114,10 +115,12 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
 
 export function getHomepageContent(settings: unknown) {
   const value = (settings as { homepageContent?: Record<string, unknown> } | undefined)?.homepageContent;
-  const savedVisibility = value?.sectionVisibility;
+  // Legacy customizations remain hidden until someone explicitly saves a website edit.
+  const activeValue = value?.websiteCustomizationEnabled === true ? value : undefined;
+  const savedVisibility = activeValue?.sectionVisibility;
   return {
     ...DEFAULT_HOMEPAGE_CONTENT,
-    ...(value ?? {}),
+    ...(activeValue ?? {}),
     sectionVisibility: {
       ...DEFAULT_HOMEPAGE_CONTENT.sectionVisibility,
       ...(savedVisibility && typeof savedVisibility === 'object' ? savedVisibility as Record<string, boolean> : {}),

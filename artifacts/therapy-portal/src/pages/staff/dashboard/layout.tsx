@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { useTheme } from '@/components/theme-provider';
 import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 
 function toHsl(hex: string) { const value=/^#[0-9a-fA-F]{6}$/.test(hex)?hex:'#7B4A2F'; const r=parseInt(value.slice(1,3),16)/255,g=parseInt(value.slice(3,5),16)/255,b=parseInt(value.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),l=(max+min)/2; if(max===min)return `0 0% ${Math.round(l*100)}%`; const d=max-min,s=l>.5?d/(2-max-min):d/(max+min); let h=0;if(max===r)h=(g-b)/d+(g<b?6:0);else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;return `${Math.round(h*60)} ${Math.round(s*100)}% ${Math.round(l*100)}%`; }
@@ -15,12 +14,11 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#7B4A2F', sidebarColor: '#3F3028', darkBackgroundColor: '#000000', appearance: 'system', sidebarLabels: true, sidebarWidth: 'standard' });
+  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#7B4A2F', sidebarColor: '#3F3028', darkBackgroundColor: '#181818', appearance: 'light', sidebarLabels: true, sidebarWidth: 'standard' });
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
-  const { theme } = useTheme();
-  const isStaffDarkMode = portalPrefs.appearance === 'dark' || (portalPrefs.appearance === 'system' && theme === 'dark');
+  const isStaffDarkMode = portalPrefs.appearance === 'dark';
 
   const { data: session, isLoading, error } = useGetAuthMe({
     query: {
@@ -138,6 +136,22 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           "--sidebar": toHsl(portalPrefs.sidebarColor),
           "--sidebar-primary": toHsl(portalPrefs.accentColor),
           "--sidebar-accent": toHsl(portalPrefs.accentColor),
+          // Keep this shell's palette independent from any public/client theme.
+          "--background": isStaffDarkMode ? "24 18% 11%" : "35 44% 96%",
+          "--foreground": isStaffDarkMode ? "38 32% 95%" : "20 25% 19%",
+          "--card": isStaffDarkMode ? "24 18% 15%" : "38 42% 99%",
+          "--card-foreground": isStaffDarkMode ? "38 32% 95%" : "20 25% 19%",
+          "--card-border": isStaffDarkMode ? "24 14% 26%" : "30 27% 87%",
+          "--border": isStaffDarkMode ? "24 14% 26%" : "28 28% 83%",
+          "--input": isStaffDarkMode ? "24 14% 26%" : "28 28% 83%",
+          "--muted": isStaffDarkMode ? "24 14% 21%" : "32 28% 90%",
+          "--muted-foreground": isStaffDarkMode ? "35 18% 72%" : "22 13% 45%",
+          "--popover": isStaffDarkMode ? "24 18% 15%" : "38 42% 99%",
+          "--popover-foreground": isStaffDarkMode ? "38 32% 95%" : "20 25% 19%",
+          "--primary-foreground": isStaffDarkMode ? "24 30% 10%" : "38 42% 99%",
+          "--secondary-foreground": "20 25% 19%",
+          "--accent": isStaffDarkMode ? "30 20% 25%" : "75 18% 84%",
+          "--accent-foreground": isStaffDarkMode ? "38 32% 95%" : "20 25% 19%",
           backgroundColor: isStaffDarkMode ? portalPrefs.darkBackgroundColor : undefined,
           backgroundImage: isStaffDarkMode ? "none" : undefined,
         } as React.CSSProperties}

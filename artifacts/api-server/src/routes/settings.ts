@@ -10,6 +10,7 @@ const router = Router();
 
 const DEFAULT_HOMEPAGE_CONTENT = {
   sectionVisibility: { hero: true, about: true, wellness: true, booking: true, announcements: true, footer: true },
+  websiteCustomizationEnabled: false,
   announcementHeading: "What’s new",
   announcementSubheading: "Updates from Aydens Wellness Services",
   announcementDescription: "",
@@ -194,6 +195,20 @@ async function ensureSettings() {
 router.get("/", async (req, res) => {
   try {
     const settings = await ensureSettings();
+    const customizationEnabled = (settings.homepageContent as unknown as Record<string, unknown> | null)?.websiteCustomizationEnabled === true;
+    // Keep any legacy website styling hidden until the founder explicitly saves customization.
+    const websiteSettings = customizationEnabled ? settings : {
+      ...settings,
+      siteName: "Aydens Wellness Services",
+      siteTagline: "Care That Meets You Where You Are",
+      logoUrl: "",
+      heroTitle: "A safe space for healing and growth.",
+      heroDescription: "A warm, grounded space to explore your thoughts and feelings without judgment.",
+      primaryColor: "#7B4A2F",
+      secondaryColor: "#C38A4A",
+      accentColor: "#D9B7A2",
+      homepageContent: DEFAULT_HOMEPAGE_CONTENT,
+    };
     res.json({
       acceptingClients: settings.acceptingClients,
       sessionRequestsOpen: settings.sessionRequestsOpen,
@@ -204,15 +219,15 @@ router.get("/", async (req, res) => {
       vacationMode: settings.vacationMode,
       vacationStart: settings.vacationStart ?? "",
       vacationEnd: settings.vacationEnd ?? "",
-      siteName: settings.siteName,
-      siteTagline: settings.siteTagline,
-      logoUrl: settings.logoUrl,
-      heroTitle: settings.heroTitle,
-      heroDescription: settings.heroDescription,
-      primaryColor: settings.primaryColor,
-      secondaryColor: settings.secondaryColor,
-      accentColor: settings.accentColor,
-      homepageContent: mergeHomepageContent(settings.homepageContent),
+      siteName: websiteSettings.siteName,
+      siteTagline: websiteSettings.siteTagline,
+      logoUrl: websiteSettings.logoUrl,
+      heroTitle: websiteSettings.heroTitle,
+      heroDescription: websiteSettings.heroDescription,
+      primaryColor: websiteSettings.primaryColor,
+      secondaryColor: websiteSettings.secondaryColor,
+      accentColor: websiteSettings.accentColor,
+      homepageContent: mergeHomepageContent(websiteSettings.homepageContent),
       featureFlags: settings.featureFlags ?? DEFAULT_SETTINGS.featureFlags,
       therapistHours: [
         {
@@ -302,6 +317,32 @@ router.put("/my-hours", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/revert-website-customization", requireAuth, async (req, res) => {
+  try {
+    const access = await getStaffAccess(req);
+    if (!access || access.role !== "founder") {
+      res.status(access ? 403 : 401).json({ error: "Only the founder can revert website customization." });
+      return;
+    }
+    const current = await ensureSettings();
+    await db.update(settingsTable).set({
+      siteName: "Aydens Wellness Services",
+      siteTagline: "Care That Meets You Where You Are",
+      logoUrl: "",
+      heroTitle: "A safe space for healing and growth.",
+      heroDescription: "A warm, grounded space to explore your thoughts and feelings without judgment.",
+      primaryColor: "#7B4A2F",
+      secondaryColor: "#C38A4A",
+      accentColor: "#D9B7A2",
+      homepageContent: DEFAULT_HOMEPAGE_CONTENT,
+    }).where(eq(settingsTable.id, current.id));
+    await recordAudit(req, "reverted_website_customization", "settings", String(current.id));
+    res.json({ success: true, message: "Website customization reverted to the Aydens Wellness Services defaults." });
+  } catch (err) {
+    req.log.error({ err }, "Failed to revert website customization");
+    res.status(500).json({ error: "Could not revert website customization." });
+  }
+});
 // PUT /settings - staff only
 router.put("/", requirePermission("manageSettings"), async (req, res) => {
   const body = req.body as Partial<{
@@ -430,6 +471,18 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
         return;
       }
       updates.featureFlags = flags;
+    }
+
+    const customizationKeys = ["siteName", "siteTagline", "logoUrl", "heroTitle", "heroDescription", "primaryColor", "secondaryColor", "accentColor", "homepageContent"];
+    const isWebsiteCustomizationUpdate = customizationKeys.some((key) => (body as Record<string, unknown>)[key] !== undefined);
+    if (isWebsiteCustomizationUpdate) {
+      const wasCustomizationEnabled = (current.homepageContent as unknown as Record<string, unknown> | null)?.websiteCustomizationEnabled === true;
+      const homepageBase = wasCustomizationEnabled ? mergeHomepageContent(current.homepageContent) : DEFAULT_HOMEPAGE_CONTENT;
+      updates.homepageContent = {
+        ...homepageBase,
+        ...(updates.homepageContent ?? {}),
+        websiteCustomizationEnabled: true,
+      };
     }
 
     const [updated] = await db

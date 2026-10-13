@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import { getStaffAccess, requireAuth } from "../middleware/auth";
 
 const router = Router();
-const DEFAULTS = { layout: "composed", density: "comfortable", navigation: "classic", dashboard: "balanced", accentColor: "#7B4A2F", sidebarColor: "#3F3028", darkBackgroundColor: "#000000", appearance: "system", sidebarLabels: true, sidebarWidth: "standard" };
+const DEFAULTS = { layout: "composed", density: "comfortable", navigation: "classic", dashboard: "balanced", accentColor: "#7B4A2F", sidebarColor: "#3F3028", darkBackgroundColor: "#181818", appearance: "light", sidebarLabels: true, sidebarWidth: "standard" };
 const NOTIFICATION_DEFAULTS = {
   appointmentAlerts: true,
   teamAssignments: true,
@@ -24,8 +24,8 @@ async function ensureTable() {
     dashboard text NOT NULL DEFAULT 'balanced',
     accent_color text NOT NULL DEFAULT '#7B4A2F',
     sidebar_color text NOT NULL DEFAULT '#3F3028',
-    dark_background_color text NOT NULL DEFAULT '#000000',
-    appearance text NOT NULL DEFAULT 'system',
+    dark_background_color text NOT NULL DEFAULT '#181818',
+    appearance text NOT NULL DEFAULT 'light',
     sidebar_labels boolean NOT NULL DEFAULT true,
     sidebar_width text NOT NULL DEFAULT 'standard',
     updated_at timestamp NOT NULL DEFAULT now()
@@ -39,7 +39,7 @@ router.get("/", requireAuth, async (req, res) => {
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS accent_color text NOT NULL DEFAULT '#7B4A2F'`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS sidebar_color text NOT NULL DEFAULT '#3F3028'`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS dark_background_color text NOT NULL DEFAULT '#000000'`);
-  await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS appearance text NOT NULL DEFAULT 'system'`);
+  await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS appearance text NOT NULL DEFAULT 'light'`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS sidebar_labels boolean NOT NULL DEFAULT true`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS sidebar_width text NOT NULL DEFAULT 'standard'`);
   const result = await db.execute(sql`SELECT staff_email, layout, density, navigation, dashboard, accent_color AS "accentColor", sidebar_color AS "sidebarColor", dark_background_color AS "darkBackgroundColor", appearance, sidebar_labels AS "sidebarLabels", sidebar_width AS "sidebarWidth", updated_at FROM staff_portal_preferences WHERE staff_email = ${access.email} LIMIT 1`);
@@ -65,7 +65,7 @@ router.put("/notification-preferences", requireAuth, async (req, res) => {
   const body = req.body as Record<string, unknown>;
   const prefs = Object.fromEntries(Object.keys(NOTIFICATION_DEFAULTS).map((key) => [key, body[key] !== false]));
   await db.execute(sql`INSERT INTO staff_portal_preferences (staff_email, layout, density, navigation, dashboard, accent_color, sidebar_color, appearance, sidebar_labels, sidebar_width, notification_preferences, updated_at)
-    VALUES (${access.email}, 'composed', 'comfortable', 'classic', 'balanced', '#7B4A2F', '#3F3028', 'system', true, 'standard', ${JSON.stringify(prefs)}::jsonb, now())
+    VALUES (${access.email}, 'composed', 'comfortable', 'classic', 'balanced', '#7B4A2F', '#3F3028', 'light', true, 'standard', ${JSON.stringify(prefs)}::jsonb, now())
     ON CONFLICT (staff_email) DO UPDATE SET notification_preferences=${JSON.stringify(prefs)}::jsonb, updated_at=now()`);
   res.json(prefs);
 });
