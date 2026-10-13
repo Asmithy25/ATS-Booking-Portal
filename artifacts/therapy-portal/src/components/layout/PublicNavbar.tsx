@@ -11,6 +11,9 @@ export function PublicNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: settings } = useGetSettings();
   const content = getHomepageContent(settings);
+  const websiteCustomizationEnabled = settings?.homepageContent?.websiteCustomizationEnabled === true;
+  const brandName = websiteCustomizationEnabled && settings?.siteName ? settings.siteName : 'Aydens Wellness Services';
+  const brandLogo = websiteCustomizationEnabled && settings?.logoUrl ? settings.logoUrl : logoUrl;
   const handleScrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -27,9 +30,9 @@ export function PublicNavbar() {
       <div className="container mx-auto flex h-[82px] items-center justify-between border-b border-border px-4">
         <Link href="/" data-testid="link-home" className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center bg-secondary p-1">
-            <img src={settings?.logoUrl || logoUrl} alt={settings?.siteName ?? "Ayden's Therapy Services"} className="h-full w-full object-cover object-top mix-blend-multiply" />
+            <img src={brandLogo} alt={brandName} className="h-full w-full object-cover object-top mix-blend-multiply" />
           </span>
-          <span className="hidden max-w-[150px] text-[11px] font-extrabold uppercase leading-[1.15] tracking-[.1em] text-primary sm:block">{settings?.siteName ?? "Ayden's Therapy Services"}</span>
+          <span className="hidden max-w-[150px] text-[11px] font-extrabold uppercase leading-[1.15] tracking-[.1em] text-primary sm:block">{brandName}</span>
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">

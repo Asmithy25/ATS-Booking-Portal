@@ -6,6 +6,10 @@ import { getHomepageContent } from '@/lib/homepageContent';
 export function PublicFooter() {
   const { data: settings } = useGetSettings();
   const content = getHomepageContent(settings);
+  const websiteCustomizationEnabled = settings?.homepageContent?.websiteCustomizationEnabled === true;
+  const brandName = websiteCustomizationEnabled && settings?.siteName ? settings.siteName : 'Aydens Wellness Services';
+  const brandLogo = websiteCustomizationEnabled && settings?.logoUrl ? settings.logoUrl : logoUrl;
+  const brandTagline = websiteCustomizationEnabled && settings?.siteTagline ? settings.siteTagline : 'Care That Meets You Where You Are';
   if (content.sectionVisibility?.footer === false) return null;
   return (
     <footer id="contact" className="mt-auto border-t border-primary/20 bg-primary text-primary-foreground">
@@ -14,11 +18,11 @@ export function PublicFooter() {
           <div className="flex flex-col items-start gap-5">
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center bg-secondary p-1">
-                <img src={settings?.logoUrl || logoUrl} alt={settings?.siteName ?? "Ayden's Therapy Services"} className="h-full w-full object-cover object-top mix-blend-multiply" />
+                <img src={brandLogo} alt={brandName} className="h-full w-full object-cover object-top mix-blend-multiply" />
               </span>
-              <span className="max-w-[160px] text-[11px] font-extrabold uppercase leading-[1.15] tracking-[.1em]">{settings?.siteName ?? "Ayden's Therapy Services"}</span>
+              <span className="max-w-[160px] text-[11px] font-extrabold uppercase leading-[1.15] tracking-[.1em]">{brandName}</span>
             </div>
-            <p className="max-w-xs font-serif text-3xl leading-none text-secondary">{settings?.siteTagline ?? 'Heal. Grow. Thrive.'}</p>
+            <p className="max-w-xs font-serif text-3xl leading-none text-secondary">{brandTagline}</p>
           </div>
           
           <div className="flex flex-col items-start gap-4 text-left">
@@ -38,7 +42,7 @@ export function PublicFooter() {
         </div>
         
         <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-primary-foreground/15 pt-6 text-[10px] uppercase tracking-[.12em] text-primary-foreground/55 sm:flex-row sm:items-center">
-          <p>© {new Date().getFullYear()} {settings?.siteName ?? "Ayden's Therapy Services"}</p>
+          <p>© {new Date().getFullYear()} {brandName}</p>
           <p>{content.footerCopyrightText}</p>
         </div>
       </div>

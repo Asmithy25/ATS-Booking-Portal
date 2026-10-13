@@ -98,6 +98,7 @@ function formatHoursRange(hours?: { open: string; close: string; closed: boolean
 export default function Home() {
   const { data: settings, isLoading: loadingSettings } = useGetSettings();
   const content = getHomepageContent(settings);
+  const websiteCustomizationEnabled = settings?.homepageContent?.websiteCustomizationEnabled === true;
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const { toast } = useToast();
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -107,7 +108,7 @@ export default function Home() {
   const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
   useEffect(() => {
-    const favicon = content.faviconUrl || settings?.logoUrl;
+    const favicon = websiteCustomizationEnabled ? (content.faviconUrl || settings?.logoUrl || terracottaLogoUrl) : terracottaLogoUrl;
     if (favicon) {
       let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
       if (!link) {
@@ -117,8 +118,8 @@ export default function Home() {
       }
       link.href = String(favicon);
     }
-    if (settings?.siteName) document.title = settings.siteName;
-  }, [content.faviconUrl, settings?.logoUrl, settings?.siteName]);
+    document.title = websiteCustomizationEnabled && settings?.siteName ? settings.siteName : 'Aydens Wellness Services';
+  }, [content.faviconUrl, settings?.logoUrl, settings?.siteName, websiteCustomizationEnabled]);
 
   useEffect(() => {
     customFetch<any>('/api/workspace/public-experience')
@@ -262,7 +263,7 @@ export default function Home() {
   }
 
   return (
-      <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(settings)}>
+      <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(websiteCustomizationEnabled ? settings : undefined)}>
       <PublicNavbar />
       <PracticeStatus settings={settings} remote={publicExperience?.practice} />
       <AydensExperienceLayer seasonal={publicExperience?.seasonal} experience={publicExperience?.experience} />
