@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 
 import App from './App';
 import { ThemeProvider } from './components/theme-provider';
+import { BrandingProvider } from './components/brand-runtime';
 import { setBaseUrl } from '@workspace/api-client-react';
 import './index.css';
 setBaseUrl(import.meta.env.VITE_API_URL ?? null);
@@ -15,6 +16,8 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <ThemeProvider>
-    <App />
+    <BrandingProvider>
+      <App />
+    </BrandingProvider>
   </ThemeProvider>,
 );
