@@ -106,11 +106,11 @@ router.get("/public-settings", async (_req, res) => {
 router.get("/manifest.webmanifest", async (req, res) => {
   try {
     const brand = await publicBrandPayload();
+    const appOrigin = String(process.env.PUBLIC_APP_ORIGIN || "https://awsbookingportal.up.railway.app").replace(/\/$/, "");
     const icons: Array<Record<string, string>> = [];
     const pwa = String(brand.pwaIconUrl || "");
     if (pwa) icons.push({ src: pwa, sizes: "any", type: String(brand.pwaIconMimeType || "image/png"), purpose: "any maskable" });
-    else icons.push({ src: "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" });
-    const appOrigin = String(process.env.PUBLIC_APP_ORIGIN || "https://awsbookingportal.up.railway.app").replace(/\/$/, "");
+    else icons.push({ src: appOrigin + "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" });
     res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     res.json({
