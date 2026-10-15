@@ -185,7 +185,7 @@ async function promoteWaitlistForSlot(preferredDate: string, preferredTime: stri
     }
 
     await db.insert(clientNotificationsTable).values({
-      clientAccountId: promoted.clientAccountId,
+      clientAccountId: candidate.clientAccountId,
       title: "A cancellation opened your requested time",
       body: "Your cancellation-waitlist request for " + preferredDate + " at " + preferredTime + " has moved into the booking queue. The time is held while the care team reviews it; your session is not confirmed until AWS contacts you.",
       pushedBy: "Aydens Wellness Services",
