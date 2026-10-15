@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch as SwitchComponent } from "@/components/ui/switch";
+import StaffSessionPreparations from "@/components/StaffSessionPreparations";
 import { useToast } from "@/hooks/use-toast";
 import { BriefcaseBusiness, CheckCircle2, ClipboardList, FileUp, Loader2, MessageCircle, Plus, RefreshCw, Send, ShieldCheck, Sparkles, Upload } from "lucide-react";
 
@@ -193,7 +194,7 @@ export default function AdvancedWorkspace() {
 
     <Tabs value={tab} onValueChange={setTab} className="space-y-6">
       <TabsList className="h-auto flex-wrap justify-start">
-        <TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="messages">Client messages</TabsTrigger><TabsTrigger value="assignments">Assignments</TabsTrigger><TabsTrigger value="uploads">Uploads</TabsTrigger><TabsTrigger value="tasks">Tasks</TabsTrigger>
+        <TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="messages">Client messages</TabsTrigger><TabsTrigger value="assignments">Assignments</TabsTrigger><TabsTrigger value="uploads">Uploads</TabsTrigger><TabsTrigger value="tasks">Tasks</TabsTrigger><TabsTrigger value="session-prep">Session prep</TabsTrigger>
         {canAurora && <TabsTrigger value="aurora">Aurora</TabsTrigger>}\n        {session.isAdmin && <TabsTrigger value="roles">Roles & permissions</TabsTrigger>}
       </TabsList>
 
@@ -255,6 +256,8 @@ export default function AdvancedWorkspace() {
         <Card className="rounded-2xl"><CardHeader><CardTitle>Staff task queue</CardTitle></CardHeader><CardContent className="space-y-3"><div className="grid gap-3 sm:grid-cols-2"><Input value={task.title} onChange={e=>setTask({...task,title:e.target.value})} placeholder="Task title"/><Input value={task.assignedTo} onChange={e=>setTask({...task,assignedTo:e.target.value})} placeholder="Assigned to"/><Input type="date" value={task.dueDate} onChange={e=>setTask({...task,dueDate:e.target.value})}/><Button onClick={()=>void createTask()} disabled={!task.title.trim()}><Plus className="mr-2 h-4 w-4"/>Create task</Button></div><Textarea rows={3} value={task.description} onChange={e=>setTask({...task,description:e.target.value})} placeholder="Task details"/></CardContent></Card>
         <Card className="rounded-2xl"><CardHeader><CardTitle>Tasks</CardTitle></CardHeader><CardContent className="space-y-2">{tasks.map(t=><div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"><div><b>{t.title}</b><p className="text-xs text-muted-foreground">{t.assignedTo||"Unassigned"}{t.dueDate ? " · due "+t.dueDate : ""}</p><p className="mt-1 text-sm text-muted-foreground">{t.description}</p></div><Button size="sm" variant="outline" onClick={async()=>{await getJson("/api/advanced/staff/tasks/"+t.id,{method:"PATCH",body:JSON.stringify({status:t.status==="done"?"open":"done"})});await reload();}}>{t.status==="done"?"Reopen":"Mark done"}</Button></div>)}</CardContent></Card>
       </TabsContent>
+
+      <TabsContent value="session-prep"><StaffSessionPreparations /></TabsContent>
 
       {session.isAdmin&&<TabsContent value="roles"><Card className="rounded-2xl"><CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary"/>Roles & permissions</CardTitle><CardDescription>Founder-only role definitions and access control.</CardDescription></CardHeader><CardContent className="space-y-5"><div className="flex gap-2"><Input value={newRole} onChange={e=>setNewRole(e.target.value)} placeholder="New custom role"/><Button onClick={()=>void createRole()}><Plus className="mr-2 h-4 w-4"/>Create</Button></div><div className="space-y-4">{roles.map(role=><Card key={role.id} className="rounded-xl"><CardHeader><CardTitle className="text-lg">{role.name}</CardTitle><CardDescription>{role.builtIn?"Built-in": "Custom"} · {role.slug}</CardDescription></CardHeader><CardContent><div className="grid gap-2 sm:grid-cols-2">{permissions.map(([key,label])=><label key={key} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"><span>{label}</span><SwitchComponent checked={role.permissions?.[key]===true} onCheckedChange={async checked=>{await getJson("/api/advanced/staff/roles/"+role.id,{method:"PATCH",body:JSON.stringify({permissions:{...role.permissions,[key]:checked}})});await loadRoles();}}/></label>)}</div></CardContent></Card>)}</div></CardContent></Card></TabsContent>}
     </Tabs>
