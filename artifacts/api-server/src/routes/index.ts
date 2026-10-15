@@ -14,6 +14,7 @@ import backupRouter from "./backup";
 import mobileRouter from "./mobile";
 import staffPreferencesRouter from "./staffPreferences";
 import workspaceRouter from "./workspace";
+import logoLibraryRouter from "./logoLibrary";
 
 const router: IRouter = Router();
 
@@ -21,6 +22,7 @@ router.use(healthRouter);
 router.use("/auth", authRouter);
 router.use("/bookings", bookingsRouter);
 router.use("/settings", settingsRouter);
+router.use("/logo-library", logoLibraryRouter);
 router.use("/clients", clientsRouter);
 router.use("/employees", employeesRouter);
 router.use("/portal", portalRouter);
