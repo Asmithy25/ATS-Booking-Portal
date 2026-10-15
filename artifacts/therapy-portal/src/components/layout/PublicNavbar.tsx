@@ -6,14 +6,16 @@ import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { getHomepageContent } from '@/lib/homepageContent';
+import { resolveBrandAssetUrl, useBranding } from '@/components/brand-runtime';
 
 export function PublicNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: settings } = useGetSettings();
+  const branding = useBranding();
   const content = getHomepageContent(settings);
   const websiteCustomizationEnabled = settings?.homepageContent?.websiteCustomizationEnabled === true;
   const brandName = websiteCustomizationEnabled && settings?.siteName ? settings.siteName : 'Aydens Wellness Services';
-  const brandLogo = websiteCustomizationEnabled && settings?.logoUrl ? settings.logoUrl : logoUrl;
+  const brandLogo = resolveBrandAssetUrl(branding.siteLogoUrl) || (websiteCustomizationEnabled && settings?.logoUrl ? settings.logoUrl : logoUrl);
   const handleScrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
