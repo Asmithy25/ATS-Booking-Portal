@@ -226,7 +226,7 @@ router.post("/:id/apply", requireAuth, async (req, res) => {
     const changes: Record<string, any> = { homepageContent: hp };
     // Bring any legacy defaults forward when branding is first enabled.
     if (/therapy services/i.test(String(settings.siteName || ""))) changes.siteName = "Aydens Wellness Services";
-    if (/heal\\.?\\s*grow\\.?\\s*thrive\\.?/i.test(String(settings.siteTagline || ""))) changes.siteTagline = "Care That Meets You Where You Are";
+    if (String(settings.siteTagline || "").toLowerCase().replace(/[^a-z]/g, "").includes("healgrowthrive")) changes.siteTagline = "Care That Meets You Where You Are";
     const appliedLabels: Record<string, string> = {
       siteLogo: "main website logo",
       favicon: "browser favicon",
