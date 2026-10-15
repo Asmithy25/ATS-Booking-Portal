@@ -108,7 +108,7 @@ router.get("/manifest.webmanifest", async (_req, res) => {
   try {
     const settings = await getSettingsRow();
     const hp = (settings?.homepageContent ?? {}) as Record<string, any>;
-    const icon = String(hp.pwaIconUrl || hp.faviconUrl || settings?.logoUrl || "").trim();
+    const icon = String(hp.pwaIconUrl || hp.faviconUrl || settings?.logoUrl || APP_ORIGIN + "/favicon.svg").trim();
     const manifest = {
       id: APP_ORIGIN + "/",
       name: settings?.siteName || "Aydens Wellness Services",
@@ -196,8 +196,8 @@ router.patch("/:id", requireAuth, async (req, res) => {
     const updatedResult = image
       ? await db.execute(sql`UPDATE aws_logo_library SET name=${name},alt_text=${altText},category=${category},tags=${JSON.stringify(tags)}::jsonb,notes=${notes},mime_type=${image.mimeType},size_bytes=${image.data.length},data=${image.data},updated_at=now() WHERE id=${id} RETURNING id,name,alt_text AS "altText",category,tags,notes,mime_type AS "mimeType",size_bytes AS "sizeBytes",is_public AS "isPublic",created_by AS "createdBy",created_at AS "createdAt",updated_at AS "updatedAt"`)
       : await db.execute(sql`UPDATE aws_logo_library SET name=${name},alt_text=${altText},category=${category},tags=${JSON.stringify(tags)}::jsonb,notes=${notes},updated_at=now() WHERE id=${id} RETURNING id,name,alt_text AS "altText",category,tags,notes,mime_type AS "mimeType",size_bytes AS "sizeBytes",is_public AS "isPublic",created_by AS "createdBy",created_at AS "createdAt",updated_at AS "updatedAt"`);
-    res.json(publicAsset(rows(updatedResult)[0]));
     await recordAudit(req, image ? "logo_library_replace" : "logo_library_edit", "logo_asset", String(id), "Updated " + name);
+    res.json(publicAsset(rows(updatedResult)[0]));
   } catch (err) {
     req.log.error({ err }, "Logo Library update failed");
     res.status(500).json({ error: "The logo could not be updated." });
@@ -295,7 +295,7 @@ router.get("/assets/:id", async (req, res) => {
     res.setHeader("Content-Type", String(asset.mimeType || "application/octet-stream"));
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
-    res.setHeader("Cache-Control", asset.isPublic ? "public, max-age=300" : "private, no-store");
+    res.setHeader("Cache-Control", asset.isPublic ? "public, no-store" : "private, no-store");
     res.send(data);
   } catch (err) {
     req.log.error({ err }, "Logo asset fetch failed");
