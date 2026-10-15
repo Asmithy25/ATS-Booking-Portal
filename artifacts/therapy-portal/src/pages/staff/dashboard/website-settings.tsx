@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Settings from "./settings";
 import LogoLibrary from "@/components/LogoLibrary";
-import { customFetch, useGetAuthMe, getGetSettingsQueryKey } from "@workspace/api-client-react";
+import { customFetch, useGetAuthMe, getGetAuthMeQueryKey, getGetSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Eye, RotateCcw, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function WebsiteSettings() {
-  const { data: session } = useGetAuthMe({ query: { retry: false } });
+  const { data: session } = useGetAuthMe({ query: { queryKey: getGetAuthMeQueryKey(), retry: false } });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [reverting, setReverting] = useState(false);
