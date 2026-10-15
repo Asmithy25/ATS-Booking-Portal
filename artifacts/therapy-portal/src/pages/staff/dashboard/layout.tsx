@@ -7,6 +7,7 @@ import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
+import { resolveBrandAssetUrl, useBranding } from '@/components/brand-runtime';
 
 function toHsl(hex: string) { const value=/^#[0-9a-fA-F]{6}$/.test(hex)?hex:'#7B4A2F'; const r=parseInt(value.slice(1,3),16)/255,g=parseInt(value.slice(3,5),16)/255,b=parseInt(value.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),l=(max+min)/2; if(max===min)return `0 0% ${Math.round(l*100)}%`; const d=max-min,s=l>.5?d/(2-max-min):d/(max+min); let h=0;if(max===r)h=(g-b)/d+(g<b?6:0);else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;return `${Math.round(h*60)} ${Math.round(s*100)}% ${Math.round(l*100)}%`; }
 
@@ -18,6 +19,8 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
+  const branding = useBranding();
+  const staffBrandLogo = resolveBrandAssetUrl(branding.staffLogoUrl) || resolveBrandAssetUrl(branding.siteLogoUrl) || settings?.logoUrl || logoUrl;
   const isStaffDarkMode = portalPrefs.appearance === 'dark';
   const { toast } = useToast();
 
@@ -194,7 +197,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         <div className="border-b border-sidebar-border p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-sidebar-primary p-1">
-              <img src={settings?.logoUrl || logoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
+              <img src={staffBrandLogo} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
             </span>
             <div>
               <h2 className="font-serif text-xl font-normal text-sidebar-foreground">Ayden’s</h2>
