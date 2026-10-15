@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { customFetch } from "@workspace/api-client-react";
+import type { ClientLanguage } from "@/lib/clientPortalCopy";
 import { format, parseISO } from "date-fns";
 import { CalendarDays, CheckCircle2, ClipboardList, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,8 @@ type Preparation = {
   updatedAt: string;
 };
 
-export default function ClientSessionPreparation({ bookings }: { bookings: Booking[] }) {
+export default function ClientSessionPreparation({ bookings, language = "en", defaultShare = false }: { bookings: Booking[]; language?: ClientLanguage; defaultShare?: boolean }) {
+  const es = language === "es";
   const { toast } = useToast();
   const [items, setItems] = useState<Preparation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export default function ClientSessionPreparation({ bookings }: { bookings: Booki
     void customFetch<Preparation[]>("/api/advanced/client/session-prep", { responseType: "json" })
       .then((result) => { if (active) setItems(Array.isArray(result) ? result : []); })
       .catch((error) => {
-        if (active) toast({ variant: "destructive", title: "Session preparation unavailable", description: error instanceof Error ? error.message : "Refresh and try again." });
+        if (active) toast({ variant: "destructive", title: es ? "La preparación no está disponible" : "Session preparation unavailable", description: error instanceof Error ? error.message : es ? "Actualiza la página e inténtalo de nuevo." : "Refresh and try again." });
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -66,13 +68,13 @@ export default function ClientSessionPreparation({ bookings }: { bookings: Booki
     setPriorities(current?.priorities ?? "");
     setSupportPreferences(current?.supportPreferences ?? "");
     setMood(current?.mood ? String(current.mood) : "");
-    setShareWithStaff(current?.shareWithStaff ?? false);
-  }, [selectedId, items]);
+    setShareWithStaff(current?.shareWithStaff ?? defaultShare);
+  }, [selectedId, items, defaultShare]);
 
   const save = async () => {
     if (selectedId === null) return;
     if (!focus.trim() && !priorities.trim() && !supportPreferences.trim() && !mood) {
-      toast({ variant: "destructive", title: "Nothing to save yet", description: "Add a response to at least one optional question." });
+      toast({ variant: "destructive", title: "Nothing to save yet", description: es ? "Responde al menos una pregunta opcional." : "Add a response to at least one optional question." });
       return;
     }
     setSaving(true);
@@ -90,9 +92,9 @@ export default function ClientSessionPreparation({ bookings }: { bookings: Booki
         responseType: "json",
       });
       setItems((previous) => [...previous.filter((item) => item.bookingId !== selectedId), saved]);
-      toast({ title: "Session preparation saved", description: shareWithStaff ? "Your chosen notes are shared with your care team." : "Your preparation remains private to your client account." });
+      toast({ title: es ? "Preparación guardada" : "Session preparation saved", description: shareWithStaff ? (es ? "Las notas seleccionadas se comparten con tu equipo de atención." : "Your chosen notes are shared with your care team.") : (es ? "La preparación permanece privada en tu cuenta." : "Your preparation remains private to your client account.") });
     } catch (error) {
-      toast({ variant: "destructive", title: "Could not save preparation", description: error instanceof Error ? error.message : "Try again in a moment." });
+      toast({ variant: "destructive", title: es ? "No se pudo guardar la preparación" : "Could not save preparation", description: error instanceof Error ? error.message : es ? "Inténtalo de nuevo en un momento." : "Try again in a moment." });
     } finally {
       setSaving(false);
     }
@@ -122,9 +124,9 @@ export default function ClientSessionPreparation({ bookings }: { bookings: Booki
             </div>
             {selectedBooking && <div className="flex items-center gap-3 rounded-xl bg-muted/40 p-4 text-sm"><CalendarDays className="h-5 w-5 text-primary" /><div><p className="font-medium">{format(parseISO(selectedBooking.preferredDate), "EEEE, MMMM d")}</p><p className="text-muted-foreground">{selectedBooking.preferredTime} · Phone consultation · Eastern Time</p></div></div>}
             <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2"><label htmlFor="prep-focus" className="text-sm font-medium">What would you like to focus on?</label><Textarea id="prep-focus" maxLength={200} rows={3} value={focus} onChange={(event) => setFocus(event.target.value)} placeholder="A topic, situation, or feeling you want to make room for…" /><p className="text-xs text-muted-foreground">{focus.length}/200</p></div>
-              <div className="space-y-2"><label htmlFor="prep-priorities" className="text-sm font-medium">What feels most important right now?</label><Textarea id="prep-priorities" maxLength={1800} rows={3} value={priorities} onChange={(event) => setPriorities(event.target.value)} placeholder="A few things you'd like your care team to know…" /><p className="text-xs text-muted-foreground">{priorities.length}/1800</p></div>
-              <div className="space-y-2"><label htmlFor="prep-support" className="text-sm font-medium">What helps you feel supported?</label><Textarea id="prep-support" maxLength={1200} rows={3} value={supportPreferences} onChange={(event) => setSupportPreferences(event.target.value)} placeholder="For example: taking a pause, asking questions, or keeping things structured…" /><p className="text-xs text-muted-foreground">{supportPreferences.length}/1200</p></div>
+              <div className="space-y-2"><label htmlFor="prep-focus" className="text-sm font-medium">What would you like to focus on?</label><Textarea id="prep-focus" maxLength={200} rows={3} value={focus} onChange={(event) => setFocus(event.target.value)} placeholder=es ? "Un tema, situación o sentimiento que quieras conversar…" : "A topic, situation, or feeling you want to make room for…" /><p className="text-xs text-muted-foreground">{focus.length}/200</p></div>
+              <div className="space-y-2"><label htmlFor="prep-priorities" className="text-sm font-medium">What feels most important right now?</label><Textarea id="prep-priorities" maxLength={1800} rows={3} value={priorities} onChange={(event) => setPriorities(event.target.value)} placeholder=es ? "Algunas cosas que quisieras que tu equipo conozca…" : "A few things you'd like your care team to know…" /><p className="text-xs text-muted-foreground">{priorities.length}/1800</p></div>
+              <div className="space-y-2"><label htmlFor="prep-support" className="text-sm font-medium">What helps you feel supported?</label><Textarea id="prep-support" maxLength={1200} rows={3} value={supportPreferences} onChange={(event) => setSupportPreferences(event.target.value)} placeholder=es ? "Por ejemplo: hacer una pausa, hacer preguntas o mantener una estructura…" : "For example: taking a pause, asking questions, or keeping things structured…" /><p className="text-xs text-muted-foreground">{supportPreferences.length}/1200</p></div>
               <div className="space-y-2"><label htmlFor="prep-mood" className="text-sm font-medium">How are you feeling before this session? (optional)</label><select id="prep-mood" value={mood} onChange={(event) => setMood(event.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"><option value="">Prefer not to say</option><option value="1">1 · Very low</option><option value="2">2 · A little low</option><option value="3">3 · In the middle</option><option value="4">4 · Doing okay</option><option value="5">5 · Feeling good</option></select><p className="text-xs leading-5 text-muted-foreground">This is a personal check-in, not a diagnosis or a clinical score.</p></div>
             </div>
             <label className="flex cursor-pointer gap-3 rounded-xl border border-primary/20 bg-primary/[0.035] p-4">
@@ -133,7 +135,7 @@ export default function ClientSessionPreparation({ bookings }: { bookings: Booki
             </label>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
               <p className="text-xs leading-5 text-muted-foreground">These notes are for session preparation, not emergency support. You can change the sharing choice by saving again.</p>
-              <Button type="button" onClick={() => void save()} disabled={saving || !selectedBooking} className="rounded-xl">{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}{saving ? "Saving…" : "Save preparation"}</Button>
+              <Button type="button" onClick={() => void save()} disabled={saving || !selectedBooking} className="rounded-xl">{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}{saving ? es ? "Guardando…" : "Saving…" : es ? "Guardar preparación" : "Save preparation"}</Button>
             </div>
           </>}
         </CardContent>
