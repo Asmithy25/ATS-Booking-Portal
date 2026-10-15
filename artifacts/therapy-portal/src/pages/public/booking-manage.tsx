@@ -234,8 +234,8 @@ export default function BookingManage() {
 
   const downloadCalendarInvite = () => {
     if (!booking) return;
-    const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(booking.preferredDate);
-    const time = /^(\\d{2}):(\\d{2})$/.exec(booking.preferredTime);
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(booking.preferredDate);
+    const time = /^(\d{2}):(\d{2})$/.exec(booking.preferredTime);
     if (!match || !time) {
       toast({ variant: 'destructive', title: 'Calendar invite unavailable', description: 'The appointment date or time is not in a supported format. Contact AWS for help.' });
       return;
@@ -251,10 +251,10 @@ export default function BookingManage() {
       + 'T' + date.getUTCHours().toString().padStart(2, '0')
       + date.getUTCMinutes().toString().padStart(2, '0')
       + '00';
-    const escapeText = (value: string) => value.replace(/\\\\/g, '\\\\\\\\').replace(/\\r?\\n/g, '\\\\n').replace(/,/g, '\\\\,').replace(/;/g, '\\\\;');
-    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\\.\\d{3}Z$/, 'Z');
+    const escapeText = (value: string) => value.replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
     const title = 'Aydens Wellness Services phone consultation';
-    const description = 'Private phone consultation with Aydens Wellness Services. Keep your phone nearby.\\nConfirmation code: ' + booking.confirmationCode;
+    const description = 'Private phone consultation with Aydens Wellness Services. Keep your phone nearby.\nConfirmation code: ' + booking.confirmationCode;
     const event = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
@@ -290,7 +290,7 @@ export default function BookingManage() {
       'END:VEVENT',
       'END:VCALENDAR',
       '',
-    ].join('\\r\\n');
+    ].join('\r\n');
     const blob = new Blob([event], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
