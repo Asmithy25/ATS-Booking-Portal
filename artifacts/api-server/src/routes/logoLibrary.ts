@@ -105,10 +105,22 @@ async function getSettingsRow() {
 }
 
 router.get("/manifest.webmanifest", async (_req, res) => {
+  res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "public, max-age=300");
   try {
     const settings = await getSettingsRow();
     const hp = (settings?.homepageContent ?? {}) as Record<string, any>;
     const icon = String(hp.pwaIconUrl || hp.faviconUrl || settings?.logoUrl || APP_ORIGIN + "/favicon.svg").trim();
+    let iconType = icon.toLowerCase().endsWith(".svg") ? "image/svg+xml" : "image/png";
+    const logoAssetMatch = /\/api\/logo-library\/assets\/(\d+)(?:\?.*)?$/.exec(icon);
+    if (logoAssetMatch) {
+      await ensureLogoLibrary();
+      const logoAssetId = Number(logoAssetMatch[1]);
+      const assetTypeResult = await db.execute(sql`SELECT mime_type AS "mimeType",is_public AS "isPublic" FROM aws_logo_library WHERE id=${logoAssetId} LIMIT 1`);
+      const logoAsset = rows(assetTypeResult)[0] as any;
+      if (logoAsset?.isPublic && typeof logoAsset.mimeType === "string") iconType = logoAsset.mimeType;
+    }
     const manifest = {
       id: APP_ORIGIN + "/",
       name: settings?.siteName || "Aydens Wellness Services",
@@ -120,13 +132,9 @@ router.get("/manifest.webmanifest", async (_req, res) => {
       background_color: "#F7F2E9",
       theme_color: settings?.primaryColor || "#8F4A34",
       icons: icon ? [
-        { src: icon, sizes: "192x192", type: "image/png", purpose: "any" },
-        { src: icon, sizes: "512x512", type: "image/png", purpose: "any maskable" },
+        { src: icon, sizes: "any", type: iconType, purpose: "any" },
       ] : [],
     };
-    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Cache-Control", "public, max-age=300");
     res.json(manifest);
   } catch {
     res.status(200).json({ name: "Aydens Wellness Services", short_name: "Aydens Wellness", start_url: APP_ORIGIN + "/", display: "standalone", theme_color: "#8F4A34", background_color: "#F7F2E9", icons: [] });
