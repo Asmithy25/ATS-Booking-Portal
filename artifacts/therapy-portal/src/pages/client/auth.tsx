@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, ArrowUpRight, HeartHandshake, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link } from 'wouter';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
+import { resolveBrandAssetUrl, useBranding } from '@/components/brand-runtime';
 
 export default function ClientAuth() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -18,6 +19,8 @@ export default function ClientAuth() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: settings } = useGetSettings();
+  const branding = useBranding();
+  const authBrandLogo = resolveBrandAssetUrl(branding.clientLogoUrl) || resolveBrandAssetUrl(branding.siteLogoUrl) || settings?.logoUrl || logoUrl;
   const updatesPreferenceEnabled = settings?.featureFlags?.clientUpdatesOptIn !== false;
 
   const finish = (name: string, token?: string) => {
@@ -39,7 +42,7 @@ export default function ClientAuth() {
         <div className="grid items-stretch gap-12 lg:grid-cols-[1fr_440px]">
           <section className="flex max-w-xl flex-col justify-center">
             <span className="mb-8 flex h-12 w-12 items-center justify-center bg-secondary p-1">
-              <img src={logoUrl} alt="Ayden's Therapy Services" className="h-full w-full object-cover mix-blend-multiply" />
+              <img src={authBrandLogo} alt="Ayden's Therapy Services" className="h-full w-full object-cover mix-blend-multiply" />
             </span>
             <p className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">A private space for your care</p>
             <h1 className="mb-6 font-serif text-6xl font-normal leading-[.9] sm:text-8xl">Stay connected to your healing journey.</h1>
