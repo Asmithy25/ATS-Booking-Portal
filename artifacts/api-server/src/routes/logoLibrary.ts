@@ -139,7 +139,10 @@ router.get("/", requireAuth, async (req, res) => {
   try {
     await ensureLogoLibrary();
     const result = await db.execute(sql`SELECT id,name,alt_text AS "altText",category,tags,notes,mime_type AS "mimeType",size_bytes AS "sizeBytes",is_public AS "isPublic",created_by AS "createdBy",created_at AS "createdAt",updated_at AS "updatedAt" FROM aws_logo_library ORDER BY created_at DESC,id DESC`);
-    res.json(rows(result).map(publicAsset));
+    const settings = await getSettingsRow();
+    const hp = (settings?.homepageContent ?? {}) as Record<string, unknown>;
+    const activeUrls = new Set([settings?.logoUrl, ...Object.values(hp)].filter((value): value is string => typeof value === "string"));
+    res.json(rows(result).map((row) => ({ ...publicAsset(row), isPublic: activeUrls.has(assetUrl(Number((row as any).id))) })));
   } catch (err) {
     req.log.error({ err }, "Logo Library listing failed");
     res.status(500).json({ error: "The Logo Library could not be loaded." });
@@ -221,6 +224,9 @@ router.post("/:id/apply", requireAuth, async (req, res) => {
     const hp = { ...((settings.homepageContent ?? {}) as Record<string, any>), websiteCustomizationEnabled: true };
     const url = assetUrl(id);
     const changes: Record<string, any> = { homepageContent: hp };
+    // Bring any legacy defaults forward when branding is first enabled.
+    if (/therapy services/i.test(String(settings.siteName || ""))) changes.siteName = "Aydens Wellness Services";
+    if (/heal\\.?\\s*grow\\.?\\s*thrive\\.?/i.test(String(settings.siteTagline || ""))) changes.siteTagline = "Care That Meets You Where You Are";
     const appliedLabels: Record<string, string> = {
       siteLogo: "main website logo",
       favicon: "browser favicon",
@@ -284,7 +290,11 @@ router.get("/assets/:id", async (req, res) => {
     const result = await db.execute(sql`SELECT id,mime_type AS "mimeType",data,is_public AS "isPublic" FROM aws_logo_library WHERE id=${id} LIMIT 1`);
     const asset = rows(result)[0] as any;
     if (!asset) { res.status(404).end(); return; }
-    if (!asset.isPublic && !(await getStaffAccess(req))) { res.status(404).end(); return; }
+    const settings = await getSettingsRow();
+    const hp = (settings?.homepageContent ?? {}) as Record<string, unknown>;
+    const activeUrls = [settings?.logoUrl, ...Object.values(hp)].filter((value): value is string => typeof value === "string");
+    const isActiveBrandAsset = activeUrls.includes(assetUrl(id));
+    if (!isActiveBrandAsset && !(await getStaffAccess(req))) { res.status(404).end(); return; }
     const data = Buffer.isBuffer(asset.data)
       ? asset.data
       : asset.data instanceof Uint8Array
