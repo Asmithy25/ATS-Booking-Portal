@@ -118,16 +118,18 @@ router.get("/manifest.webmanifest", async (_req, res) => {
       scope: APP_ORIGIN + "/",
       display: "standalone",
       background_color: "#F7F2E9",
-      theme_color: settings?.primaryColor || "#8B4C35",
+      theme_color: settings?.primaryColor || "#8F4A34",
       icons: icon ? [
         { src: icon, sizes: "192x192", type: "image/png", purpose: "any" },
         { src: icon, sizes: "512x512", type: "image/png", purpose: "any maskable" },
       ] : [],
     };
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cache-Control", "public, max-age=300");
     res.json(manifest);
   } catch {
-    res.status(200).json({ name: "Aydens Wellness Services", short_name: "Aydens Wellness", start_url: APP_ORIGIN + "/", display: "standalone", theme_color: "#8B4C35", background_color: "#F7F2E9", icons: [] });
+    res.status(200).json({ name: "Aydens Wellness Services", short_name: "Aydens Wellness", start_url: APP_ORIGIN + "/", display: "standalone", theme_color: "#8F4A34", background_color: "#F7F2E9", icons: [] });
   }
 });
 
