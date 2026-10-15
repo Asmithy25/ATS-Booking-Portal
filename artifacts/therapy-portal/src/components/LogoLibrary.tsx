@@ -108,7 +108,7 @@ export default function LogoLibrary() {
     try {
       const result = await readImage(file);
       // Some browsers report an empty MIME type for .ico files.
-      const normalized = file.type ? result : result.replace(/^data:;base64,/, "data:image/x-icon;base64,");
+      const normalized = file.type ? result : result.replace(/^data:[^;]*;base64,/, "data:image/x-icon;base64,");
       setDataUrl(normalized);
       setFileName(file.name);
       setName((current) => current || file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
@@ -202,7 +202,7 @@ export default function LogoLibrary() {
     setBusyAssetId(asset.id);
     try {
       const nextData = await readImage(file);
-      const normalized = file.type ? nextData : nextData.replace(/^data:;base64,/, "data:image/x-icon;base64,");
+      const normalized = file.type ? nextData : nextData.replace(/^data:[^;]*;base64,/, "data:image/x-icon;base64,");
       await customFetch(`/api/logo-library/${asset.id}`, { method: "PATCH", body: JSON.stringify({ dataUrl: normalized }), responseType: "json" });
       await reload(true);
       await queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
@@ -309,7 +309,7 @@ export default function LogoLibrary() {
           {loading ? <div className="flex items-center justify-center gap-3 rounded-xl border border-dashed p-12 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin text-primary" />Loading your logo library…</div> : visibleAssets.length === 0 ? <div className="rounded-xl border border-dashed border-border p-10 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary"><ImagePlus className="h-5 w-5" /></div><p className="mt-3 font-semibold">{assets.length ? "No matching logos" : "Your library starts here"}</p><p className="mx-auto mt-1 max-w-sm text-sm leading-5 text-muted-foreground">{assets.length ? "Try a different search or category." : "Upload your primary, fall, Halloween, holiday, and social logos once. Choose the right variant whenever the brand needs a refresh."}</p></div> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {visibleAssets.map((asset) => <article key={asset.id} className="group overflow-hidden rounded-xl border border-border/80 bg-card transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
               <div className="relative grid h-40 place-items-center overflow-hidden border-b border-border/70 bg-[linear-gradient(45deg,hsl(var(--muted))_25%,transparent_25%,transparent_75%,hsl(var(--muted))_75%),linear-gradient(45deg,hsl(var(--muted))_25%,transparent_25%,transparent_75%,hsl(var(--muted))_75%)] [background-position:0_0,8px_8px] [background-size:16px_16px] p-5">
-                <img src={asset.assetUrl} alt={asset.altText || asset.name} className="max-h-full max-w-full object-contain drop-shadow-sm" />
+                <img src={asset.assetUrl} crossOrigin="use-credentials" alt={asset.altText || asset.name} className="max-h-full max-w-full object-contain drop-shadow-sm" />
                 {asset.isPublic && <span className="absolute right-3 top-3 rounded-full border border-border bg-background/90 px-2.5 py-1 text-[10px] font-semibold">In use / public</span>}
               </div>
               <div className="space-y-3 p-4">
