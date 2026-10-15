@@ -464,12 +464,16 @@ router.post("/client/session-prep", requireClientAuth, async (req, res) => {
   if (!focus && !priorities && !supportPreferences && mood === null) { res.status(400).json({ error: "Add at least one optional check-in response before saving." }); return; }
   await ensureAdvancedStorage();
   const owned = rows(await exec("SELECT id FROM bookings WHERE id=" + bookingId + " AND client_account_id=" + id + " AND status IN ('pending','claimed') LIMIT 1"))[0];
+  const previousSharing = rows(await exec("SELECT share_with_staff AS \"shareWithStaff\" FROM client_session_preparations WHERE booking_id=" + bookingId + " AND client_account_id=" + id + " LIMIT 1"))[0];
   if (!owned) { res.status(404).json({ error: "That upcoming appointment was not found in your client account." }); return; }
   try {
     const moodSql = mood === null ? "NULL" : String(mood);
     const result = await exec("INSERT INTO client_session_preparations (booking_id,client_account_id,focus,priorities,support_preferences,mood,share_with_staff,created_at,updated_at) VALUES (" + bookingId + "," + id + "," + q(focus) + "," + q(priorities) + "," + q(supportPreferences) + "," + moodSql + "," + (shareWithStaff ? "true" : "false") + ",now(),now()) ON CONFLICT (booking_id) DO UPDATE SET focus=EXCLUDED.focus,priorities=EXCLUDED.priorities,support_preferences=EXCLUDED.support_preferences,mood=EXCLUDED.mood,share_with_staff=EXCLUDED.share_with_staff,updated_at=now() WHERE client_session_preparations.client_account_id=EXCLUDED.client_account_id RETURNING id,booking_id AS \"bookingId\",focus,priorities,support_preferences AS \"supportPreferences\",mood,share_with_staff AS \"shareWithStaff\",created_at AS \"createdAt\",updated_at AS \"updatedAt\"");
     const saved = rows(result)[0];
     if (!saved) { res.status(409).json({ error: "This preparation could not be saved for that appointment. Refresh and try again." }); return; }
+    if (!previousSharing || (previousSharing.shareWithStaff === true) !== shareWithStaff) {
+      await exec("INSERT INTO client_consent_events(client_account_id,consent_key,consent_value,created_at) VALUES (" + id + "," + q("session_prep_sharing:" + bookingId) + "," + q(String(shareWithStaff)) + ",now())");
+    }
     res.status(201).json(saved);
   } catch (error) {
     req.log.error({ err: error }, "Session preparation save failed");
