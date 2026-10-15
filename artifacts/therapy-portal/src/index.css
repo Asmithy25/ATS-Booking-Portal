@@ -77,20 +77,20 @@
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
 
-  --background: 35 44% 96%;
-  --foreground: 20 25% 19%;
-  --border: 28 28% 83%;
+  --background: 39 42% 96%;
+  --foreground: 24 26% 17%;
+  --border: 32 22% 84%;
   
-  --card: 38 42% 99%;
-  --card-foreground: 20 25% 19%;
-  --card-border: 30 27% 87%;
+  --card: 40 39% 99%;
+  --card-foreground: 24 26% 17%;
+  --card-border: 31 25% 87%;
   
-  --sidebar: 25 29% 21%;
+  --sidebar: 150 23% 16%;
   --sidebar-foreground: 38 42% 96%;
-  --sidebar-border: 24 23% 30%;
-  --sidebar-primary: 42 45% 65%;
+  --sidebar-border: 150 18% 25%;
+  --sidebar-primary: 39 55% 64%;
   --sidebar-primary-foreground: 20 25% 19%;
-  --sidebar-accent: 24 14% 29%;
+  --sidebar-accent: 150 15% 23%;
   --sidebar-accent-foreground: 38 42% 96%;
   --sidebar-ring: 42 45% 65%;
   
@@ -98,35 +98,35 @@
   --popover-foreground: 20 25% 19%;
   --popover-border: 30 27% 87%;
   
-  --primary: 18 55% 40%;
+  --primary: 19 56% 36%;
   --primary-foreground: 38 42% 99%;
   
-  --secondary: 35 45% 56%;
+  --secondary: 38 55% 56%;
   --secondary-foreground: 20 25% 19%;
   
   --muted: 32 28% 90%;
   --muted-foreground: 22 13% 45%;
   
-  --accent: 75 18% 84%;
-  --accent-foreground: 20 25% 19%;
+  --accent: 145 18% 87%;
+  --accent-foreground: 150 28% 18%;
   
   --destructive: 5 63% 46%;
   --destructive-foreground: 38 42% 99%;
   
-  --input: 28 28% 83%;
-  --ring: 18 55% 40%;
+  --input: 32 22% 84%;
+  --ring: 19 56% 36%;
 
-  --chart-1: 18 55% 40%;
-  --chart-2: 35 45% 56%;
-  --chart-3: 75 18% 44%;
-  --chart-4: 28 28% 63%;
-  --chart-5: 20 25% 28%;
+  --chart-1: 19 56% 36%;
+  --chart-2: 38 55% 56%;
+  --chart-3: 145 18% 38%;
+  --chart-4: 32 22% 63%;
+  --chart-5: 24 26% 25%;
 
   --app-font-sans: 'Plus Jakarta Sans', sans-serif;
   --app-font-serif: 'Instrument Serif', serif;
   --app-font-mono: 'Space Mono', monospace;
   
-  --radius: .25rem;
+  --radius: .8rem;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(91, 54, 38, 0.03);
   --shadow-xs: 0px 2px 4px 0px rgba(91, 54, 38, 0.04);
@@ -158,20 +158,20 @@
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
 
-  --background: 24 18% 11%;
-  --foreground: 38 32% 95%;
-  --border: 24 14% 26%;
+  --background: 150 15% 9%;
+  --foreground: 40 32% 95%;
+  --border: 150 11% 24%;
   
-  --card: 24 18% 15%;
-  --card-foreground: 38 32% 95%;
-  --card-border: 24 14% 26%;
+  --card: 150 13% 13%;
+  --card-foreground: 40 32% 95%;
+  --card-border: 150 11% 24%;
   
-  --sidebar: 24 20% 9%;
+  --sidebar: 150 26% 7%;
   --sidebar-foreground: 38 32% 95%;
-  --sidebar-border: 24 14% 20%;
-  --sidebar-primary: 42 45% 65%;
+  --sidebar-border: 150 14% 19%;
+  --sidebar-primary: 39 55% 64%;
   --sidebar-primary-foreground: 20 25% 19%;
-  --sidebar-accent: 24 14% 20%;
+  --sidebar-accent: 150 14% 18%;
   --sidebar-accent-foreground: 38 32% 95%;
   --sidebar-ring: 42 45% 65%;
   
@@ -179,29 +179,29 @@
   --popover-foreground: 38 32% 95%;
   --popover-border: 24 14% 26%;
   
-  --primary: 18 58% 52%;
+  --primary: 21 58% 56%;
   --primary-foreground: 24 30% 10%;
   
-  --secondary: 42 45% 65%;
+  --secondary: 39 55% 64%;
   --secondary-foreground: 20 25% 19%;
   
-  --muted: 24 14% 21%;
-  --muted-foreground: 35 18% 72%;
+  --muted: 150 12% 18%;
+  --muted-foreground: 40 18% 73%;
   
-  --accent: 30 20% 25%;
-  --accent-foreground: 38 32% 95%;
+  --accent: 150 14% 22%;
+  --accent-foreground: 40 32% 95%;
   
   --destructive: 0 50% 40%;
   --destructive-foreground: 0 0% 100%;
   
-  --input: 24 14% 26%;
-  --ring: 18 58% 52%;
+  --input: 150 11% 24%;
+  --ring: 21 58% 56%;
 
-  --chart-1: 18 58% 52%;
-  --chart-2: 42 45% 65%;
-  --chart-3: 30 35% 70%;
+  --chart-1: 21 58% 56%;
+  --chart-2: 39 55% 64%;
+  --chart-3: 150 18% 61%;
   --chart-4: 40 20% 80%;
-  --chart-5: 24 35% 40%;
+  --chart-5: 150 23% 37%;
 }
 
 @layer base {
@@ -308,7 +308,7 @@
 
 @layer components {
   .ats-public-home *[class*='rounded-']:not(button):not(a) {
-    border-radius: .25rem;
+    border-radius: .7rem;
   }
 
   .ats-staff-shell *[class*='rounded-2xl']:not(button):not(a),
