@@ -1,13 +1,15 @@
 import { Router } from "express";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   auditLogsTable,
   bookingsTable,
+  clientAccountsTable,
+  clientNotificationsTable,
   sessionFeedbackTable,
   wellnessAssignmentsTable,
 } from "@workspace/db";
-import { requirePermission, signPayload, verifyPayload } from "../middleware/auth";
+import { requirePermission, requireClientAuth, signPayload, verifyPayload, type RequestWithClientSession } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 import { validateBookingSlot } from "../lib/scheduling";
 import { generateConfirmationCode } from "../lib/booking-utils";
@@ -153,6 +155,54 @@ async function resolveClientAccountId(phone: string) {
   return (await findClientAccountByPhone(phone))?.id ?? null;
 }
 
+/**
+ * Promote the first opted-in client when a time is released. The resulting
+ * pending request holds the slot during staff review; it is not yet confirmed.
+ */
+async function promoteWaitlistForSlot(preferredDate: string, preferredTime: string, freedBookingId: number) {
+  const slot = await validateBookingSlot(preferredDate, preferredTime);
+  if (!slot.ok) return null;
+
+  const candidates = await db.select().from(bookingsTable).where(and(
+    eq(bookingsTable.status, "waitlisted"),
+    eq(bookingsTable.preferredDate, preferredDate),
+    eq(bookingsTable.preferredTime, preferredTime),
+  )).orderBy(desc(bookingsTable.priority), asc(bookingsTable.createdAt)).limit(20);
+
+  for (const candidate of candidates) {
+    if (!candidate.clientAccountId || candidate.id === freedBookingId) continue;
+    const [promoted] = await db.update(bookingsTable)
+      .set({ status: "pending", priority: 1, claimedBy: null })
+      .where(and(eq(bookingsTable.id, candidate.id), eq(bookingsTable.status, "waitlisted")))
+      .returning();
+    if (!promoted) continue;
+
+    const recheck = await validateBookingSlot(preferredDate, preferredTime, { excludeBookingId: promoted.id });
+    if (!recheck.ok) {
+      await db.update(bookingsTable).set({ status: "waitlisted" })
+        .where(and(eq(bookingsTable.id, promoted.id), eq(bookingsTable.status, "pending")));
+      return null;
+    }
+
+    await db.insert(clientNotificationsTable).values({
+      clientAccountId: promoted.clientAccountId,
+      title: "A cancellation opened your requested time",
+      body: "Your cancellation-waitlist request for " + preferredDate + " at " + preferredTime + " has moved into the booking queue. The time is held while the care team reviews it; your session is not confirmed until AWS contacts you.",
+      pushedBy: "Aydens Wellness Services",
+    });
+    await db.insert(auditLogsTable).values({
+      actorEmail: "system@aydenswellness.com",
+      actorName: "AWS waitlist automation",
+      action: "waitlist_promoted",
+      entityType: "booking",
+      entityId: String(promoted.id),
+      details: "Promoted from the cancellation waitlist after booking " + freedBookingId + " released " + preferredDate + " " + preferredTime + ".",
+    });
+    return promoted;
+  }
+  return null;
+}
+
 router.get("/", requirePermission("viewClients"), async (req, res) => {
   try {
     const bookings = await db.select().from(bookingsTable).orderBy(desc(bookingsTable.createdAt));
@@ -199,6 +249,65 @@ router.post("/", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to create booking");
     res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+
+/**
+ * Client-initiated waitlist opt-in. Only allow joining when another appointment
+ * is what makes the requested time unavailable, not for closed days or invalid times.
+ */
+router.post("/client-waitlist", requireClientAuth, async (req, res) => {
+  const session = (req as RequestWithClientSession).clientSession;
+  const clientAccountId = Number(session?.id);
+  const preferredDate = String(req.body?.preferredDate ?? "").trim();
+  const preferredTime = String(req.body?.preferredTime ?? "").trim();
+  if (!Number.isInteger(clientAccountId) || clientAccountId < 1) {
+    return res.status(401).json({ error: "Sign in to your client portal to join the cancellation waitlist." });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate) || !/^\d{2}:\d{2}$/.test(preferredTime)) {
+    return res.status(400).json({ error: "Choose a valid preferred date and time." });
+  }
+  try {
+    const [client] = await db.select().from(clientAccountsTable).where(eq(clientAccountsTable.id, clientAccountId)).limit(1);
+    if (!client) return res.status(401).json({ error: "Your client account could not be verified. Please sign in again." });
+    const slot = await validateBookingSlot(preferredDate, preferredTime);
+    if (slot.ok) {
+      return res.status(409).json({ error: "That time currently appears available. Use Request a session instead of the cancellation waitlist." });
+    }
+    if (!slot.error.toLowerCase().includes("already booked")) {
+      return res.status(409).json({ error: slot.error });
+    }
+    const [existing] = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(and(
+      eq(bookingsTable.clientAccountId, clientAccountId),
+      eq(bookingsTable.status, "waitlisted"),
+      eq(bookingsTable.preferredDate, preferredDate),
+      eq(bookingsTable.preferredTime, preferredTime),
+    )).limit(1);
+    if (existing) return res.status(409).json({ error: "You are already on the cancellation waitlist for this time." });
+
+    const [created] = await db.insert(bookingsTable).values({
+      confirmationCode: await createConfirmationCode(),
+      clientAccountId,
+      clientName: client.name,
+      phone: client.phone,
+      reason: "Client opted into the cancellation waitlist for this time.",
+      preferredDate,
+      preferredTime,
+      status: "waitlisted",
+      priority: 1,
+    }).returning();
+    await db.insert(clientNotificationsTable).values({
+      clientAccountId,
+      title: "You're on the cancellation waitlist",
+      body: "You opted into the waitlist for " + preferredDate + " at " + preferredTime + ". If that time opens, AWS can move your request into the booking queue. Your session is not confirmed until the care team contacts you.",
+      pushedBy: "Aydens Wellness Services",
+    });
+    await recordAudit(req, "joined_cancellation_waitlist", "booking", String(created.id), "Client joined the waitlist for " + preferredDate + " " + preferredTime + ".");
+    return res.status(201).json(serializeBooking(created));
+  } catch (err) {
+    req.log.error({ err }, "Failed to join cancellation waitlist");
+    return res.status(500).json({ error: "The cancellation waitlist could not be updated. Please try again." });
   }
 });
 
@@ -382,6 +491,10 @@ router.patch("/confirm/:code", async (req, res) => {
     if (!Object.keys(updates).length) return res.status(400).json({ error: "No valid fields to update." });
     const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, current.id)).returning();
     await recordAudit(req, status === "cancelled" ? "cancelled_booking" : "rescheduled_booking", "booking", String(updated.id));
+    const releasedTime = status === "cancelled" || (preferredDate && preferredDate !== current.preferredDate) || (preferredTime && preferredTime !== current.preferredTime);
+    if (releasedTime && current.status !== "waitlisted") {
+      await promoteWaitlistForSlot(current.preferredDate, current.preferredTime, current.id).catch((waitlistError) => req.log.error({ err: waitlistError }, "Waitlist promotion after public booking change failed"));
+    }
     res.json(serializeBooking(updated));
   } catch (err) {
     req.log.error({ err }, "Failed to update booking by code");
@@ -490,6 +603,10 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
     const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, id)).returning();
     if (status === "cancelled") await notifyBooking(updated, "cancellation");
     else if (preferredDate || preferredTime) await notifyBooking(updated, "reschedule");
+    const releasedTime = status === "cancelled" || status === "waitlisted" || (preferredDate && preferredDate !== current.preferredDate) || (preferredTime && preferredTime !== current.preferredTime);
+    if (releasedTime && current.status !== "waitlisted") {
+      await promoteWaitlistForSlot(current.preferredDate, current.preferredTime, current.id).catch((waitlistError) => req.log.error({ err: waitlistError }, "Waitlist promotion after staff booking change failed"));
+    }
     res.json({ ...serializeBooking(updated, await getFeedback(id)) });
   } catch (err) {
     req.log.error({ err }, "Failed to update booking");
