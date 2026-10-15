@@ -2,9 +2,9 @@ import type React from 'react';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const FALL_THEME = {
-  primary: '#7B4A2F',
-  secondary: '#C38A4A',
-  accent: '#D9B7A2',
+  primary: '#8F4A34',
+  secondary: '#B58C50',
+  accent: '#C4CEB5',
 };
 
 export function hexToHslValue(value: string, fallback: string): string {
@@ -38,9 +38,9 @@ export function getThemeStyle(settings?: {
   accentColor?: string;
 }): React.CSSProperties {
   return {
-    '--primary': hexToHslValue(settings?.primaryColor ?? '#7B4A2F', '18 55% 40%'),
-    '--secondary': hexToHslValue(settings?.secondaryColor ?? FALL_THEME.secondary, '35 45% 56%'),
-    '--accent': hexToHslValue(settings?.accentColor ?? FALL_THEME.accent, '75 18% 84%'),
-    '--ring': hexToHslValue(settings?.primaryColor ?? '#7B4A2F', '18 55% 40%'),
+    '--primary': hexToHslValue(settings?.primaryColor ?? '#8F4A34', '15 47% 38%'),
+    '--secondary': hexToHslValue(settings?.secondaryColor ?? FALL_THEME.secondary, '36 41% 51%'),
+    '--accent': hexToHslValue(settings?.accentColor ?? FALL_THEME.accent, '85 20% 76%'),
+    '--ring': hexToHslValue(settings?.primaryColor ?? '#8F4A34', '15 47% 38%'),
   } as React.CSSProperties;
 }
