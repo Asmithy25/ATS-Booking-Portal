@@ -883,6 +883,10 @@ components:
           type: string
         accentColor:
           type: string
+        homepageContent:
+          type: object
+          description: Public homepage customization content, including seasonal brand assets and icon URLs.
+          additionalProperties: true
         featureFlags:
           type: object
           additionalProperties:
@@ -1077,6 +1081,10 @@ components:
           type: string
         accentColor:
           type: string
+        homepageContent:
+          type: object
+          description: Public homepage customization content, including seasonal brand assets and icon URLs.
+          additionalProperties: true
         featureFlags:
           type: object
           additionalProperties:
