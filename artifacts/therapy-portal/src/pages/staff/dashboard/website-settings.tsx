@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Eye, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import LogoLibrary from "./logo-library";
 
 export default function WebsiteSettings(){
  const {data:session}=useGetAuthMe({query:{retry:false}});
@@ -28,6 +29,7 @@ export default function WebsiteSettings(){
    <CardHeader><CardTitle className="flex items-center gap-2"><Eye className="h-5 w-5 text-primary"/>Website Settings</CardTitle><CardDescription>Public website content, branding, booking presentation, hours, and site controls live here. Personal staff customization is intentionally separate under My Settings.</CardDescription></CardHeader>
    {session?.isAdmin && <CardContent className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">Restore the standard website design</p><p className="text-sm text-muted-foreground">Reset the public website's custom colors, branding overrides, and editable homepage copy to the Aydens Wellness Services defaults. Bookings and practice operations are preserved.</p></div><Button type="button" variant="outline" onClick={()=>void revert()} disabled={reverting} className="shrink-0"><RotateCcw className="mr-2 h-4 w-4"/>{reverting?"Reverting…":"Revert Website Customization"}</Button></CardContent>}
   </Card>
+  {session?.isAdmin && <LogoLibrary/>}
   <Settings/>
  </div>;
 }
