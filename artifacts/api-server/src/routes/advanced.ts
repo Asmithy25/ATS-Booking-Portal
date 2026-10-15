@@ -182,7 +182,7 @@ router.post("/staff/passkey/options", async (req,res) => {
   if(!(security?.passkeys||[]).length){res.status(404).json({error:"Register a passkey first."});return;}
   const challenge=b64url(crypto.randomBytes(32)),origin=safeOrigin(req),rpId=new URL(origin).hostname;
   await exec("INSERT INTO passkey_challenges(email,challenge,origin,rp_id,purpose,expires_at,created_at) VALUES ("+q(email)+","+q(challenge)+","+q(origin)+","+q(rpId)+",'authenticate',now()+interval '5 minutes',now())");
-  res.json({challenge,rpId,timeout:120000,userVerification:"required",allowCredentials:(security.passkeys||[]).map((p:any)=>({type:"public-key",id:p.id,transports:p.transports||[]}))});
+  res.json({challenge,rpId,timeout:120000,userVerification:"required",allowCredentials:(security?.passkeys||[]).map((p:any)=>({type:"public-key",id:p.id,transports:p.transports||[]}))});
 });
 router.post("/staff/passkey/verify", async (req,res) => {
   try{
