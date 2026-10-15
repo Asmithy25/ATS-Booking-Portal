@@ -221,7 +221,7 @@ router.post("/:id/apply", requireAuth, async (req, res) => {
     if (!asset) { res.status(404).json({ error: "Logo not found." }); return; }
     const settings = await getSettingsRow();
     if (!settings) { res.status(409).json({ error: "Save the site settings once before assigning a logo." }); return; }
-    const hp = { ...((settings.homepageContent ?? {}) as Record<string, any>), websiteCustomizationEnabled: true };
+    const hp: Record<string, any> = { ...((settings.homepageContent ?? {}) as Record<string, any>), websiteCustomizationEnabled: true };
     const url = assetUrl(id);
     const changes: Record<string, any> = { homepageContent: hp };
     // Bring any legacy defaults forward when branding is first enabled.
