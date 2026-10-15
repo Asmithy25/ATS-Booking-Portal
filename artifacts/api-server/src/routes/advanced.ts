@@ -332,6 +332,50 @@ router.get("/uploads/public/:token",async(req,res)=>{await ensureAdvancedStorage
 router.post("/uploads/public/:token",async(req,res)=>{await ensureAdvancedStorage();const request=rows<{id:number;clientAccountId:number|null;expiresAt:string}>(await exec("SELECT id,client_account_id AS \"clientAccountId\",expires_at AS \"expiresAt\" FROM upload_requests WHERE token="+q(text(req.params.token,200))+" LIMIT 1"))[0];if(!request||new Date(request.expiresAt).getTime()<Date.now()){res.status(404).json({error:"This upload link is expired or unavailable."});return;}const name=text(req.body?.fileName,255),mime=text(req.body?.mimeType||"application/octet-stream",150).toLowerCase(),encoded=text(req.body?.data,14000000);if(!name||!encoded||!allowedUpload(mime,name)){res.status(400).json({error:"Choose a supported document or image."});return;}const data=Buffer.from(encoded,"base64");if(!data.length||data.length>10*1024*1024){res.status(413).json({error:"Uploads must be 10 MB or smaller."});return;}await exec("INSERT INTO client_uploads(request_id,client_account_id,file_name,mime_type,size_bytes,data,created_at) VALUES ("+request.id+","+(request.clientAccountId||"NULL")+","+q(name)+","+q(mime)+","+data.length+",decode("+q(data.toString("base64"))+",'base64'),now())");res.status(201).json({success:true});});
 router.get("/client/uploads",requireClientAuth,async(req,res)=>{const id=clientId(req);if(!id){res.status(401).json({error:"Client account required."});return;}await ensureAdvancedStorage();res.json(rows(await exec("SELECT u.id,u.file_name AS \"fileName\",u.mime_type AS \"mimeType\",u.size_bytes AS \"sizeBytes\",u.created_at AS \"createdAt\",r.label FROM client_uploads u JOIN upload_requests r ON r.id=u.request_id WHERE u.client_account_id="+id+" ORDER BY u.created_at DESC")));});
 
+
+router.get("/client/session-prep", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  await ensureAdvancedStorage();
+  const result = await exec("SELECT p.id,p.booking_id AS \"bookingId\",b.confirmation_code AS \"confirmationCode\",b.preferred_date AS \"preferredDate\",b.preferred_time AS \"preferredTime\",p.focus,p.priorities,p.support_preferences AS \"supportPreferences\",p.mood,p.share_with_staff AS \"shareWithStaff\",p.created_at AS \"createdAt\",p.updated_at AS \"updatedAt\" FROM client_session_preparations p JOIN bookings b ON b.id=p.booking_id WHERE p.client_account_id=" + id + " ORDER BY b.preferred_date,b.preferred_time");
+  res.json(rows(result));
+});
+
+router.post("/client/session-prep", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  const bookingId = Number(req.body?.bookingId);
+  const focus = text(req.body?.focus, 200);
+  const priorities = text(req.body?.priorities, 1800);
+  const supportPreferences = text(req.body?.supportPreferences, 1200);
+  const mood = req.body?.mood === null || req.body?.mood === undefined || req.body?.mood === "" ? null : Number(req.body.mood);
+  const shareWithStaff = req.body?.shareWithStaff === true;
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  if (!Number.isInteger(bookingId) || bookingId < 1) { res.status(400).json({ error: "Choose an upcoming appointment." }); return; }
+  if (![null, 1, 2, 3, 4, 5].includes(mood)) { res.status(400).json({ error: "Choose a mood rating from 1 to 5, or leave it blank." }); return; }
+  if (!focus && !priorities && !supportPreferences && mood === null) { res.status(400).json({ error: "Add at least one optional check-in response before saving." }); return; }
+  await ensureAdvancedStorage();
+  const owned = rows(await exec("SELECT id FROM bookings WHERE id=" + bookingId + " AND client_account_id=" + id + " AND status IN ('pending','claimed') LIMIT 1"))[0];
+  if (!owned) { res.status(404).json({ error: "That upcoming appointment was not found in your client account." }); return; }
+  try {
+    const moodSql = mood === null ? "NULL" : String(mood);
+    const result = await exec("INSERT INTO client_session_preparations (booking_id,client_account_id,focus,priorities,support_preferences,mood,share_with_staff,created_at,updated_at) VALUES (" + bookingId + "," + id + "," + q(focus) + "," + q(priorities) + "," + q(supportPreferences) + "," + moodSql + "," + (shareWithStaff ? "true" : "false") + ",now(),now()) ON CONFLICT (booking_id) DO UPDATE SET focus=EXCLUDED.focus,priorities=EXCLUDED.priorities,support_preferences=EXCLUDED.support_preferences,mood=EXCLUDED.mood,share_with_staff=EXCLUDED.share_with_staff,updated_at=now() WHERE client_session_preparations.client_account_id=EXCLUDED.client_account_id RETURNING id,booking_id AS \"bookingId\",focus,priorities,support_preferences AS \"supportPreferences\",mood,share_with_staff AS \"shareWithStaff\",created_at AS \"createdAt\",updated_at AS \"updatedAt\"");
+    const saved = rows(result)[0];
+    if (!saved) { res.status(409).json({ error: "This preparation could not be saved for that appointment. Refresh and try again." }); return; }
+    res.status(201).json(saved);
+  } catch (error) {
+    req.log.error({ err: error }, "Session preparation save failed");
+    res.status(500).json({ error: "Your session preparation could not be saved. Please try again." });
+  }
+});
+
+router.get("/staff/session-prep", requireAuth, async (req, res) => {
+  const access = await staffCapability(req, res, "viewClients");
+  if (!access) return;
+  await ensureAdvancedStorage();
+  const result = await exec("SELECT p.id,p.booking_id AS \"bookingId\",p.client_account_id AS \"clientAccountId\",c.name AS \"clientName\",b.preferred_date AS \"preferredDate\",b.preferred_time AS \"preferredTime\",p.focus,p.priorities,p.support_preferences AS \"supportPreferences\",p.mood,p.updated_at AS \"updatedAt\" FROM client_session_preparations p JOIN bookings b ON b.id=p.booking_id JOIN client_accounts c ON c.id=p.client_account_id WHERE p.share_with_staff=true AND b.status IN ('pending','claimed') AND b.preferred_date >= CURRENT_DATE::text ORDER BY b.preferred_date,b.preferred_time");
+  res.json(rows(result));
+});
+
 // Goals, journal, check-ins
 router.get("/client/goals",requireClientAuth,async(req,res)=>{const id=clientId(req);if(!id){res.status(401).json({error:"Client account required."});return;}await ensureAdvancedStorage();res.json(rows(await exec("SELECT id,title,description,status,progress,created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM client_goals WHERE client_account_id="+id+" ORDER BY created_at DESC")));});
 router.post("/client/goals",requireClientAuth,async(req,res)=>{const id=clientId(req);if(!id){res.status(401).json({error:"Client account required."});return;}const title=text(req.body?.title,160);if(!title){res.status(400).json({error:"Goal title is required."});return;}await ensureAdvancedStorage();res.status(201).json(rows(await exec("INSERT INTO client_goals(client_account_id,title,description,status,progress,created_at,updated_at) VALUES ("+id+","+q(title)+","+q(text(req.body?.description,1000))+",'active',0,now(),now()) RETURNING id,title,description,status,progress,created_at AS \"createdAt\",updated_at AS \"updatedAt\""))[0]);});
