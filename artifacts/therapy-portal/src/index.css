@@ -313,12 +313,12 @@
 
   .ats-staff-shell *[class*='rounded-2xl']:not(button):not(a),
   .ats-staff-shell *[class*='rounded-xl']:not(button):not(a) {
-    border-radius: .25rem;
+    border-radius: .7rem;
   }
 
   .ats-client-portal *[class*='rounded-2xl']:not(button):not(a),
   .ats-client-portal *[class*='rounded-xl']:not(button):not(a) {
-    border-radius: .25rem;
+    border-radius: .7rem;
   }
 
   .ats-client-portal [role='tablist'] {
