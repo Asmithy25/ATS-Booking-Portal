@@ -3,7 +3,7 @@ import { useGetSettings } from "@workspace/api-client-react";
 
 const FALLBACK_API_ORIGIN = "https://ats-api-live-production.up.railway.app";
 
-function syncLink(rel: string, href: string, type?: string) {
+function syncLink(rel: string, href: string, type?: string, crossOrigin?: "anonymous" | "use-credentials") {
   let link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
   if (!link) {
     link = document.createElement("link");
@@ -13,6 +13,8 @@ function syncLink(rel: string, href: string, type?: string) {
   link.href = href;
   if (type) link.type = type;
   else link.removeAttribute("type");
+  if (crossOrigin) link.crossOrigin = crossOrigin;
+  else link.removeAttribute("crossorigin");
 }
 
 export default function BrandingRuntime() {
@@ -32,14 +34,14 @@ export default function BrandingRuntime() {
     } else {
       document.querySelector('link[rel="apple-touch-icon"]')?.remove();
     }
-    syncLink("manifest", apiOrigin + "/api/logo-library/manifest.webmanifest");
+    syncLink("manifest", apiOrigin + "/api/logo-library/manifest.webmanifest", undefined, "anonymous");
     let themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (!themeMeta) {
       themeMeta = document.createElement("meta");
       themeMeta.name = "theme-color";
       document.head.appendChild(themeMeta);
     }
-    themeMeta.content = /^#[\da-f]{6}$/i.test(String(settings.primaryColor || "")) ? String(settings.primaryColor) : "#7B4A2F";
+    themeMeta.content = /^#[\da-f]{6}$/i.test(String(settings.primaryColor || "")) ? String(settings.primaryColor) : "#8F4A34";
     document.title = settings.siteName || "Aydens Wellness Services";
   }, [settings]);
 
