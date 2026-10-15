@@ -47,6 +47,7 @@ async function ensureNotificationEventsTable() {
     kind text NOT NULL,
     created_at timestamp NOT NULL DEFAULT now()
   )`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS client_portal_preferences (client_account_id integer PRIMARY KEY,language text NOT NULL DEFAULT 'en',in_portal_reminders boolean NOT NULL DEFAULT true,default_share_session_prep boolean NOT NULL DEFAULT false,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS staff_notifications (
     id serial PRIMARY KEY,
     staff_email text NOT NULL,
@@ -89,14 +90,21 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
   const eventKey = `booking:${booking.id}:${kind}`;
 
   if (booking.clientAccountId) {
-    const claimed = await claimEvent(eventKey, booking.id, "client", String(booking.clientAccountId), kind);
-    if (claimed) {
-      await db.insert(clientNotificationsTable).values({
-        clientAccountId: booking.clientAccountId,
-        title: fill(template.title, booking),
-        body: fill(template.body, booking),
-        pushedBy: "Aydens Wellness Services",
-      });
+    const preferencesResult: any = await db.execute(sql.raw("SELECT in_portal_reminders FROM client_portal_preferences WHERE client_account_id=" + booking.clientAccountId + " LIMIT 1")).catch(() => ({ rows: [] }));
+    const preferences = Array.isArray(preferencesResult) ? preferencesResult[0] : preferencesResult?.rows?.[0];
+    const isReminder = ["appointment_reminder", "starting_soon", "appointment_start"].includes(kind);
+    // Transactional confirmations, cancellations, and reschedules are always
+    // delivered in-portal. Clients may opt out of optional reminder events.
+    if (!isReminder || preferences?.in_portal_reminders !== false) {
+      const claimed = await claimEvent(eventKey, booking.id, "client", String(booking.clientAccountId), kind);
+      if (claimed) {
+        await db.insert(clientNotificationsTable).values({
+          clientAccountId: booking.clientAccountId,
+          title: fill(template.title, booking),
+          body: fill(template.body, booking),
+          pushedBy: "Aydens Wellness Services",
+        });
+      }
     }
   }
 

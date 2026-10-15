@@ -38,6 +38,7 @@ export interface Settings {
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;
+  homepageContent?: { [key: string]: any };
   featureFlags?: SettingsFeatureFlags;
   therapistHours: TherapistHours[];
 }

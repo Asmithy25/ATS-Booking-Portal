@@ -98,27 +98,27 @@
   --popover-foreground: 20 25% 19%;
   --popover-border: 30 27% 87%;
   
-  --primary: 18 55% 40%;
+  --primary: 15 47% 38%;
   --primary-foreground: 38 42% 99%;
   
-  --secondary: 35 45% 56%;
+  --secondary: 36 41% 51%;
   --secondary-foreground: 20 25% 19%;
   
   --muted: 32 28% 90%;
   --muted-foreground: 22 13% 45%;
   
-  --accent: 75 18% 84%;
+  --accent: 85 20% 76%;
   --accent-foreground: 20 25% 19%;
   
   --destructive: 5 63% 46%;
   --destructive-foreground: 38 42% 99%;
   
   --input: 28 28% 83%;
-  --ring: 18 55% 40%;
+  --ring: 15 47% 38%;
 
-  --chart-1: 18 55% 40%;
-  --chart-2: 35 45% 56%;
-  --chart-3: 75 18% 44%;
+  --chart-1: 15 47% 38%;
+  --chart-2: 36 41% 51%;
+  --chart-3: 85 15% 42%;
   --chart-4: 28 28% 63%;
   --chart-5: 20 25% 28%;
 
@@ -179,10 +179,10 @@
   --popover-foreground: 38 32% 95%;
   --popover-border: 24 14% 26%;
   
-  --primary: 18 58% 52%;
+  --primary: 15 50% 52%;
   --primary-foreground: 24 30% 10%;
   
-  --secondary: 42 45% 65%;
+  --secondary: 36 44% 65%;
   --secondary-foreground: 20 25% 19%;
   
   --muted: 24 14% 21%;
@@ -195,13 +195,13 @@
   --destructive-foreground: 0 0% 100%;
   
   --input: 24 14% 26%;
-  --ring: 18 58% 52%;
+  --ring: 15 50% 52%;
 
-  --chart-1: 18 58% 52%;
-  --chart-2: 42 45% 65%;
-  --chart-3: 30 35% 70%;
+  --chart-1: 15 50% 52%;
+  --chart-2: 36 44% 65%;
+  --chart-3: 85 16% 60%;
   --chart-4: 40 20% 80%;
-  --chart-5: 24 35% 40%;
+  --chart-5: 24 28% 40%;
 }
 
 @layer base {

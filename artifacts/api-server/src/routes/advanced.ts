@@ -182,7 +182,7 @@ router.post("/staff/passkey/options", async (req,res) => {
   if(!(security?.passkeys||[]).length){res.status(404).json({error:"Register a passkey first."});return;}
   const challenge=b64url(crypto.randomBytes(32)),origin=safeOrigin(req),rpId=new URL(origin).hostname;
   await exec("INSERT INTO passkey_challenges(email,challenge,origin,rp_id,purpose,expires_at,created_at) VALUES ("+q(email)+","+q(challenge)+","+q(origin)+","+q(rpId)+",'authenticate',now()+interval '5 minutes',now())");
-  res.json({challenge,rpId,timeout:120000,userVerification:"required",allowCredentials:(security.passkeys||[]).map((p:any)=>({type:"public-key",id:p.id,transports:p.transports||[]}))});
+  res.json({challenge,rpId,timeout:120000,userVerification:"required",allowCredentials:(security?.passkeys||[]).map((p:any)=>({type:"public-key",id:p.id,transports:p.transports||[]}))});
 });
 router.post("/staff/passkey/verify", async (req,res) => {
   try{
@@ -331,6 +331,163 @@ router.get("/staff/uploads/:id/download",requireAuth,async(req,res)=>{const acce
 router.get("/uploads/public/:token",async(req,res)=>{await ensureAdvancedStorage();const item=rows(await exec("SELECT label,COALESCE((SELECT name FROM client_accounts WHERE id=client_account_id),'Client') AS \"clientName\",expires_at AS \"expiresAt\" FROM upload_requests WHERE token="+q(text(req.params.token,200))+" LIMIT 1"))[0];if(!item||new Date(item.expiresAt).getTime()<Date.now()){res.status(404).json({error:"This upload link is expired or unavailable."});return;}res.json(item);});
 router.post("/uploads/public/:token",async(req,res)=>{await ensureAdvancedStorage();const request=rows<{id:number;clientAccountId:number|null;expiresAt:string}>(await exec("SELECT id,client_account_id AS \"clientAccountId\",expires_at AS \"expiresAt\" FROM upload_requests WHERE token="+q(text(req.params.token,200))+" LIMIT 1"))[0];if(!request||new Date(request.expiresAt).getTime()<Date.now()){res.status(404).json({error:"This upload link is expired or unavailable."});return;}const name=text(req.body?.fileName,255),mime=text(req.body?.mimeType||"application/octet-stream",150).toLowerCase(),encoded=text(req.body?.data,14000000);if(!name||!encoded||!allowedUpload(mime,name)){res.status(400).json({error:"Choose a supported document or image."});return;}const data=Buffer.from(encoded,"base64");if(!data.length||data.length>10*1024*1024){res.status(413).json({error:"Uploads must be 10 MB or smaller."});return;}await exec("INSERT INTO client_uploads(request_id,client_account_id,file_name,mime_type,size_bytes,data,created_at) VALUES ("+request.id+","+(request.clientAccountId||"NULL")+","+q(name)+","+q(mime)+","+data.length+",decode("+q(data.toString("base64"))+",'base64'),now())");res.status(201).json({success:true});});
 router.get("/client/uploads",requireClientAuth,async(req,res)=>{const id=clientId(req);if(!id){res.status(401).json({error:"Client account required."});return;}await ensureAdvancedStorage();res.json(rows(await exec("SELECT u.id,u.file_name AS \"fileName\",u.mime_type AS \"mimeType\",u.size_bytes AS \"sizeBytes\",u.created_at AS \"createdAt\",r.label FROM client_uploads u JOIN upload_requests r ON r.id=u.request_id WHERE u.client_account_id="+id+" ORDER BY u.created_at DESC")));});
+
+
+
+router.get("/client/preferences", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  await ensureAdvancedStorage();
+  await exec("INSERT INTO client_portal_preferences(client_account_id) VALUES (" + id + ") ON CONFLICT(client_account_id) DO NOTHING");
+  const prefs = rows(await exec("SELECT language,in_portal_reminders AS \"inPortalReminders\",default_share_session_prep AS \"defaultShareSessionPrep\",updated_at AS \"updatedAt\" FROM client_portal_preferences WHERE client_account_id=" + id + " LIMIT 1"))[0];
+  const [client] = await db.select({ updatesOptIn: clientAccountsTable.updatesOptIn }).from(clientAccountsTable).where(eq(clientAccountsTable.id, id)).limit(1);
+  res.json({
+    language: prefs?.language === "es" ? "es" : "en",
+    inPortalReminders: prefs?.inPortalReminders !== false,
+    defaultShareSessionPrep: prefs?.defaultShareSessionPrep === true,
+    updatesOptIn: client?.updatesOptIn === true,
+    emailRemindersAvailable: false,
+    smsRemindersAvailable: false,
+    updatedAt: prefs?.updatedAt ?? null,
+  });
+});
+
+router.patch("/client/preferences", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const language = body.language === undefined ? null : String(body.language);
+  const inPortalReminders = body.inPortalReminders === undefined ? null : body.inPortalReminders;
+  const defaultShare = body.defaultShareSessionPrep === undefined ? null : body.defaultShareSessionPrep;
+  const updatesOptIn = body.updatesOptIn === undefined ? null : body.updatesOptIn;
+  if (language !== null && !["en", "es"].includes(language)) { res.status(400).json({ error: "Choose English or Spanish." }); return; }
+  if (inPortalReminders !== null && typeof inPortalReminders !== "boolean") { res.status(400).json({ error: "Reminder preference must be true or false." }); return; }
+  if (defaultShare !== null && typeof defaultShare !== "boolean") { res.status(400).json({ error: "Sharing preference must be true or false." }); return; }
+  if (updatesOptIn !== null && typeof updatesOptIn !== "boolean") { res.status(400).json({ error: "Update consent must be true or false." }); return; }
+
+  await ensureAdvancedStorage();
+  await exec("INSERT INTO client_portal_preferences(client_account_id) VALUES (" + id + ") ON CONFLICT(client_account_id) DO NOTHING");
+  const previous = rows(await exec("SELECT language,in_portal_reminders AS \"inPortalReminders\",default_share_session_prep AS \"defaultShareSessionPrep\" FROM client_portal_preferences WHERE client_account_id=" + id + " LIMIT 1"))[0] ?? {};
+  const languageSql = language === null ? "language" : q(language);
+  const reminderSql = inPortalReminders === null ? "in_portal_reminders" : String(inPortalReminders);
+  const shareSql = defaultShare === null ? "default_share_session_prep" : String(defaultShare);
+  await exec("UPDATE client_portal_preferences SET language=" + languageSql + ",in_portal_reminders=" + reminderSql + ",default_share_session_prep=" + shareSql + ",updated_at=now() WHERE client_account_id=" + id);
+  if (updatesOptIn !== null) {
+    await db.update(clientAccountsTable).set({ updatesOptIn, updatedAt: new Date() }).where(eq(clientAccountsTable.id, id));
+  }
+  const events: Array<[string, string]> = [];
+  if (language !== null && language !== previous.language) events.push(["portal_language", language]);
+  if (inPortalReminders !== null && inPortalReminders !== (previous.inPortalReminders !== false)) events.push(["in_portal_reminders", String(inPortalReminders)]);
+  if (defaultShare !== null && defaultShare !== (previous.defaultShareSessionPrep === true)) events.push(["default_session_prep_sharing", String(defaultShare)]);
+  if (updatesOptIn !== null) events.push(["practice_updates", String(updatesOptIn)]);
+  for (const [key, value] of events) {
+    await exec("INSERT INTO client_consent_events(client_account_id,consent_key,consent_value,created_at) VALUES (" + id + "," + q(key) + "," + q(value) + ",now())");
+  }
+  const prefs = rows(await exec("SELECT language,in_portal_reminders AS \"inPortalReminders\",default_share_session_prep AS \"defaultShareSessionPrep\",updated_at AS \"updatedAt\" FROM client_portal_preferences WHERE client_account_id=" + id + " LIMIT 1"))[0];
+  const [client] = await db.select({ updatesOptIn: clientAccountsTable.updatesOptIn }).from(clientAccountsTable).where(eq(clientAccountsTable.id, id)).limit(1);
+  res.json({
+    language: prefs?.language === "es" ? "es" : "en",
+    inPortalReminders: prefs?.inPortalReminders !== false,
+    defaultShareSessionPrep: prefs?.defaultShareSessionPrep === true,
+    updatesOptIn: client?.updatesOptIn === true,
+    emailRemindersAvailable: false,
+    smsRemindersAvailable: false,
+    updatedAt: prefs?.updatedAt ?? null,
+  });
+});
+
+router.get("/client/data-export", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  await ensureAdvancedStorage();
+  try {
+    const [client] = await db.select({
+      name: clientAccountsTable.name,
+      email: clientAccountsTable.email,
+      phone: clientAccountsTable.phone,
+      createdAt: clientAccountsTable.createdAt,
+    }).from(clientAccountsTable).where(eq(clientAccountsTable.id, id)).limit(1);
+    const bookings = rows(await exec("SELECT id,confirmation_code AS \"confirmationCode\",preferred_date AS \"preferredDate\",preferred_time AS \"preferredTime\",status,created_at AS \"createdAt\" FROM bookings WHERE client_account_id=" + id + " ORDER BY created_at DESC"));
+    const goals = rows(await exec("SELECT title,description,status,progress,created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM client_goals WHERE client_account_id=" + id + " ORDER BY created_at DESC"));
+    const journal = rows(await exec("SELECT prompt,body,created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM client_journal_entries WHERE client_account_id=" + id + " ORDER BY created_at DESC"));
+    const checkins = rows(await exec("SELECT mood,stress,energy,sleep,notes,created_at AS \"createdAt\" FROM client_checkins WHERE client_account_id=" + id + " ORDER BY created_at DESC"));
+    const assignments = rows(await exec("SELECT type,title,content,due_date AS \"dueDate\",status,config,progress,frequency,created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM wellness_assignments WHERE client_account_id=" + id + " ORDER BY created_at DESC"));
+    const preparations = rows(await exec("SELECT booking_id AS \"bookingId\",focus,priorities,support_preferences AS \"supportPreferences\",mood,share_with_staff AS \"shareWithStaff\",created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM client_session_preparations WHERE client_account_id=" + id + " ORDER BY created_at DESC"));
+    const assistantConversation = rows(await exec("SELECT role,body,created_at AS \"createdAt\" FROM assistant_messages WHERE client_account_id=" + id + " ORDER BY created_at ASC"));
+    const supportThreads = rows(await exec("SELECT id,subject,status,created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM support_threads WHERE client_account_id=" + id + " ORDER BY updated_at DESC"));
+    const support = [];
+    for (const thread of supportThreads) {
+      const messages = rows(await exec("SELECT sender_type AS \"senderType\",sender_name AS \"senderName\",body,created_at AS \"createdAt\" FROM support_messages WHERE thread_id=" + Number(thread.id) + " ORDER BY created_at ASC"));
+      support.push({ ...thread, messages });
+    }
+    res.setHeader("Content-Disposition", "attachment; filename=\"aws-wellness-data-export.json\"");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json({
+      exportedAt: new Date().toISOString(),
+      service: "Aydens Wellness Services",
+      client,
+      bookings,
+      goals,
+      journalEntries: journal,
+      dailyCheckins: checkins,
+      assignments,
+      sessionPreparations: preparations,
+      AydensWellnessAssistantConversation: assistantConversation,
+      supportConversations: support,
+      note: "This file contains personal wellness information. Store it safely. Client document contents are not bundled; use the secure document area for those files.",
+    });
+  } catch (error) {
+    req.log.error({ err: error }, "Client data export failed");
+    res.status(500).json({ error: "Your data export could not be created. Please try again." });
+  }
+});
+
+router.get("/client/session-prep", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  await ensureAdvancedStorage();
+  const result = await exec("SELECT p.id,p.booking_id AS \"bookingId\",b.confirmation_code AS \"confirmationCode\",b.preferred_date AS \"preferredDate\",b.preferred_time AS \"preferredTime\",p.focus,p.priorities,p.support_preferences AS \"supportPreferences\",p.mood,p.share_with_staff AS \"shareWithStaff\",p.created_at AS \"createdAt\",p.updated_at AS \"updatedAt\" FROM client_session_preparations p JOIN bookings b ON b.id=p.booking_id WHERE p.client_account_id=" + id + " ORDER BY b.preferred_date,b.preferred_time");
+  res.json(rows(result));
+});
+
+router.post("/client/session-prep", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  const bookingId = Number(req.body?.bookingId);
+  const focus = text(req.body?.focus, 200);
+  const priorities = text(req.body?.priorities, 1800);
+  const supportPreferences = text(req.body?.supportPreferences, 1200);
+  const mood = req.body?.mood === null || req.body?.mood === undefined || req.body?.mood === "" ? null : Number(req.body.mood);
+  const shareWithStaff = req.body?.shareWithStaff === true;
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  if (!Number.isInteger(bookingId) || bookingId < 1) { res.status(400).json({ error: "Choose an upcoming appointment." }); return; }
+  if (![null, 1, 2, 3, 4, 5].includes(mood)) { res.status(400).json({ error: "Choose a mood rating from 1 to 5, or leave it blank." }); return; }
+  if (!focus && !priorities && !supportPreferences && mood === null) { res.status(400).json({ error: "Add at least one optional check-in response before saving." }); return; }
+  await ensureAdvancedStorage();
+  const owned = rows(await exec("SELECT id FROM bookings WHERE id=" + bookingId + " AND client_account_id=" + id + " AND status IN ('pending','claimed') LIMIT 1"))[0];
+  const previousSharing = rows(await exec("SELECT share_with_staff AS \"shareWithStaff\" FROM client_session_preparations WHERE booking_id=" + bookingId + " AND client_account_id=" + id + " LIMIT 1"))[0];
+  if (!owned) { res.status(404).json({ error: "That upcoming appointment was not found in your client account." }); return; }
+  try {
+    const moodSql = mood === null ? "NULL" : String(mood);
+    const result = await exec("INSERT INTO client_session_preparations (booking_id,client_account_id,focus,priorities,support_preferences,mood,share_with_staff,created_at,updated_at) VALUES (" + bookingId + "," + id + "," + q(focus) + "," + q(priorities) + "," + q(supportPreferences) + "," + moodSql + "," + (shareWithStaff ? "true" : "false") + ",now(),now()) ON CONFLICT (booking_id) DO UPDATE SET focus=EXCLUDED.focus,priorities=EXCLUDED.priorities,support_preferences=EXCLUDED.support_preferences,mood=EXCLUDED.mood,share_with_staff=EXCLUDED.share_with_staff,updated_at=now() WHERE client_session_preparations.client_account_id=EXCLUDED.client_account_id RETURNING id,booking_id AS \"bookingId\",focus,priorities,support_preferences AS \"supportPreferences\",mood,share_with_staff AS \"shareWithStaff\",created_at AS \"createdAt\",updated_at AS \"updatedAt\"");
+    const saved = rows(result)[0];
+    if (!saved) { res.status(409).json({ error: "This preparation could not be saved for that appointment. Refresh and try again." }); return; }
+    if (!previousSharing || (previousSharing.shareWithStaff === true) !== shareWithStaff) {
+      await exec("INSERT INTO client_consent_events(client_account_id,consent_key,consent_value,created_at) VALUES (" + id + "," + q("session_prep_sharing:" + bookingId) + "," + q(String(shareWithStaff)) + ",now())");
+    }
+    res.status(201).json(saved);
+  } catch (error) {
+    req.log.error({ err: error }, "Session preparation save failed");
+    res.status(500).json({ error: "Your session preparation could not be saved. Please try again." });
+  }
+});
+
+router.get("/staff/session-prep", requireAuth, async (req, res) => {
+  const access = await staffCapability(req, res, "viewClients");
+  if (!access) return;
+  await ensureAdvancedStorage();
+  const result = await exec("SELECT p.id,p.booking_id AS \"bookingId\",p.client_account_id AS \"clientAccountId\",c.name AS \"clientName\",b.preferred_date AS \"preferredDate\",b.preferred_time AS \"preferredTime\",p.focus,p.priorities,p.support_preferences AS \"supportPreferences\",p.mood,p.updated_at AS \"updatedAt\" FROM client_session_preparations p JOIN bookings b ON b.id=p.booking_id JOIN client_accounts c ON c.id=p.client_account_id WHERE p.share_with_staff=true AND b.status IN ('pending','claimed') AND b.preferred_date >= CURRENT_DATE::text ORDER BY b.preferred_date,b.preferred_time");
+  res.json(rows(result));
+});
 
 // Goals, journal, check-ins
 router.get("/client/goals",requireClientAuth,async(req,res)=>{const id=clientId(req);if(!id){res.status(401).json({error:"Client account required."});return;}await ensureAdvancedStorage();res.json(rows(await exec("SELECT id,title,description,status,progress,created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM client_goals WHERE client_account_id="+id+" ORDER BY created_at DESC")));});

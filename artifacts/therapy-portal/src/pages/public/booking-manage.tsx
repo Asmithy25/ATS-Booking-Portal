@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { customFetch, useGetSettings } from '@workspace/api-client-react';
-import { Loader2, Calendar, Clock, Phone, CheckCircle2, XCircle, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Loader2, Calendar, CalendarPlus, Clock, Phone, CheckCircle2, XCircle, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface BookingPublic {
   id: number;
@@ -232,6 +232,77 @@ export default function BookingManage() {
     toast({ title: 'Reminder enabled', description: 'This browser will remind you at your appointment time.' });
   };
 
+  const downloadCalendarInvite = () => {
+    if (!booking) return;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(booking.preferredDate);
+    const time = /^(\d{2}):(\d{2})$/.exec(booking.preferredTime);
+    if (!match || !time) {
+      toast({ variant: 'destructive', title: 'Calendar invite unavailable', description: 'The appointment date or time is not in a supported format. Contact AWS for help.' });
+      return;
+    }
+    const [, year, month, day] = match;
+    const [, hour, minute] = time;
+    const start = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const formatLocal = (date: Date) =>
+      date.getUTCFullYear().toString().padStart(4, '0')
+      + (date.getUTCMonth() + 1).toString().padStart(2, '0')
+      + date.getUTCDate().toString().padStart(2, '0')
+      + 'T' + date.getUTCHours().toString().padStart(2, '0')
+      + date.getUTCMinutes().toString().padStart(2, '0')
+      + '00';
+    const escapeText = (value: string) => value.replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    const title = 'Aydens Wellness Services phone consultation';
+    const description = 'Private phone consultation with Aydens Wellness Services. Keep your phone nearby.\nConfirmation code: ' + booking.confirmationCode;
+    const event = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Aydens Wellness Services//Appointment//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VTIMEZONE',
+      'TZID:America/New_York',
+      'X-LIC-LOCATION:America/New_York',
+      'BEGIN:DAYLIGHT',
+      'TZOFFSETFROM:-0500',
+      'TZOFFSETTO:-0400',
+      'TZNAME:EDT',
+      'DTSTART:19700308T020000',
+      'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU',
+      'END:DAYLIGHT',
+      'BEGIN:STANDARD',
+      'TZOFFSETFROM:-0400',
+      'TZOFFSETTO:-0500',
+      'TZNAME:EST',
+      'DTSTART:19701101T020000',
+      'RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU',
+      'END:STANDARD',
+      'END:VTIMEZONE',
+      'BEGIN:VEVENT',
+      'UID:' + escapeText(booking.confirmationCode) + '@aydenswellness.com',
+      'DTSTAMP:' + stamp,
+      'DTSTART;TZID=America/New_York:' + formatLocal(start),
+      'DTEND;TZID=America/New_York:' + formatLocal(end),
+      'SUMMARY:' + escapeText(title),
+      'DESCRIPTION:' + escapeText(description),
+      'STATUS:' + (booking.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED'),
+      'END:VEVENT',
+      'END:VCALENDAR',
+      '',
+    ].join('\r\n');
+    const blob = new Blob([event], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'aydens-wellness-appointment-' + booking.confirmationCode.replace(/[^a-zA-Z0-9-]/g, '') + '.ics';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast({ title: 'Calendar invite downloaded', description: 'Open the .ics file to add this phone session to your calendar.' });
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <PublicNavbar />
@@ -341,6 +412,20 @@ export default function BookingManage() {
                     <p className="text-sm text-muted-foreground">{format(parseISO(booking.createdAt), 'MMMM d, yyyy')}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Calendar export */}
+              <div className="flex flex-col gap-4 rounded-2xl border border-primary/15 bg-card px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><CalendarPlus className="h-5 w-5" /></span>
+                  <div>
+                    <p className="font-semibold text-foreground">Keep it on your calendar</p>
+                    <p className="mt-1 text-sm leading-5 text-muted-foreground">Download an invite for your phone consultation. The event uses Eastern Time and a 60-minute duration.</p>
+                  </div>
+                </div>
+                <Button type="button" variant="outline" onClick={downloadCalendarInvite} className="shrink-0 rounded-xl">
+                  <CalendarPlus className="mr-2 h-4 w-4" />Add to calendar
+                </Button>
               </div>
 
               {/* Appointment reminder */}

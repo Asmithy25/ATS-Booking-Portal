@@ -36,5 +36,6 @@ export interface SettingsUpdate {
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;
+  homepageContent?: { [key: string]: any };
   featureFlags?: SettingsUpdateFeatureFlags;
 }

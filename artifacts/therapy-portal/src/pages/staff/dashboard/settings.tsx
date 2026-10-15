@@ -175,13 +175,13 @@ export default function Settings() {
       acceptingClients: true,
       sessionRequestsOpen: true,
       siteName: "Ayden's Therapy Services",
-      siteTagline: 'Heal. Grow. Thrive.',
+      siteTagline: 'Care That Meets You Where You Are',
       logoUrl: '',
       heroTitle: 'A safe space on the line.',
       heroDescription: 'Compassionate, judgment-free mental wellness support delivered directly to you.',
-      primaryColor: '#7B4A2F',
-      secondaryColor: '#C38A4A',
-      accentColor: '#D9B7A2',
+      primaryColor: '#8F4A34',
+      secondaryColor: '#B58C50',
+      accentColor: '#C4CEB5',
       officeHours: {
         mon: { open: '13:00', close: '20:00', closed: false },
         tue: { open: '13:00', close: '20:00', closed: false },
@@ -516,7 +516,7 @@ export default function Settings() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {([
                 ['siteName', 'Site name', "Ayden's Therapy Services"],
-                ['siteTagline', 'Tagline', 'Heal. Grow. Thrive.'],
+                ['siteTagline', 'Tagline', 'Care That Meets You Where You Are'],
                 ['heroTitle', 'Homepage headline', 'A safe space on the line.'],
                 ['heroDescription', 'Homepage description', 'A short welcoming description for the homepage.'],
               ] as const).map(([name, label, placeholder]) => (
@@ -615,7 +615,7 @@ export default function Settings() {
                   <p className="mt-1 text-xs text-muted-foreground">Choose a starting point, then fine-tune it with the color picker above.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {[
-                      ['Terracotta', '#D9B7A2'],
+                      ['Soft Sage', '#C4CEB5'],
                       ['Sage', '#B8C5A1'],
                       ['Golden', '#E6C27A'],
                       ['Lavender', '#C9B9D9'],
