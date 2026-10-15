@@ -23,7 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarDays, Clock3, Heart, LogOut, Mail, MessageCircle, Moon, Settings2, ShieldAlert, Sparkles, Sun, RefreshCw, XCircle, Star, BookOpen, ClipboardCheck, NotebookPen } from 'lucide-react';
+import { CalendarDays, Clock3, Heart, LogOut, Mail, MessageCircle, Moon, Settings2, ShieldAlert, Sparkles, Sun, RefreshCw, XCircle, Star, BookOpen, ClipboardCheck, NotebookPen, Loader2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import ClientAubrey from '@/components/client-aubrey';
 import ClientSessionPreparation from '@/components/ClientSessionPreparation';
