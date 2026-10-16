@@ -285,6 +285,7 @@ export type MessageTemplate = {
   key: string;
   label: string;
   icon: string;
+  channel: "both" | "sms";
   subject: string;
   body: string;
   updatedBy: string;
@@ -497,11 +498,11 @@ export function useMessageTemplates(options?: QueryOptions<MessageTemplate[]>) {
 export function useUpdateMessageTemplate(options?: {
   mutation?: UseMutationOptions<MessageTemplate, ErrorType<unknown>, {
     key: string;
-    data: { subject: string; body: string; label?: string; icon?: string };
+    data: { subject: string; body: string; label?: string; icon?: string; channel?: "both" | "sms" };
   }>;
 }) {
   return useMutation({
-    mutationFn: ({ key, data }: { key: string; data: { subject: string; body: string; label?: string; icon?: string } }) =>
+    mutationFn: ({ key, data }: { key: string; data: { subject: string; body: string; label?: string; icon?: string; channel?: "both" | "sms" } }) =>
       customFetch<MessageTemplate>(`/api/portal/templates/${encodeURIComponent(key)}`, {
         method: "PATCH",
         body: JSON.stringify(data),
@@ -514,12 +515,13 @@ export function useCreateMessageTemplate(options?: {
   mutation?: UseMutationOptions<MessageTemplate, ErrorType<unknown>, {
     label: string;
     icon: string;
+    channel?: "both" | "sms";
     subject: string;
     body: string;
   }>;
 }) {
   return useMutation({
-    mutationFn: (data: { label: string; icon: string; subject: string; body: string }) =>
+    mutationFn: (data: { label: string; icon: string; channel?: "both" | "sms"; subject: string; body: string }) =>
       customFetch<MessageTemplate>("/api/portal/templates", {
         method: "POST",
         body: JSON.stringify(data),
