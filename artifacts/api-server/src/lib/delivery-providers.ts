@@ -62,13 +62,13 @@ export async function sendSms(to: string, body: string) {
   return { sent: true };
 }
 
-export async function sendBookingDelivery(booking: Booking, kind: string, title: string, body: string, clientEmail?: string | null) {
+export async function sendBookingDelivery(booking: Booking, kind: string, title: string, body: string, clientEmail?: string | null, consent: { emailAllowed: boolean; smsAllowed: boolean } = { emailAllowed: false, smsAllowed: false }) {
   const results: { email?: string; sms?: string } = {};
   const canSend = ["booking_confirmation", "appointment_reminder", "appointment_start", "starting_soon", "cancellation", "reschedule"].includes(kind);
   if (!canSend) return results;
 
   // Each channel is isolated: a temporary email failure must not prevent SMS (or vice versa).
-  if (clientEmail && getDeliveryStatus().email.configured) {
+  if (consent.emailAllowed && clientEmail && getDeliveryStatus().email.configured) {
     try {
       await sendEmail(clientEmail, title, body);
       results.email = "sent";
@@ -77,7 +77,7 @@ export async function sendBookingDelivery(booking: Booking, kind: string, title:
     }
   } else results.email = "not_configured_or_no_client_email";
 
-  if (booking.phone && getDeliveryStatus().sms.configured) {
+  if (consent.smsAllowed && booking.phone && getDeliveryStatus().sms.configured) {
     try {
       await sendSms(booking.phone, body);
       results.sms = "sent";
