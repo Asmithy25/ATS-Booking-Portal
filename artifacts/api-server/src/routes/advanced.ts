@@ -346,8 +346,10 @@ router.get("/client/preferences", requireClientAuth, async (req, res) => {
     inPortalReminders: prefs?.inPortalReminders !== false,
     defaultShareSessionPrep: prefs?.defaultShareSessionPrep === true,
     updatesOptIn: client?.updatesOptIn === true,
-    emailRemindersAvailable: false,
-    smsRemindersAvailable: false,
+    emailReminders: prefs?.emailReminders === true,
+    smsReminders: prefs?.smsReminders === true,
+    emailRemindersAvailable: getDeliveryStatus().email.configured,
+    smsRemindersAvailable: getDeliveryStatus().sms.configured,
     updatedAt: prefs?.updatedAt ?? null,
   });
 });
@@ -360,10 +362,15 @@ router.patch("/client/preferences", requireClientAuth, async (req, res) => {
   const inPortalReminders = body.inPortalReminders === undefined ? null : body.inPortalReminders;
   const defaultShare = body.defaultShareSessionPrep === undefined ? null : body.defaultShareSessionPrep;
   const updatesOptIn = body.updatesOptIn === undefined ? null : body.updatesOptIn;
+  const emailReminders = body.emailReminders === undefined ? null : body.emailReminders;
+  const smsReminders = body.smsReminders === undefined ? null : body.smsReminders;
   if (language !== null && !["en", "es"].includes(language)) { res.status(400).json({ error: "Choose English or Spanish." }); return; }
   if (inPortalReminders !== null && typeof inPortalReminders !== "boolean") { res.status(400).json({ error: "Reminder preference must be true or false." }); return; }
   if (defaultShare !== null && typeof defaultShare !== "boolean") { res.status(400).json({ error: "Sharing preference must be true or false." }); return; }
   if (updatesOptIn !== null && typeof updatesOptIn !== "boolean") { res.status(400).json({ error: "Update consent must be true or false." }); return; }
+  if (emailReminders !== null && typeof emailReminders !== "boolean") { res.status(400).json({ error: "Email reminder consent must be true or false." }); return; }
+  if (smsReminders !== null && typeof smsReminders !== "boolean") { res.status(400).json({ error: "SMS reminder consent must be true or false." }); return; }
+  if ((emailReminders === true && !getDeliveryStatus().email.configured) || (smsReminders === true && !getDeliveryStatus().sms.configured)) { res.status(409).json({ error: "That delivery channel is not available yet." }); return; }
 
   await ensureAdvancedStorage();
   await exec("INSERT INTO client_portal_preferences(client_account_id) VALUES (" + id + ") ON CONFLICT(client_account_id) DO NOTHING");
@@ -371,7 +378,9 @@ router.patch("/client/preferences", requireClientAuth, async (req, res) => {
   const languageSql = language === null ? "language" : q(language);
   const reminderSql = inPortalReminders === null ? "in_portal_reminders" : String(inPortalReminders);
   const shareSql = defaultShare === null ? "default_share_session_prep" : String(defaultShare);
-  await exec("UPDATE client_portal_preferences SET language=" + languageSql + ",in_portal_reminders=" + reminderSql + ",default_share_session_prep=" + shareSql + ",updated_at=now() WHERE client_account_id=" + id);
+  const emailSql = emailReminders === null ? "email_reminders" : String(emailReminders);
+  const smsSql = smsReminders === null ? "sms_reminders" : String(smsReminders);
+  await exec("UPDATE client_portal_preferences SET language=" + languageSql + ",in_portal_reminders=" + reminderSql + ",default_share_session_prep=" + shareSql + ",email_reminders=" + emailSql + ",sms_reminders=" + smsSql + ",updated_at=now() WHERE client_account_id=" + id);
   if (updatesOptIn !== null) {
     await db.update(clientAccountsTable).set({ updatesOptIn, updatedAt: new Date() }).where(eq(clientAccountsTable.id, id));
   }
@@ -380,6 +389,8 @@ router.patch("/client/preferences", requireClientAuth, async (req, res) => {
   if (inPortalReminders !== null && inPortalReminders !== (previous.inPortalReminders !== false)) events.push(["in_portal_reminders", String(inPortalReminders)]);
   if (defaultShare !== null && defaultShare !== (previous.defaultShareSessionPrep === true)) events.push(["default_session_prep_sharing", String(defaultShare)]);
   if (updatesOptIn !== null) events.push(["practice_updates", String(updatesOptIn)]);
+  if (emailReminders !== null) events.push(["email_appointment_reminders", String(emailReminders)]);
+  if (smsReminders !== null) events.push(["sms_appointment_reminders", String(smsReminders)]);
   for (const [key, value] of events) {
     await exec("INSERT INTO client_consent_events(client_account_id,consent_key,consent_value,created_at) VALUES (" + id + "," + q(key) + "," + q(value) + ",now())");
   }
