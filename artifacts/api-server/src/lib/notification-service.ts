@@ -89,7 +89,9 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
   await ensureNotificationEventsTable();
   const fallback = DEFAULT_TEMPLATES[kind];
   const [stored] = await db.select().from(messageTemplatesTable).where(eq(messageTemplatesTable.key, kind)).limit(1);
-  const template = stored ? { title: stored.subject, body: stored.body } : fallback;
+  const [storedSms] = await db.select().from(messageTemplatesTable).where(eq(messageTemplatesTable.key, `sms_${kind}`)).limit(1);
+  const template = stored && stored.channel !== "sms" ? { title: stored.subject, body: stored.body } : fallback;
+  const smsTemplateBody = storedSms?.channel === "sms" ? storedSms.body : template.body;
   const eventKey = `booking:${booking.id}:${kind}`;
 
   let preferences: any = null;
@@ -132,7 +134,7 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
   if ((deliveryStatus.email.configured && client?.email && preferences?.email_reminders === true) || (deliveryStatus.sms.configured && booking.phone && preferences?.sms_reminders === true)) {
     const externalKey = `${eventKey}:external`;
     if (await claimEvent(externalKey, booking.id, "external", String(booking.clientAccountId ?? booking.phone), kind)) {
-      const results = await sendBookingDelivery(booking, kind, fill(template.title, booking), fill(template.body, booking), client?.email, { emailAllowed: preferences?.email_reminders === true, smsAllowed: preferences?.sms_reminders === true });
+      const results = await sendBookingDelivery(booking, kind, fill(template.title, booking), fill(template.body, booking), client?.email, { emailAllowed: preferences?.email_reminders === true, smsAllowed: preferences?.sms_reminders === true }, fill(smsTemplateBody, booking));
       if (results.email && results.email !== "sent" && results.email !== "not_configured_or_no_client_email") {
         await db.execute(sql`DELETE FROM notification_events WHERE event_key=${externalKey}`).catch(() => undefined);
       }
