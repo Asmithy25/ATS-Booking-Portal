@@ -161,7 +161,7 @@ export async function sendSms(to: string, body: string) {
   return { sent: true, trialTemplate: usedTrialTemplate };
 }
 
-export async function sendBookingDelivery(booking: Booking, kind: string, title: string, body: string, clientEmail?: string | null, consent: { emailAllowed: boolean; smsAllowed: boolean } = { emailAllowed: false, smsAllowed: false }) {
+export async function sendBookingDelivery(booking: Booking, kind: string, title: string, body: string, clientEmail?: string | null, consent: { emailAllowed: boolean; smsAllowed: boolean } = { emailAllowed: false, smsAllowed: false }, smsBody?: string) {
   const results: { email?: string; sms?: string } = {};
   const canSend = ["booking_confirmation", "appointment_reminder", "appointment_start", "starting_soon", "cancellation", "reschedule"].includes(kind);
   if (!canSend) return results;
@@ -178,7 +178,7 @@ export async function sendBookingDelivery(booking: Booking, kind: string, title:
 
   if (consent.smsAllowed && booking.phone && getDeliveryStatus().sms.configured) {
     try {
-      await sendSms(booking.phone, body);
+      await sendSms(booking.phone, smsBody ?? body);
       results.sms = "sent";
     } catch (error) {
       results.sms = error instanceof Error ? error.message : "SMS delivery failed.";
