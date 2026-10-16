@@ -224,7 +224,7 @@ export default function MessageTemplates() {
                 </div>
                 <div className="space-y-2">
                   <Label>Message channel</Label>
-                  <Select value={newTemplate.channel} onValueChange={(channel: 'both' | 'sms') => setNewTemplate({ ...newTemplate, channel })}>
+                  <Select value={newTemplate.channel} onValueChange={(channel) => setNewTemplate({ ...newTemplate, channel: channel === 'sms' ? 'sms' : 'both' })}>
                     <SelectTrigger><SelectValue placeholder="Choose a channel" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="both">Support + notifications</SelectItem>
@@ -288,7 +288,7 @@ export default function MessageTemplates() {
                   <IconPicker value={value.icon} onChange={(icon) => updateDraft(item.key, { ...value, icon })} />
                   <div className="space-y-2">
                     <Label>Message channel</Label>
-                    <Select value={value.channel} onValueChange={(channel: 'both' | 'sms') => updateDraft(item.key, { ...value, channel })}>
+                    <Select value={value.channel} onValueChange={(channel) => updateDraft(item.key, { ...value, channel: channel === 'sms' ? 'sms' : 'both' })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="both">Support + notifications</SelectItem>
