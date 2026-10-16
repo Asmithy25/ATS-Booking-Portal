@@ -54,15 +54,15 @@ router.post("/delivery-settings/test-sms", async (req, res): Promise<void> => {
     // fields explicitly so provider/network failures can be diagnosed safely.
     const details = error instanceof Error
       ? {
-          name: error.name,
-          message: error.message,
-          cause: error.cause instanceof Error
-            ? { name: error.cause.name, message: error.cause.message, code: (error.cause as NodeJS.ErrnoException).code }
-            : error.cause == null ? undefined : String(error.cause),
+          errorName: error.name,
+          errorMessage: error.message,
+          causeName: error.cause instanceof Error ? error.cause.name : undefined,
+          causeMessage: error.cause instanceof Error ? error.cause.message : error.cause == null ? undefined : String(error.cause),
+          causeCode: error.cause instanceof Error ? (error.cause as NodeJS.ErrnoException).code : undefined,
         }
-      : { message: String(error) };
+      : { errorMessage: String(error) };
     req.log?.error?.(details, "SMS delivery test failed");
-    res.status(502).json({ error: details.message || "SMS delivery test failed." });
+    res.status(502).json({ error: details.errorMessage || "SMS delivery test failed." });
   }
 });
 
