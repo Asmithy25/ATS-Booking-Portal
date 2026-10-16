@@ -39,6 +39,8 @@ function fill(value: string, booking: typeof bookingsTable.$inferSelect) {
 }
 
 async function ensureNotificationEventsTable() {
+  // Keep older production databases compatible with the message-template channel field.
+  await db.execute(sql`ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS channel text NOT NULL DEFAULT 'both'`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS notification_events (
     id serial PRIMARY KEY,
     event_key text NOT NULL UNIQUE,
