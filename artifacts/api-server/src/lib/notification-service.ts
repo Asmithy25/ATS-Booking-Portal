@@ -1,6 +1,7 @@
 import { and, eq, gte, lt } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import { db, bookingsTable, clientNotificationsTable, staffAccountsTable, messageTemplatesTable } from "@workspace/db";
+import { db, bookingsTable, clientAccountsTable, clientNotificationsTable, staffAccountsTable, messageTemplatesTable } from "@workspace/db";
+import { getDeliveryStatus, sendBookingDelivery } from "./delivery-providers";
 
 const DEFAULT_TEMPLATES: Record<string, { title: string; body: string }> = {
   booking_confirmation: {
@@ -118,6 +119,25 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
       await db.execute(sql`INSERT INTO staff_notifications (staff_email, title, body) VALUES (${email}, ${fill(template.title, booking)}, ${fill(template.body, booking)})`);
     }
   }));
+
+  // Deliver external email/SMS only when providers are configured. Client email
+  // is taken from the linked account; the public booking form itself stores phone only.
+  const deliveryStatus = getDeliveryStatus();
+  const [client] = booking.clientAccountId
+    ? await db.select({ email: clientAccountsTable.email }).from(clientAccountsTable).where(eq(clientAccountsTable.id, booking.clientAccountId)).limit(1)
+    : [];
+  if ((deliveryStatus.email.configured && client?.email) || (deliveryStatus.sms.configured && booking.phone)) {
+    const externalKey = `${eventKey}:external`;
+    if (await claimEvent(externalKey, booking.id, "external", String(booking.clientAccountId ?? booking.phone), kind)) {
+      const results = await sendBookingDelivery(booking, kind, fill(template.title, booking), fill(template.body, booking), client?.email);
+      if (results.email && results.email !== "sent" && results.email !== "not_configured_or_no_client_email") {
+        await db.execute(sql`DELETE FROM notification_events WHERE event_key=${externalKey}`).catch(() => undefined);
+      }
+      if (results.sms && results.sms !== "sent" && results.sms !== "not_configured") {
+        await db.execute(sql`DELETE FROM notification_events WHERE event_key=${externalKey}`).catch(() => undefined);
+      }
+    }
+  }
 }
 
 export async function processScheduledNotifications() {
