@@ -221,6 +221,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/support', <MessageCircle className="h-4 w-4" />, 'Support inbox')}
           {((session.isAdmin || (session as any).permissions?.viewClientMessages === true)) && navItem('/staff/public-support', <MessageCircle className="h-4 w-4" />, 'Public Support')}
           {navItem('/staff/notifications', <Bell className="h-4 w-4" />, 'Notification center')}
+          {session.isAdmin && navItem('/staff/delivery-settings', <Mail className="h-4 w-4" />, 'Email & SMS delivery')}
            {navItem('/staff/team-chat', <MessageCircle className="h-4 w-4" />, 'Team chat')}
            {navItem('/staff/team', <UsersRound className="h-4 w-4" />, 'Team workspace')}
           {navItem('/staff/messages', <Mail className="h-4 w-4" />, 'Message templates')}
