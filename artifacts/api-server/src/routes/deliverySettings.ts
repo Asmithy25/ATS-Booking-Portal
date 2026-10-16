@@ -46,9 +46,15 @@ router.post("/delivery-settings/test-sms", async (req, res): Promise<void> => {
     return;
   }
   try {
-    await sendSms(to, "Aydens Wellness Services: this is a test text confirming SMS delivery is connected.");
+    const result = await sendSms(to, "Aydens Wellness Services: this is a test text confirming SMS delivery is connected.");
     await recordAudit(req, "tested_sms_delivery", "delivery_settings", undefined, `Test SMS sent to ${to}`);
-    res.json({ ok: true, message: "Test SMS accepted by the provider." });
+    res.json({
+      ok: true,
+      trialTemplate: result.trialTemplate,
+      message: result.trialTemplate
+        ? "Test SMS accepted using Twilio's approved trial template. Custom AWS message bodies require upgrading Twilio."
+        : "Test SMS accepted by the provider.",
+    });
   } catch (error) {
     // Error instances often serialize to {} in structured logs. Log the useful
     // fields explicitly so provider/network failures can be diagnosed safely.
