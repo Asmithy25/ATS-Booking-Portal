@@ -114,24 +114,51 @@ export async function sendEmail(to: string, subject: string, text: string) {
   }
 }
 
+// Twilio trial accounts reject custom message bodies. Once that restriction is detected,
+// use Twilio's approved internal-alert template for this process until it restarts.
+let twilioTrialTemplateRequired = false;
+
 export async function sendSms(to: string, body: string) {
   const status = getDeliveryStatus().sms;
-  if (!status.configured) return { sent: false, skipped: true, reason: "SMS provider is not configured." };
+  if (!status.configured) return { sent: false, skipped: true, reason: "SMS provider is not configured.", trialTemplate: false };
   const sid = process.env.TWILIO_ACCOUNT_SID!;
   const token = process.env.TWILIO_AUTH_TOKEN!;
-  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
+  const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`;
+  const postMessage = (messageBody: string) => fetch(endpoint, {
     method: "POST",
     headers: {
       Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ To: to, From: process.env.TWILIO_FROM_NUMBER!, Body: body }),
+    body: new URLSearchParams({ To: to, From: process.env.TWILIO_FROM_NUMBER!, Body: messageBody }),
   });
+
+  const usedTrialTemplate = twilioTrialTemplateRequired;
+  let response = await postMessage(usedTrialTemplate ? "sms_internal_alerts" : body);
   if (!response.ok) {
-    const detail = (await response.text()).slice(0, 500);
-    throw new Error(`SMS provider rejected the message (${response.status}): ${detail}`);
+    const detail = await response.text();
+    let twilioCode: number | undefined;
+    try {
+      twilioCode = (JSON.parse(detail) as { code?: number }).code;
+    } catch {
+      // Keep the original provider response for diagnosis if it is not JSON.
+    }
+
+    // Error 572006 means this is a trial account that does not accept custom SMS bodies.
+    // Retry once with a documented Twilio-provided template instead of failing the test.
+    if (!usedTrialTemplate && response.status === 400 && twilioCode === 572006) {
+      twilioTrialTemplateRequired = true;
+      response = await postMessage("sms_internal_alerts");
+      if (!response.ok) {
+        const retryDetail = (await response.text()).slice(0, 500);
+        throw new Error(`SMS provider rejected the trial template (${response.status}): ${retryDetail}`);
+      }
+      return { sent: true, trialTemplate: true };
+    }
+
+    throw new Error(`SMS provider rejected the message (${response.status}): ${detail.slice(0, 500)}`);
   }
-  return { sent: true };
+  return { sent: true, trialTemplate: usedTrialTemplate };
 }
 
 export async function sendBookingDelivery(booking: Booking, kind: string, title: string, body: string, clientEmail?: string | null, consent: { emailAllowed: boolean; smsAllowed: boolean } = { emailAllowed: false, smsAllowed: false }) {
