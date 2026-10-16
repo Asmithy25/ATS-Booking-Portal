@@ -73,14 +73,14 @@ export default function DeliverySettings() {
           <CardHeader>
             <div className="mb-1 flex items-center justify-between gap-3"><Mail className="h-6 w-6 text-primary" />{statusBadge(status?.email)}</div>
             <CardTitle>Email delivery</CardTitle>
-            <CardDescription>Provider: Resend · Reply-to: {status?.replyTo || 'aydenswellnessservices@gmail.com'}</CardDescription>
+            <CardDescription>Provider: Gmail SMTP · Reply-to: {status?.replyTo || 'aydenswellnessservices@gmail.com'}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="rounded-xl border p-3 text-sm"><p className="font-medium">Sender address</p><p className="mt-1 break-all text-muted-foreground">{status?.email.sender || 'Not set in Railway yet'}</p></div>
-            <div><p className="mb-2 text-sm font-medium">Required Railway variables</p><div className="space-y-2">{['RESEND_API_KEY', 'AWS_EMAIL_FROM'].map((key) => <div key={key} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-sm"><code>{key}</code><Badge variant={status?.email.missing.includes(key) ? 'outline' : 'secondary'}>{status?.email.missing.includes(key) ? 'Missing' : 'Set'}</Badge></div>)}</div></div>
+            <div><p className="mb-2 text-sm font-medium">Required Railway variables</p><div className="space-y-2">{['GMAIL_USER', 'GMAIL_APP_PASSWORD'].map((key) => <div key={key} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-sm"><code>{key}</code><Badge variant={status?.email.missing.includes(key) ? 'outline' : 'secondary'}>{status?.email.missing.includes(key) ? 'Missing' : 'Set'}</Badge></div>)}</div></div>
             <div className="space-y-2"><Label htmlFor="test-email">Send a test email to</Label><Input id="test-email" type="email" placeholder="you@example.com" value={emailTo} onChange={(event) => setEmailTo(event.target.value)} /></div>
             <Button className="w-full" onClick={testEmail} disabled={sendingEmail || !status?.email.configured || !emailTo.trim()}><Send className="mr-2 h-4 w-4" />{sendingEmail ? 'Sending test…' : 'Send test email'}</Button>
-            <p className="text-xs leading-5 text-muted-foreground">Resend requires a verified sender/domain. Keep <strong>aydenswellnessservices@gmail.com</strong> as the reply-to address; the From address must be accepted by your email provider.</p>
+            <p className="text-xs leading-5 text-muted-foreground">Use the AWS Gmail account and a Google App Password. The From address is the authenticated Gmail account; replies go to <strong>aydenswellnessservices@gmail.com</strong>. Create an App Password in your Google Account after enabling 2-Step Verification. Never use your normal Google password.</p>
           </CardContent>
         </Card>
 
