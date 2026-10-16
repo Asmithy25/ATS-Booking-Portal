@@ -32,7 +32,7 @@ export default function Support() {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: getStaffSupportQueryKey() }),
     },
   });
-  const templateOptions = useMemo(() => templates.filter((template) => template.body.trim()), [templates]);
+  const templateOptions = useMemo(() => templates.filter((template) => template.body.trim() && template.channel !== 'sms'), [templates]);
   const chooseTemplate = (thread: SupportThread, key: string) => {
     setSelectedTemplates((current) => ({ ...current, [thread.id]: key }));
     const template = templateOptions.find((item) => item.key === key);
