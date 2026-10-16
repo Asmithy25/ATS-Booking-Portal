@@ -50,8 +50,19 @@ router.post("/delivery-settings/test-sms", async (req, res): Promise<void> => {
     await recordAudit(req, "tested_sms_delivery", "delivery_settings", undefined, `Test SMS sent to ${to}`);
     res.json({ ok: true, message: "Test SMS accepted by the provider." });
   } catch (error) {
-    req.log?.error?.({ error }, "SMS delivery test failed");
-    res.status(502).json({ error: error instanceof Error ? error.message : "SMS delivery test failed." });
+    // Error instances often serialize to {} in structured logs. Log the useful
+    // fields explicitly so provider/network failures can be diagnosed safely.
+    const details = error instanceof Error
+      ? {
+          name: error.name,
+          message: error.message,
+          cause: error.cause instanceof Error
+            ? { name: error.cause.name, message: error.cause.message, code: (error.cause as NodeJS.ErrnoException).code }
+            : error.cause == null ? undefined : String(error.cause),
+        }
+      : { message: String(error) };
+    req.log?.error?.(details, "SMS delivery test failed");
+    res.status(502).json({ error: details.message || "SMS delivery test failed." });
   }
 });
 
