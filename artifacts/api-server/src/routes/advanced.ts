@@ -401,8 +401,10 @@ router.patch("/client/preferences", requireClientAuth, async (req, res) => {
     inPortalReminders: prefs?.inPortalReminders !== false,
     defaultShareSessionPrep: prefs?.defaultShareSessionPrep === true,
     updatesOptIn: client?.updatesOptIn === true,
-    emailRemindersAvailable: false,
-    smsRemindersAvailable: false,
+    emailReminders: prefs?.emailReminders === true,
+    smsReminders: prefs?.smsReminders === true,
+    emailRemindersAvailable: getDeliveryStatus().email.configured,
+    smsRemindersAvailable: getDeliveryStatus().sms.configured,
     updatedAt: prefs?.updatedAt ?? null,
   });
 });
