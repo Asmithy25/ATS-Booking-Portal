@@ -9,7 +9,9 @@ import {
 } from '@workspace/api-client-react';
 import type { MessageTemplate } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,6 +94,7 @@ function IconPicker({ value, onChange }: { value: string; onChange: (icon: strin
 type TemplateDraft = {
   label: string;
   icon: string;
+  channel: 'both' | 'sms';
   subject: string;
   body: string;
 };
@@ -103,6 +106,7 @@ export default function MessageTemplates() {
   const [newTemplate, setNewTemplate] = useState<TemplateDraft>({
     label: '',
     icon: 'mail',
+    channel: 'both',
     subject: '',
     body: '',
   });
@@ -127,7 +131,7 @@ export default function MessageTemplates() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getMessageTemplatesQueryKey() });
-        setNewTemplate({ label: '', icon: 'mail', subject: '', body: '' });
+        setNewTemplate({ label: '', icon: 'mail', channel: 'both', subject: '', body: '' });
         setShowCreate(false);
         toast({ title: 'Custom template created' });
       },
@@ -156,6 +160,7 @@ export default function MessageTemplates() {
   const valueFor = (item: MessageTemplate): TemplateDraft => drafts[item.key] ?? {
     label: item.label,
     icon: item.icon || 'mail',
+    channel: item.channel === 'sms' ? 'sms' : 'both',
     subject: item.subject,
     body: item.body,
   };
@@ -168,10 +173,10 @@ export default function MessageTemplates() {
     <div className="space-y-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Client communication</p>
+          <p className="text-sm text-muted-foreground">Client communication · reusable library</p>
           <h1 className="text-3xl font-semibold">Message templates</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Customize reusable replies and create your own templates. Choose an icon to make each message easy to recognize in Support.
+            Manage saved messages for Support and automated appointment texts. SMS templates power client text notifications; other templates remain available for Support and in-portal/email updates.
           </p>
         </div>
         <Button type="button" onClick={() => setShowCreate((value) => !value)}>
@@ -196,7 +201,7 @@ export default function MessageTemplates() {
                 create.mutate(newTemplate);
               }}
             >
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="new-template-label">Template name</Label>
                   <Input
@@ -208,14 +213,24 @@ export default function MessageTemplates() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="new-template-subject">Subject</Label>
+                  <Label htmlFor="new-template-subject">Subject / internal label</Label>
                   <Input
                     id="new-template-subject"
                     value={newTemplate.subject}
                     onChange={(event) => setNewTemplate({ ...newTemplate, subject: event.target.value })}
-                    placeholder="A thoughtful subject line"
+                    placeholder="Short message title"
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Message channel</Label>
+                  <Select value={newTemplate.channel} onValueChange={(channel: 'both' | 'sms') => setNewTemplate({ ...newTemplate, channel })}>
+                    <SelectTrigger><SelectValue placeholder="Choose a channel" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="both">Support + notifications</SelectItem>
+                      <SelectItem value="sms">SMS only</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <IconPicker value={newTemplate.icon} onChange={(icon) => setNewTemplate({ ...newTemplate, icon })} />
@@ -230,7 +245,7 @@ export default function MessageTemplates() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use {'{{clientName}}'}, {'{{date}}'}, and {'{{time}}'} for personalized Support replies.
+                  Use {'{{clientName}}'}, {'{{date}}'}, {'{{time}}'}, and {'{{confirmationCode}}'} for personalized messages. SMS-only templates can be linked to automated appointment texts.
                 </p>
               </div>
               <Button disabled={create.isPending}>{create.isPending ? 'Creating…' : 'Create template'}</Button>
@@ -260,7 +275,9 @@ export default function MessageTemplates() {
                     {value.label}
                   </CardTitle>
                   <CardDescription>
-                    {isCustom ? 'Custom template' : 'Built-in template'} · Use {'{{clientName}}'}, {'{{date}}'}, and {'{{time}}'} for personalized messages.
+                    <span className="mr-2">{isCustom ? 'Custom template' : 'Built-in template'}</span>
+                    <Badge variant={value.channel === 'sms' ? 'secondary' : 'outline'}>{value.channel === 'sms' ? 'SMS only' : 'Support + notifications'}</Badge>
+                    <span className="mt-1 block">Use {'{{clientName}}'}, {'{{date}}'}, {'{{time}}'}, and {'{{confirmationCode}}'} for personalized messages.</span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -270,7 +287,17 @@ export default function MessageTemplates() {
                   </div>
                   <IconPicker value={value.icon} onChange={(icon) => updateDraft(item.key, { ...value, icon })} />
                   <div className="space-y-2">
-                    <Label>Subject</Label>
+                    <Label>Message channel</Label>
+                    <Select value={value.channel} onValueChange={(channel: 'both' | 'sms') => updateDraft(item.key, { ...value, channel })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="both">Support + notifications</SelectItem>
+                        <SelectItem value="sms">SMS only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Subject / internal label</Label>
                     <Input value={value.subject} onChange={(event) => updateDraft(item.key, { ...value, subject: event.target.value })} />
                   </div>
                   <div className="space-y-2">
