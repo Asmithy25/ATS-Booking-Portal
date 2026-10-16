@@ -5,6 +5,7 @@ export const messageTemplatesTable = pgTable("message_templates", {
   key: text("key").notNull().unique(),
   label: text("label").notNull(),
   icon: text("icon").notNull().default("mail"),
+  channel: text("channel").notNull().default("both"),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
   updatedBy: text("updated_by").notNull(),
