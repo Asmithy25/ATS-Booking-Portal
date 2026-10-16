@@ -61,7 +61,7 @@ router.post("/delivery-settings/test-sms", async (req, res): Promise<void> => {
           causeCode: error.cause instanceof Error ? (error.cause as NodeJS.ErrnoException).code : undefined,
         }
       : { errorMessage: String(error) };
-    req.log?.error?.({ errorName: details.name, errorMessage: details.message, errorCause: details.cause }, "SMS delivery test failed");
+    req.log?.error?.({ ...details }, "SMS delivery test failed");
     res.status(502).json({ error: details.errorMessage || "SMS delivery test failed." });
   }
 });
