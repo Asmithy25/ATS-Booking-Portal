@@ -159,6 +159,10 @@ function BookingCard({
 export default function ClientPortal() {
   const [language, setLanguage] = useState<ClientLanguage>('en');
   const [inPortalReminders, setInPortalReminders] = useState(true);
+  const [emailReminders, setEmailReminders] = useState(false);
+  const [smsReminders, setSmsReminders] = useState(false);
+  const [emailRemindersAvailable, setEmailRemindersAvailable] = useState(false);
+  const [smsRemindersAvailable, setSmsRemindersAvailable] = useState(false);
   const [defaultShareSessionPrep, setDefaultShareSessionPrep] = useState(false);
   const [clientUpdatesOptIn, setClientUpdatesOptIn] = useState(false);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
@@ -303,6 +307,10 @@ export default function ClientPortal() {
     void customFetch<{
       language: ClientLanguage;
       inPortalReminders: boolean;
+      emailReminders?: boolean;
+      smsReminders?: boolean;
+      emailRemindersAvailable?: boolean;
+      smsRemindersAvailable?: boolean;
       defaultShareSessionPrep: boolean;
       updatesOptIn: boolean;
     }>("/api/advanced/client/preferences", { responseType: "json" })
@@ -310,6 +318,10 @@ export default function ClientPortal() {
         if (!active) return;
         setLanguage(prefs.language === "es" ? "es" : "en");
         setInPortalReminders(prefs.inPortalReminders !== false);
+        setEmailReminders(prefs.emailReminders === true);
+        setSmsReminders(prefs.smsReminders === true);
+        setEmailRemindersAvailable(prefs.emailRemindersAvailable === true);
+        setSmsRemindersAvailable(prefs.smsRemindersAvailable === true);
         setDefaultShareSessionPrep(prefs.defaultShareSessionPrep === true);
         setClientUpdatesOptIn(prefs.updatesOptIn === true);
       })
@@ -326,6 +338,10 @@ export default function ClientPortal() {
       const prefs = await customFetch<{
         language: ClientLanguage;
         inPortalReminders: boolean;
+        emailReminders?: boolean;
+        smsReminders?: boolean;
+        emailRemindersAvailable?: boolean;
+        smsRemindersAvailable?: boolean;
         defaultShareSessionPrep: boolean;
         updatesOptIn: boolean;
       }>("/api/advanced/client/preferences", {
@@ -335,6 +351,10 @@ export default function ClientPortal() {
       });
       setLanguage(prefs.language === "es" ? "es" : "en");
       setInPortalReminders(prefs.inPortalReminders !== false);
+      setEmailReminders(prefs.emailReminders === true);
+      setSmsReminders(prefs.smsReminders === true);
+      setEmailRemindersAvailable(prefs.emailRemindersAvailable === true);
+      setSmsRemindersAvailable(prefs.smsRemindersAvailable === true);
       setDefaultShareSessionPrep(prefs.defaultShareSessionPrep === true);
       setClientUpdatesOptIn(prefs.updatesOptIn === true);
       await queryClient.invalidateQueries({ queryKey: getClientMeQueryKey() });
@@ -569,6 +589,9 @@ export default function ClientPortal() {
                 <div className="flex flex-col gap-3 rounded-2xl border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{copy.language}</p><p className="mt-1 max-w-xl text-sm text-muted-foreground">{copy.languageDescription}</p></div><select aria-label={copy.language} value={language} disabled={preferencesLoading || preferencesSaving} onChange={(event) => void saveClientPreferences({ language: event.target.value })} className="h-10 min-w-36 rounded-lg border border-input bg-background px-3 text-sm"><option value="en">{copy.english}</option><option value="es">{copy.spanish}</option></select></div>
                 {settings?.featureFlags?.clientUpdatesOptIn !== false && <div className="flex items-center justify-between gap-4 rounded-2xl border bg-muted/30 p-4"><div><p className="font-medium">{copy.practiceUpdates}</p><p className="text-sm text-muted-foreground">{copy.practiceUpdatesDescription}</p></div><input aria-label={copy.practiceUpdates} type="checkbox" checked={clientUpdatesOptIn} disabled={preferencesLoading || preferencesSaving} onChange={(event) => void saveClientPreferences({ updatesOptIn: event.target.checked })} className="h-5 w-5 accent-[hsl(var(--primary))]" /></div>}
                 <div className="flex items-center justify-between gap-4 rounded-2xl border bg-muted/30 p-4"><div><p className="font-medium">{copy.appointmentReminders}</p><p className="text-sm text-muted-foreground">{copy.appointmentRemindersDescription}</p></div><input aria-label={copy.appointmentReminders} type="checkbox" checked={inPortalReminders} disabled={preferencesLoading || preferencesSaving} onChange={(event) => void saveClientPreferences({ inPortalReminders: event.target.checked })} className="h-5 w-5 accent-[hsl(var(--primary))]" /></div>
+                <div className="flex items-center justify-between gap-4 rounded-2xl border bg-muted/30 p-4"><div><p className="font-medium">Email appointment reminders</p><p className="text-sm text-muted-foreground">Optional emails about your appointments. Your consent can be changed anytime.</p></div><input aria-label="Email appointment reminders" type="checkbox" checked={emailReminders} disabled={preferencesLoading || preferencesSaving || !emailRemindersAvailable} onChange={(event) => void saveClientPreferences({ emailReminders: event.target.checked })} className="h-5 w-5 accent-[hsl(var(--primary))]" /></div>
+                <div className="flex items-center justify-between gap-4 rounded-2xl border bg-muted/30 p-4"><div><p className="font-medium">SMS appointment reminders</p><p className="text-sm text-muted-foreground">Optional text messages about your appointments. Message/data rates may apply; consent can be changed anytime.</p></div><input aria-label="SMS appointment reminders" type="checkbox" checked={smsReminders} disabled={preferencesLoading || preferencesSaving || !smsRemindersAvailable} onChange={(event) => void saveClientPreferences({ smsReminders: event.target.checked })} className="h-5 w-5 accent-[hsl(var(--primary))]" /></div>
+                {(!emailRemindersAvailable || !smsRemindersAvailable) && <p className="rounded-xl border border-dashed p-3 text-xs leading-5 text-muted-foreground">Email and/or SMS reminders are unavailable until AWS configures the relevant delivery provider.</p>}
                 <div className="flex items-center justify-between gap-4 rounded-2xl border bg-muted/30 p-4"><div><p className="font-medium">{copy.defaultSharing}</p><p className="text-sm text-muted-foreground">{copy.defaultSharingDescription}</p></div><input aria-label={copy.defaultSharing} type="checkbox" checked={defaultShareSessionPrep} disabled={preferencesLoading || preferencesSaving} onChange={(event) => void saveClientPreferences({ defaultShareSessionPrep: event.target.checked })} className="h-5 w-5 accent-[hsl(var(--primary))]" /></div>
                 <p className="rounded-xl border border-dashed p-3 text-xs leading-5 text-muted-foreground">{copy.emailSmsStatus}</p>
               </CardContent>

@@ -25,6 +25,7 @@ const MessageTemplates = lazy(() => import('@/pages/staff/dashboard/message-temp
 const ClientTemplates = lazy(() => import('@/pages/staff/dashboard/client-templates'));
 const Rollout = lazy(() => import('@/pages/staff/dashboard/rollout'));
 const Notifications = lazy(() => import('@/pages/staff/dashboard/notifications'));
+const DeliverySettings = lazy(() => import('@/pages/staff/dashboard/delivery-settings'));
 const Feedback = lazy(() => import('@/pages/staff/dashboard/feedback'));
 const Security = lazy(() => import('@/pages/staff/dashboard/security'));
 const PracticeControl = lazy(() => import('@/pages/staff/dashboard/practice-control'));
@@ -71,6 +72,7 @@ function StaffRouter() {
         <Route path="/staff/client-templates" component={ClientTemplates} />
         <Route path="/staff/rollout" component={Rollout} />
         <Route path="/staff/notifications" component={Notifications} />
+        <Route path="/staff/delivery-settings" component={DeliverySettings} />
         <Route path="/staff/feedback" component={Feedback} />
         <Route path="/staff/security" component={Security} />
         <Route path="/staff/homepage-preview" component={HomepagePreview} />

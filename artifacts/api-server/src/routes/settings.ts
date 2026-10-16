@@ -39,7 +39,7 @@ const DEFAULT_HOMEPAGE_CONTENT = {
   bookingPhone: "+1 (561) 291-8556",
   bookingOfficeBadge: "No Physical Office",
   bookingEmailLabel: "Email",
-  bookingEmail: "aydenstherapyservices@gmail.com",
+  bookingEmail: "aydenswellnessservices@gmail.com",
   bookingHoursTitle: "Main Office Hours:",
   bookingTherapistHoursTitle: "Therapist Hours:",
   bookingHolidaysTitle: "Upcoming Holidays",
@@ -82,7 +82,7 @@ const DEFAULT_HOMEPAGE_CONTENT = {
   aboutImageUrl: "",
   faviconUrl: "",
   contactPhone: "+1 (561) 291-8556",
-  contactEmail: "aydenstherapyservices@gmail.com",
+  contactEmail: "aydenswellnessservices@gmail.com",
 };
 
 const DEFAULT_SETTINGS = {

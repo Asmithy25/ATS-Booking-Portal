@@ -15,6 +15,7 @@ import mobileRouter from "./mobile";
 import staffPreferencesRouter from "./staffPreferences";
 import workspaceRouter from "./workspace";
 import logoLibraryRouter from "./logoLibrary";
+import deliverySettingsRouter from "./deliverySettings";
 
 const router: IRouter = Router();
 
@@ -23,6 +24,7 @@ router.use("/auth", authRouter);
 router.use("/bookings", bookingsRouter);
 router.use("/settings", settingsRouter);
 router.use("/logo-library", logoLibraryRouter);
+router.use(deliverySettingsRouter);
 router.use("/clients", clientsRouter);
 router.use("/employees", employeesRouter);
 router.use("/portal", portalRouter);
