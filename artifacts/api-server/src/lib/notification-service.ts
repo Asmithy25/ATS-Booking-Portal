@@ -48,7 +48,9 @@ async function ensureNotificationEventsTable() {
     kind text NOT NULL,
     created_at timestamp NOT NULL DEFAULT now()
   )`);
-  await db.execute(sql`CREATE TABLE IF NOT EXISTS client_portal_preferences (client_account_id integer PRIMARY KEY,language text NOT NULL DEFAULT 'en',in_portal_reminders boolean NOT NULL DEFAULT true,default_share_session_prep boolean NOT NULL DEFAULT false,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS client_portal_preferences (client_account_id integer PRIMARY KEY,language text NOT NULL DEFAULT 'en',in_portal_reminders boolean NOT NULL DEFAULT true,default_share_session_prep boolean NOT NULL DEFAULT false,email_reminders boolean NOT NULL DEFAULT false,sms_reminders boolean NOT NULL DEFAULT false,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())`);
+  await db.execute(sql`ALTER TABLE client_portal_preferences ADD COLUMN IF NOT EXISTS email_reminders boolean NOT NULL DEFAULT false`);
+  await db.execute(sql`ALTER TABLE client_portal_preferences ADD COLUMN IF NOT EXISTS sms_reminders boolean NOT NULL DEFAULT false`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS staff_notifications (
     id serial PRIMARY KEY,
     staff_email text NOT NULL,
@@ -90,9 +92,10 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
   const template = stored ? { title: stored.subject, body: stored.body } : fallback;
   const eventKey = `booking:${booking.id}:${kind}`;
 
+  let preferences: any = null;
   if (booking.clientAccountId) {
-    const preferencesResult: any = await db.execute(sql.raw("SELECT in_portal_reminders FROM client_portal_preferences WHERE client_account_id=" + booking.clientAccountId + " LIMIT 1")).catch(() => ({ rows: [] }));
-    const preferences = Array.isArray(preferencesResult) ? preferencesResult[0] : preferencesResult?.rows?.[0];
+    const preferencesResult: any = await db.execute(sql.raw("SELECT in_portal_reminders,email_reminders,sms_reminders FROM client_portal_preferences WHERE client_account_id=" + booking.clientAccountId + " LIMIT 1")).catch(() => ({ rows: [] }));
+    preferences = Array.isArray(preferencesResult) ? preferencesResult[0] : preferencesResult?.rows?.[0];
     const isReminder = ["appointment_reminder", "starting_soon", "appointment_start"].includes(kind);
     // Transactional confirmations, cancellations, and reschedules are always
     // delivered in-portal. Clients may opt out of optional reminder events.
@@ -126,10 +129,10 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
   const [client] = booking.clientAccountId
     ? await db.select({ email: clientAccountsTable.email }).from(clientAccountsTable).where(eq(clientAccountsTable.id, booking.clientAccountId)).limit(1)
     : [];
-  if ((deliveryStatus.email.configured && client?.email) || (deliveryStatus.sms.configured && booking.phone)) {
+  if ((deliveryStatus.email.configured && client?.email && preferences?.email_reminders === true) || (deliveryStatus.sms.configured && booking.phone && preferences?.sms_reminders === true)) {
     const externalKey = `${eventKey}:external`;
     if (await claimEvent(externalKey, booking.id, "external", String(booking.clientAccountId ?? booking.phone), kind)) {
-      const results = await sendBookingDelivery(booking, kind, fill(template.title, booking), fill(template.body, booking), client?.email);
+      const results = await sendBookingDelivery(booking, kind, fill(template.title, booking), fill(template.body, booking), client?.email, { emailAllowed: preferences?.email_reminders === true, smsAllowed: preferences?.sms_reminders === true });
       if (results.email && results.email !== "sent" && results.email !== "not_configured_or_no_client_email") {
         await db.execute(sql`DELETE FROM notification_events WHERE event_key=${externalKey}`).catch(() => undefined);
       }
