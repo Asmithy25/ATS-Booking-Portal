@@ -34,7 +34,13 @@ const DEFAULT_MESSAGE_TEMPLATES = [
   { key: "cancellation", label: "Cancellation", icon: "calendar-x", subject: "Update about your session request", body: "Hi {{clientName}},\n\nWe’re sorry, but we need to update your session request for {{date}} at {{time}}. Please reply here so we can help find another time." },
   { key: "reschedule", label: "Reschedule", icon: "calendar", subject: "Your appointment was rescheduled", body: "Hi {{clientName}},\n\nYour appointment is now scheduled for {{date}} at {{time}}. Please keep your confirmation details nearby." },
   { key: "appointment_start", label: "Appointment starting", icon: "clock-3", subject: "Your session is starting now", body: "Hi {{clientName}},\n\nYour phone session is starting now at {{time}}. Please keep your phone nearby." },
-  { key: "business_update", label: "Business update", icon: "megaphone", subject: "An update from Ayden’s Therapy Services", body: "Hi {{clientName}},\n\nWe wanted to share an update from Ayden’s Therapy Services.\n\nPlease reply if you have any questions." },
+  { key: "business_update", label: "Business update", icon: "megaphone", subject: "An update from Aydens Wellness Services", body: "Hi {{clientName}},\n\nWe wanted to share an update from Aydens Wellness Services.\n\nPlease reply if you have any questions." },
+  { key: "sms_booking_confirmation", label: "SMS · Booking confirmation", icon: "calendar-check", channel: "sms", subject: "SMS booking confirmation", body: "AWS: Hi {{clientName}}, we received your phone-session request for {{date}} at {{time}}. We’ll follow up shortly to confirm." },
+  { key: "sms_appointment_reminder", label: "SMS · Appointment reminder", icon: "bell", channel: "sms", subject: "SMS appointment reminder", body: "AWS reminder: Your phone session is scheduled for {{date}} at {{time}}. Keep your phone nearby. Need help? Contact AWS." },
+  { key: "sms_starting_soon", label: "SMS · Starting soon", icon: "clock-3", channel: "sms", subject: "SMS starting soon", body: "AWS: Your phone session starts in about 15 minutes at {{time}}. Find a quiet space and keep your phone close." },
+  { key: "sms_appointment_start", label: "SMS · Appointment starting", icon: "clock-3", channel: "sms", subject: "SMS appointment starting", body: "AWS: Your phone session is starting now at {{time}}. Please keep your phone nearby." },
+  { key: "sms_cancellation", label: "SMS · Cancellation", icon: "calendar-x", channel: "sms", subject: "SMS cancellation", body: "AWS: Your session scheduled for {{date}} at {{time}} was cancelled. Contact us if you need help rescheduling." },
+  { key: "sms_reschedule", label: "SMS · Reschedule", icon: "calendar", channel: "sms", subject: "SMS reschedule", body: "AWS: Your phone session has been rescheduled to {{date}} at {{time}}. Please keep your phone nearby." },
 ];
 
 const MESSAGE_TEMPLATE_ICONS = new Set([
@@ -50,6 +56,8 @@ const DEFAULT_CLIENT_TEMPLATES = [
 ];
 
 async function ensureMessageTemplates() {
+  // Older production databases may predate the channel field.
+  await db.execute(sql`ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS channel text NOT NULL DEFAULT 'both'`);
   const existing = await db.select().from(messageTemplatesTable);
   const existingKeys = new Set(existing.map((template) => template.key));
   const missing = DEFAULT_MESSAGE_TEMPLATES.filter((template) => !existingKeys.has(template.key));
@@ -260,14 +268,19 @@ router.post("/templates", requireAuth, async (req, res): Promise<void> => {
     res.status(403).json({ error: "Message access required." });
     return;
   }
-  const { label, icon = "mail", subject, body } = req.body as {
+  const { label, icon = "mail", channel = "both", subject, body } = req.body as {
     label?: string;
     icon?: string;
+    channel?: string;
     subject?: string;
     body?: string;
   };
   if (!label?.trim() || !subject?.trim() || !body?.trim()) {
     res.status(400).json({ error: "Template name, subject, and message are required." });
+    return;
+  }
+  if (!["both", "sms"].includes(channel)) {
+    res.status(400).json({ error: "Choose whether the template is for all messages or SMS only." });
     return;
   }
   if (!MESSAGE_TEMPLATE_ICONS.has(icon)) {
@@ -278,6 +291,7 @@ router.post("/templates", requireAuth, async (req, res): Promise<void> => {
     key: `custom_${randomUUID()}`,
     label: label.trim().slice(0, 120),
     icon,
+    channel,
     subject: subject.trim().slice(0, 240),
     body: body.trim().slice(0, 5000),
     updatedBy: access.name,
@@ -507,7 +521,11 @@ router.patch("/templates/:key", requireAuth, async (req, res): Promise<void> => 
     res.status(403).json({ error: "Message access required." });
     return;
   }
-  const { subject, body, label, icon } = req.body as { subject?: string; body?: string; label?: string; icon?: string };
+  const { subject, body, label, icon, channel } = req.body as { subject?: string; body?: string; label?: string; icon?: string; channel?: string };
+  if (channel !== undefined && !["both", "sms"].includes(channel)) {
+    res.status(400).json({ error: "Choose whether the template is for all messages or SMS only." });
+    return;
+  }
   if (icon !== undefined && !MESSAGE_TEMPLATE_ICONS.has(icon)) {
     res.status(400).json({ error: "Choose an icon from the available set." });
     return;
@@ -517,6 +535,7 @@ router.patch("/templates/:key", requireAuth, async (req, res): Promise<void> => 
     body: body?.trim() ?? "",
     ...(label ? { label: label.trim() } : {}),
     ...(icon ? { icon } : {}),
+    ...(channel ? { channel } : {}),
     updatedBy: access.name,
     updatedAt: new Date(),
   }).where(eq(messageTemplatesTable.key, String(req.params.key))).returning();
