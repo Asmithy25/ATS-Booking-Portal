@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdminAuth, type RequestWithSession } from "../middleware/auth";
+import { requireAdminAuth } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 import { getDeliveryStatus, sendEmail, sendSms } from "../lib/delivery-providers";
 
