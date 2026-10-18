@@ -66,6 +66,29 @@ router.post("/login", async (req, res) => {
 
 router.get("/staff-pin/policy", async (_req, res): Promise<void> => { const pinLength = await getStaffPinPolicy(); res.json({ pinLength, allowedLengths: [4, 6, 8] }); });
 
+// Founder PIN recovery: verify the founder's primary password before allowing
+// a replacement second factor. The short-lived setup token expires after 10 minutes.
+router.post("/staff-pin/recover", async (req, res): Promise<void> => {
+  const email = String(req.body?.email ?? "").toLowerCase().trim();
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  const founder = STAFF_ACCOUNTS[ADMIN_EMAIL];
+  if (email !== ADMIN_EMAIL || !founder?.password || password !== founder.password) {
+    res.status(401).json({ error: "Founder email or password is incorrect." });
+    return;
+  }
+  await ensureAdvancedStorage();
+  await resetStaffPin(ADMIN_EMAIL);
+  const pinLength = await getStaffPinPolicy();
+  const setupToken = signPayload({
+    auth: "pin_setup",
+    email: ADMIN_EMAIL,
+    name: founder.name,
+    pinLength,
+    exp: String(Date.now() + 10 * 60 * 1000),
+  });
+  res.json({ success: true, setupToken, pinLength });
+});
+
 router.post("/staff-pin/setup", async (req, res): Promise<void> => {
   const pending = req.body?.setupToken ? verifyPayload(String(req.body.setupToken)) : null;
   const pin = typeof req.body?.pin === "string" ? req.body.pin.trim() : "";
