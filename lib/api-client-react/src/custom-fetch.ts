@@ -67,6 +67,11 @@ function getConfiguredBaseUrl(): string | null {
     const envBaseUrl = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_API_URL;
     if (envBaseUrl) return envBaseUrl.replace(/\/+$/, "");
   }
+  // The public Render frontend needs an explicit API origin when VITE_API_URL
+  // is absent; keep local development and other deployments same-origin.
+  if (typeof window !== "undefined" && window.location.origin === "https://awsbookingportal.onrender.com") {
+    return "https://ats-api-live-production.up.railway.app";
+  }
   return null;
 }
 
