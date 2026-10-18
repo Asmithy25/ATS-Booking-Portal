@@ -39,6 +39,7 @@ export default function Login() {
   const [setupPin, setSetupPin] = useState('');
   const [setupConfirm, setSetupConfirm] = useState('');
       const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [pinRecoveryBusy, setPinRecoveryBusy] = useState(false);
   const [pinLength, setPinLength] = useState<4|6|8>(6);
   useEffect(() => { customFetch<{pinLength:4|6|8}>('/api/auth/staff-pin/policy',{responseType:'json'}).then((value)=>setPinLength(value.pinLength)).catch(()=>undefined); }, []);
 
@@ -88,6 +89,32 @@ export default function Login() {
     } catch (error) {
       const err = error as { data?: { error?: string } };
       toast({ variant:'destructive', title:'PIN setup failed', description:err.data?.error || 'Please start sign-in again.' });
+    }
+  };
+
+  const recoverPin = async () => {
+    const { email, password } = form.getValues();
+    if (!email || !password) {
+      toast({ variant: 'destructive', title: 'Email and password required', description: 'Enter your founder email and password first.' });
+      return;
+    }
+    setPinRecoveryBusy(true);
+    try {
+      const result = await customFetch<{ success: boolean; setupToken: string; pinLength: 4|6|8 }>('/api/auth/staff-pin/recover', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+        responseType: 'json',
+      });
+      setPinLength(result.pinLength);
+      setSetupToken(result.setupToken);
+      setSetupPin('');
+      setSetupConfirm('');
+      toast({ title: 'Founder PIN reset authorized', description: 'Create a new PIN to finish signing in.' });
+    } catch (error) {
+      const err = error as { data?: { error?: string } };
+      toast({ variant: 'destructive', title: 'PIN recovery failed', description: err.data?.error || 'Check the founder email and password.' });
+    } finally {
+      setPinRecoveryBusy(false);
     }
   };
 
@@ -188,6 +215,11 @@ export default function Login() {
               <div className="space-y-2"><label className="text-sm font-medium">Email Address</label><Input autoComplete="username" placeholder="ayden@aydenstherapyservices.com" {...form.register('email')}/>{form.formState.errors.email&&<p className="text-xs text-destructive">{form.formState.errors.email.message}</p>}</div>
               <div className="space-y-2"><label className="text-sm font-medium">Password</label><Input autoComplete="current-password" type="password" placeholder="Enter your password" {...form.register('password')}/>{form.formState.errors.password&&<p className="text-xs text-destructive">{form.formState.errors.password.message}</p>}</div>
               <div className="space-y-2"><label className="text-sm font-medium">Staff PIN</label><Input inputMode="numeric" maxLength={8} type="password" placeholder={'Use your '+pinLength+'-digit PIN'} autoComplete="one-time-code" {...form.register('pin')} onChange={(e)=>form.setValue('pin',e.target.value.replace(/\D/g,''),{shouldValidate:true})}/>{form.formState.errors.pin&&<p className="text-xs text-destructive">{form.formState.errors.pin.message}</p>}</div>
+              <div className="flex justify-end">
+                <button type="button" className="text-xs font-medium text-destructive underline-offset-4 hover:underline disabled:opacity-50" onClick={()=>void recoverPin()} disabled={pinRecoveryBusy}>
+                  {pinRecoveryBusy ? 'Verifying founder credentials…' : 'Forgot your staff PIN?'}
+                </button>
+              </div>
               <div className="flex items-center gap-3 py-1"><Checkbox checked={form.watch('keepSignedIn')} onCheckedChange={(value)=>form.setValue('keepSignedIn',Boolean(value))}/><span className="text-sm">Keep me signed in</span></div>
               <Button type="submit" className="h-12 w-full" disabled={form.formState.isSubmitting}><ShieldCheck className="mr-2 h-4 w-4"/>{form.formState.isSubmitting?'Signing in…':'Sign in securely'}<ArrowUpRight className="ml-auto h-4 w-4"/></Button>
             </form>
