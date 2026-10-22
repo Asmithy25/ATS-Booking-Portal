@@ -70,7 +70,7 @@ function getConfiguredBaseUrl(): string | null {
   // The public Render frontend needs an explicit API origin when VITE_API_URL
   // is absent; keep local development and other deployments same-origin.
   if (typeof window !== "undefined" && window.location.origin === "https://awsbookingportal.onrender.com") {
-    return "https://ats-api-live-production.up.railway.app";
+    return "https://aws-api-437b.onrender.com";
   }
   return null;
 }
