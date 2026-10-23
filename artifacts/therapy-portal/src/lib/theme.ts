@@ -44,9 +44,9 @@ export function getThemeStyle(settings?: {
   secondaryColor?: string;
   accentColor?: string;
 }): React.CSSProperties {
-  const primary = preserveCustomOrUseHalloween(settings?.primaryColor, '#8F4A34', FALL_THEME.primary);
-  const secondary = preserveCustomOrUseHalloween(settings?.secondaryColor, '#B58C50', FALL_THEME.secondary);
-  const accent = preserveCustomOrUseHalloween(settings?.accentColor, '#C4CEB5', FALL_THEME.accent);
+  const primary = [settings?.primaryColor].some((value) => !value || ['#8F4A34', '#7B4A2F'].includes(value.toUpperCase())) ? FALL_THEME.primary : settings!.primaryColor!;
+  const secondary = [settings?.secondaryColor].some((value) => !value || ['#B58C50', '#C38A4A'].includes(value.toUpperCase())) ? FALL_THEME.secondary : settings!.secondaryColor!;
+  const accent = [settings?.accentColor].some((value) => !value || ['#C4CEB5', '#D9B7A2'].includes(value.toUpperCase())) ? FALL_THEME.accent : settings!.accentColor!;
   return {
     '--primary': hexToHslValue(primary, '22 91% 41%'),
     '--secondary': hexToHslValue(secondary, '35 86% 61%'),
