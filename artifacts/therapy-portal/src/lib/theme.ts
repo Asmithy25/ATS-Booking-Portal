@@ -2,9 +2,9 @@ import type React from 'react';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const FALL_THEME = {
-  primary: '#8F4A34',
-  secondary: '#B58C50',
-  accent: '#C4CEB5',
+  primary: '#C85E09',
+  secondary: '#F3A444',
+  accent: '#F2C078',
 };
 
 export function hexToHslValue(value: string, fallback: string): string {
@@ -37,10 +37,16 @@ export function getThemeStyle(settings?: {
   secondaryColor?: string;
   accentColor?: string;
 }): React.CSSProperties {
+  const savedPrimary = settings?.primaryColor;
+  const savedSecondary = settings?.secondaryColor;
+  const savedAccent = settings?.accentColor;
+  const primary = savedPrimary && HEX_COLOR.test(savedPrimary) && !['#8F4A34', '#7B4A2F'].includes(savedPrimary.toUpperCase()) ? savedPrimary : FALL_THEME.primary;
+  const secondary = savedSecondary && HEX_COLOR.test(savedSecondary) && !['#B58C50', '#C38A4A'].includes(savedSecondary.toUpperCase()) ? savedSecondary : FALL_THEME.secondary;
+  const accent = savedAccent && HEX_COLOR.test(savedAccent) && !['#C4CEB5', '#D9B7A2'].includes(savedAccent.toUpperCase()) ? savedAccent : FALL_THEME.accent;
   return {
-    '--primary': hexToHslValue(settings?.primaryColor ?? '#8F4A34', '15 47% 38%'),
-    '--secondary': hexToHslValue(settings?.secondaryColor ?? FALL_THEME.secondary, '36 41% 51%'),
-    '--accent': hexToHslValue(settings?.accentColor ?? FALL_THEME.accent, '85 20% 76%'),
-    '--ring': hexToHslValue(settings?.primaryColor ?? '#8F4A34', '15 47% 38%'),
+    '--primary': hexToHslValue(primary, '22 91% 41%'),
+    '--secondary': hexToHslValue(secondary, '35 86% 61%'),
+    '--accent': hexToHslValue(accent, '36 82% 72%'),
+    '--ring': hexToHslValue(primary, '22 91% 41%'),
   } as React.CSSProperties;
 }

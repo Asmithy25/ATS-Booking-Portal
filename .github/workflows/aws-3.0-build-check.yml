@@ -1,0 +1,45 @@
+name: AWS 3.0 build check
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - aws-3.0-halloween-live-sessions
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-3.0-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PORT: "3000"
+      BASE_PATH: "/"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck and build all workspaces
+        run: pnpm run build

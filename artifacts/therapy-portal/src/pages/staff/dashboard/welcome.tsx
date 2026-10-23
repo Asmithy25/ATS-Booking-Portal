@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bell, CalendarDays, CheckCircle2, Clock3, Eye, HeartHandshake, Search, Sparkles, UsersRound } from 'lucide-react';
+import LiveSessionPanel from '@/components/LiveSessionPanel';
 
 type Status = { mode: string; title: string; detail: string; label: string; seasonal?: { seasonLabel: string }; experience?: { enabled: boolean; greeting: string } };
 type Summary = { todayAppointments: number; upcomingAppointments: Array<any>; openTeamItems: number; unreadNotifications: number; staffCount: number; averageRating?: number | null; clients: number; feedbackCount: number };
@@ -70,6 +71,8 @@ export default function Welcome() {
           </Link>
         ); })}
       </div>
+
+      <LiveSessionPanel scope="mine" />
 
       <div className="grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
         <Card className="rounded-2xl">

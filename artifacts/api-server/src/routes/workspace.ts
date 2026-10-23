@@ -394,6 +394,7 @@ router.get("/founder-summary", requireAuth, async (req, res): Promise<void> => {
   const openTeam = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM collaboration_items WHERE status <> 'done'`))[0]?.count ?? 0;
   const unread = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM staff_notifications WHERE read = false`)).at(0)?.count ?? 0;
   const activeSchedules = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM practice_mode_schedules WHERE starts_at <= now() AND ends_at > now()`)).at(0)?.count ?? 0;
+  const activeSessions = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM booking_sessions WHERE ended_at IS NULL`)).at(0)?.count ?? 0;
   const staffCount = 1 + (await db.select({ id: staffAccountsTable.id }).from(staffAccountsTable)).length;
   const avg = feedback.length ? Math.round((feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length) * 10) / 10 : null;
   res.json({
@@ -408,6 +409,7 @@ router.get("/founder-summary", requireAuth, async (req, res): Promise<void> => {
     openTeamItems: Number(openTeam),
     unreadNotifications: Number(unread),
     activeSchedules: Number(activeSchedules),
+    activeSessions: Number(activeSessions),
     staffCount,
   });
 });
@@ -419,21 +421,25 @@ router.get("/search", requireAuth, async (req, res): Promise<void> => {
   const q = String(req.query.q ?? "").trim().slice(0, 100);
   if (q.length < 2) { res.json([]); return; }
   const needle = "%" + q + "%";
-  const bookingRows = rowsOf(await db.execute(sql`SELECT 'booking' AS type, id::text AS id, client_name AS title, (confirmation_code || ' · ' || preferred_date || ' · ' || status) AS subtitle, '/staff/bookings' AS href
+  // Search must obey the same access controls as the pages it links to.
+  const canViewClients = hasPermission(access, "viewClients");
+  const canViewAnnouncements = hasPermission(access, "postAnnouncements");
+  const canViewAudit = hasPermission(access, "viewAuditLogs");
+  const bookingRows = canViewClients ? rowsOf(await db.execute(sql`SELECT 'booking' AS type, id::text AS id, client_name AS title, (confirmation_code || ' · ' || preferred_date || ' · ' || status) AS subtitle, '/staff/bookings' AS href
     FROM bookings WHERE client_name ILIKE ${needle} OR phone ILIKE ${needle} OR confirmation_code ILIKE ${needle} OR reason ILIKE ${needle}
-    ORDER BY created_at DESC LIMIT 12`));
-  const clientRows = rowsOf(await db.execute(sql`SELECT 'client' AS type, id::text AS id, name AS title, email || ' · ' || phone AS subtitle, '/staff/clients' AS href
+    ORDER BY created_at DESC LIMIT 12`)) : [];
+  const clientRows = canViewClients ? rowsOf(await db.execute(sql`SELECT 'client' AS type, id::text AS id, name AS title, email || ' · ' || phone AS subtitle, '/staff/clients' AS href
     FROM client_accounts WHERE name ILIKE ${needle} OR email ILIKE ${needle} OR phone ILIKE ${needle}
-    ORDER BY created_at DESC LIMIT 12`));
-  const announcementRows = rowsOf(await db.execute(sql`SELECT 'announcement' AS type, id::text AS id, title, body AS subtitle, '/staff/announcements' AS href
+    ORDER BY created_at DESC LIMIT 12`)) : [];
+  const announcementRows = canViewAnnouncements ? rowsOf(await db.execute(sql`SELECT 'announcement' AS type, id::text AS id, title, body AS subtitle, '/staff/announcements' AS href
     FROM announcements WHERE title ILIKE ${needle} OR body ILIKE ${needle}
-    ORDER BY created_at DESC LIMIT 12`));
+    ORDER BY created_at DESC LIMIT 12`)) : [];
   const workspaceRows = rowsOf(await db.execute(sql`SELECT 'workspace' AS type, id::text AS id, COALESCE(title, kind) AS title, body AS subtitle, '/staff/team' AS href
     FROM collaboration_items WHERE title ILIKE ${needle} OR body ILIKE ${needle} OR author_name ILIKE ${needle}
     ORDER BY created_at DESC LIMIT 12`));
-  const staffRows = rowsOf(await db.execute(sql`SELECT 'staff' AS type, id::text AS id, name AS title, email || ' · ' || role AS subtitle, '/staff/staff-directory' AS href
+  const staffRows = canViewAudit ? rowsOf(await db.execute(sql`SELECT 'staff' AS type, id::text AS id, name AS title, email || ' · ' || role AS subtitle, '/staff/staff-directory' AS href
     FROM staff_accounts WHERE name ILIKE ${needle} OR email ILIKE ${needle} OR role ILIKE ${needle}
-    ORDER BY created_at DESC LIMIT 12`));
+    ORDER BY created_at DESC LIMIT 12`)) : [];
   res.json([...bookingRows, ...clientRows, ...announcementRows, ...workspaceRows, ...staffRows].slice(0, 50));
 });
 
@@ -450,7 +456,7 @@ router.get("/health", requireAuth, async (req, res): Promise<void> => {
   }
   await ensureWorkspaceTables().catch(() => undefined);
   const tableChecks = [];
-  for (const table of ["bookings", "client_accounts", "announcements", "collaboration_items", "staff_accounts"]) {
+  for (const table of ["bookings", "booking_sessions", "client_accounts", "announcements", "collaboration_items", "staff_accounts"]) {
     try {
       const result = await db.execute(sql.raw("select count(*)::int as count from " + table));
       tableChecks.push({ name: table, status: "healthy", count: Number(rowsOf(result)[0]?.count ?? 0) });

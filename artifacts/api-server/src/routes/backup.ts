@@ -5,6 +5,7 @@ import {
   db,
   settingsTable,
   bookingsTable,
+  bookingSessionsTable,
   clientAccountsTable,
   staffAccountsTable,
   announcementsTable,
@@ -30,6 +31,7 @@ type BackupPayload = { format: "ayden-therapy-backup"; version: 1; scope: Backup
 const TABLES = {
   settings: settingsTable,
   bookings: bookingsTable,
+  bookingSessions: bookingSessionsTable,
   clientAccounts: clientAccountsTable,
   staffAccounts: staffAccountsTable,
   announcements: announcementsTable,
@@ -46,14 +48,14 @@ const TABLES = {
 } as const;
 
 const SCOPE_TABLES: Record<BackupScope, readonly string[]> = {
-  bookings: ["bookings"],
+  bookings: ["bookings", "bookingSessions"],
   settings: ["settings"],
-  "site-data": ["bookings", "clientAccounts", "staffAccounts", "announcements", "auditLogs", "supportThreads", "supportMessages", "wellnessResources", "wellnessAssignments", "messageTemplates", "collaborationItems", "clientTemplates", "clientNotifications", "sessionFeedback"],
+  "site-data": ["bookings", "bookingSessions", "clientAccounts", "staffAccounts", "announcements", "auditLogs", "supportThreads", "supportMessages", "wellnessResources", "wellnessAssignments", "messageTemplates", "collaborationItems", "clientTemplates", "clientNotifications", "sessionFeedback"],
   everything: Object.keys(TABLES),
 };
 
 const DATE_FIELDS: Record<string, readonly string[]> = {
-  settings: [], bookings: ["createdAt"], clientAccounts: ["createdAt", "updatedAt"], staffAccounts: ["createdAt"], announcements: ["createdAt"], auditLogs: ["createdAt"],
+  settings: [], bookings: ["createdAt"], bookingSessions: ["startedAt", "endedAt", "createdAt", "updatedAt"], clientAccounts: ["createdAt", "updatedAt"], staffAccounts: ["createdAt"], announcements: ["createdAt"], auditLogs: ["createdAt"],
   supportThreads: ["createdAt", "updatedAt"], supportMessages: ["createdAt"], wellnessResources: ["createdAt"], wellnessAssignments: ["createdAt", "updatedAt"], messageTemplates: ["updatedAt"], collaborationItems: ["createdAt", "updatedAt"], clientTemplates: ["updatedAt"], clientNotifications: ["createdAt"], sessionFeedback: ["createdAt"],
 };
 const SERIAL_TABLES = Object.keys(TABLES) as string[];
@@ -70,7 +72,7 @@ function projectRows(tableName: string, rows: unknown): BackupRow[] {
     const row = { ...(value as BackupRow) };
     if (row.id !== undefined && (!Number.isInteger(row.id) || row.id < 1)) throw new Error(`${tableName}[${index}].id must be a positive integer.`);
     for (const field of DATE_FIELDS[tableName] ?? []) {
-      if (row[field] !== undefined) {
+      if (row[field] !== undefined && row[field] !== null) {
         const parsed = new Date(row[field]);
         if (Number.isNaN(parsed.getTime())) throw new Error(`${tableName}.${field} is not a valid date-time.`);
         row[field] = parsed;
@@ -106,6 +108,7 @@ async function upsertRowsById(tx: any, table: any, rows: BackupRow[]) {
 const SQL_TABLE_NAMES: Record<string, string> = {
   settings: "settings",
   bookings: "bookings",
+  bookingSessions: "booking_sessions",
   clientAccounts: "client_accounts",
   staffAccounts: "staff_accounts",
   announcements: "announcements",
@@ -202,6 +205,36 @@ async function importBackup(payload: BackupPayload) {
       }
       if (typeof row.id === "number") bookingIdMap.set(row.id, id);
       imported.bookings = (imported.bookings ?? 0) + 1;
+    }
+
+    // Restore active/completed session history only after booking IDs have been mapped.
+    // Match by confirmation code when importing into a database with different numeric IDs.
+    for (const row of rowsByTable.bookingSessions ?? []) {
+      let targetBookingId = typeof row.bookingId === "number" ? bookingIdMap.get(row.bookingId) : undefined;
+      if (!targetBookingId && typeof row.confirmationCode === "string") {
+        const [matchingBooking] = await tx.select({ id: bookingsTable.id })
+          .from(bookingsTable)
+          .where(eq(bookingsTable.confirmationCode, row.confirmationCode))
+          .limit(1);
+        targetBookingId = matchingBooking?.id;
+      }
+      if (!targetBookingId) {
+        skipped.bookingSessions = (skipped.bookingSessions ?? 0) + 1;
+        warnings.push("A session record was skipped because its booking could not be matched.");
+        continue;
+      }
+      const sessionValues = withoutKeys({ ...row, bookingId: targetBookingId }, ["id"]);
+      const [existingSession] = await tx.select({ id: bookingSessionsTable.id })
+        .from(bookingSessionsTable)
+        .where(eq(bookingSessionsTable.bookingId, targetBookingId))
+        .limit(1);
+      if (existingSession) {
+        await tx.update(bookingSessionsTable).set(withoutKeys(sessionValues, ["bookingId"]) as any)
+          .where(eq(bookingSessionsTable.id, existingSession.id));
+      } else {
+        await tx.insert(bookingSessionsTable).values(sessionValues as any);
+      }
+      imported.bookingSessions = (imported.bookingSessions ?? 0) + 1;
     }
 
     const remapLinkedRows = (rows: BackupRow[], clientFields: readonly string[], bookingFields: readonly string[]) => rows.map((row) => {

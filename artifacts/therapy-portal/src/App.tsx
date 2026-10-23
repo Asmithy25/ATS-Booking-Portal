@@ -34,6 +34,7 @@ const StaffDirectory = lazy(() => import('@/pages/staff/dashboard/staff-director
 const FounderDashboard = lazy(() => import('@/pages/staff/dashboard/founder-dashboard'));
 const GlobalSearch = lazy(() => import('@/pages/staff/dashboard/global-search'));
 const SystemHealth = lazy(() => import('@/pages/staff/dashboard/system-health'));
+const BackupCenter = lazy(() => import('@/pages/staff/dashboard/backup-center'));
 const HomepagePreview = lazy(() => import('@/pages/staff/dashboard/homepage-preview'));
 const PublicUpdates = lazy(() => import('@/pages/public/updates'));
 const PublicAssistant = lazy(() => import('@/pages/public/assistant'));
@@ -82,6 +83,7 @@ function StaffRouter() {
         <Route path="/staff/founder-dashboard" component={FounderDashboard} />
         <Route path="/staff/search" component={GlobalSearch} />
         <Route path="/staff/system-health" component={SystemHealth} />
+        <Route path="/staff/backup" component={BackupCenter} />
         <Route path="/staff/operations" component={AdvancedWorkspace} />
         <Route path="/staff/my-settings" component={MySettings} />
         <Route path="/staff/website-settings" component={WebsiteSettings} />
