@@ -1,7 +1,7 @@
 import { and, eq, gte, lt } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { db, bookingsTable, clientAccountsTable, clientNotificationsTable, staffAccountsTable, messageTemplatesTable } from "@workspace/db";
-import { getDeliveryStatus, sendBookingDelivery } from "./delivery-providers";
+import { getDeliveryStatus, sendBookingDelivery, sendEmail, sendSms } from "./delivery-providers";
 
 const DEFAULT_TEMPLATES: Record<string, { title: string; body: string }> = {
   booking_confirmation: {
@@ -50,6 +50,19 @@ async function ensureNotificationEventsTable() {
     kind text NOT NULL,
     created_at timestamp NOT NULL DEFAULT now()
   )`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS notification_delivery_attempts (
+    id serial PRIMARY KEY,
+    booking_id integer,
+    event_kind text NOT NULL,
+    channel text NOT NULL,
+    recipient_type text NOT NULL DEFAULT 'client',
+    recipient_masked text NOT NULL DEFAULT '',
+    status text NOT NULL,
+    detail text NOT NULL DEFAULT '',
+    attempt_source text NOT NULL DEFAULT 'automatic',
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_notification_delivery_recent ON notification_delivery_attempts(created_at DESC)`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS client_portal_preferences (client_account_id integer PRIMARY KEY,language text NOT NULL DEFAULT 'en',in_portal_reminders boolean NOT NULL DEFAULT true,default_share_session_prep boolean NOT NULL DEFAULT false,email_reminders boolean NOT NULL DEFAULT false,sms_reminders boolean NOT NULL DEFAULT false,created_at timestamp NOT NULL DEFAULT now(),updated_at timestamp NOT NULL DEFAULT now())`);
   await db.execute(sql`ALTER TABLE client_portal_preferences ADD COLUMN IF NOT EXISTS email_reminders boolean NOT NULL DEFAULT false`);
   await db.execute(sql`ALTER TABLE client_portal_preferences ADD COLUMN IF NOT EXISTS sms_reminders boolean NOT NULL DEFAULT false`);
@@ -62,6 +75,29 @@ async function ensureNotificationEventsTable() {
     created_at timestamp NOT NULL DEFAULT now()
   )`);
   await db.execute(sql`ALTER TABLE staff_portal_preferences ADD COLUMN IF NOT EXISTS notification_preferences jsonb NOT NULL DEFAULT '{}'`).catch(() => undefined);
+}
+
+function maskRecipient(value: string | null | undefined, channel: string) {
+  if (!value) return "";
+  if (channel === "email") {
+    const [local, domain] = value.split("@");
+    return local && domain ? local.slice(0, 1) + "•••@" + domain : "email";
+  }
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 4 ? "•••" + digits.slice(-4) : "phone";
+}
+
+function safeDeliveryDetail(value: string) {
+  if (value === "sent") return "Provider accepted the send request. This is not a confirmed delivery receipt.";
+  if (value === "not_configured" || value === "not_configured_or_no_client_email") return value === "not_configured" ? "Skipped: channel not configured or client has not opted in." : "Skipped: channel not configured, email not linked, or client has not opted in.";
+  return value.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]").replace(/\+?\d[\d\s().-]{7,}\d/g, "[phone]").slice(0, 700);
+}
+
+async function recordDeliveryAttempt(bookingId: number, kind: string, channel: string, result: string, recipient: string | null | undefined, source = "automatic") {
+  const skipped = result === "not_configured" || result === "not_configured_or_no_client_email";
+  const status = result === "sent" ? "submitted" : skipped ? "skipped" : "failed";
+  await db.execute(sql`INSERT INTO notification_delivery_attempts (booking_id,event_kind,channel,recipient_type,recipient_masked,status,detail,attempt_source,created_at)
+    VALUES (${bookingId},${kind},${channel},'client',${maskRecipient(recipient,channel)},${status},${safeDeliveryDetail(result)},${source},now())`);
 }
 
 async function staffAllows(email: string, preference: string) {
@@ -137,6 +173,8 @@ export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, 
     const externalKey = `${eventKey}:external`;
     if (await claimEvent(externalKey, booking.id, "external", String(booking.clientAccountId ?? booking.phone), kind)) {
       const results = await sendBookingDelivery(booking, kind, fill(template.title, booking), fill(template.body, booking), client?.email, { emailAllowed: preferences?.email_reminders === true, smsAllowed: preferences?.sms_reminders === true }, fill(smsTemplateBody, booking));
+      if (results.email) await recordDeliveryAttempt(booking.id, kind, "email", results.email, client?.email ?? null).catch((err) => console.warn("Could not record email delivery attempt", err));
+      if (results.sms) await recordDeliveryAttempt(booking.id, kind, "sms", results.sms, booking.phone).catch((err) => console.warn("Could not record SMS delivery attempt", err));
       if (results.email && results.email !== "sent" && results.email !== "not_configured_or_no_client_email") {
         await db.execute(sql`DELETE FROM notification_events WHERE event_key=${externalKey}`).catch(() => undefined);
       }
@@ -167,6 +205,49 @@ export async function processScheduledNotifications() {
     if (diff > 0 && diff <= 15 * 60 * 1000) {
       await notifyBooking(booking, "starting_soon");
     }
+  }
+}
+
+export async function retryBookingDelivery(bookingId: number, kind: string, channel: "email" | "sms") {
+  const supportedKinds = ["booking_confirmation", "appointment_reminder", "appointment_start", "starting_soon", "cancellation", "reschedule"];
+  if (!supportedKinds.includes(kind)) throw new Error("This notification type cannot be retried.");
+  const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, bookingId)).limit(1);
+  if (!booking) throw new Error("The original booking no longer exists.");
+  const preferencesResult: any = booking.clientAccountId
+    ? await db.execute(sql`SELECT email_reminders,sms_reminders FROM client_portal_preferences WHERE client_account_id=${booking.clientAccountId} LIMIT 1`).catch(() => ({ rows: [] }))
+    : { rows: [] };
+  const prefs = Array.isArray(preferencesResult) ? preferencesResult[0] : preferencesResult?.rows?.[0];
+  const [stored] = await db.select().from(messageTemplatesTable).where(eq(messageTemplatesTable.key, kind)).limit(1);
+  const [storedSms] = await db.select().from(messageTemplatesTable).where(eq(messageTemplatesTable.key, `sms_${kind}`)).limit(1);
+  const fallback = DEFAULT_TEMPLATES[kind] ?? { title: "Aydens Wellness Services update", body: "An update is available for your appointment." };
+  const template = stored && stored.channel !== "sms" ? { title: stored.subject, body: stored.body } : fallback;
+  const smsBody = storedSms?.channel === "sms" ? storedSms.body : template.body;
+  const [client] = booking.clientAccountId
+    ? await db.select({ email: clientAccountsTable.email }).from(clientAccountsTable).where(eq(clientAccountsTable.id, booking.clientAccountId)).limit(1)
+    : [];
+  if (channel === "email") {
+    if (prefs?.email_reminders !== true || !client?.email) throw new Error("The client has not opted in to email reminders or has no linked email address.");
+    if (!getDeliveryStatus().email.configured) throw new Error("Email delivery is not configured.");
+    try {
+      await sendEmail(client.email, fill(template.title, booking), fill(template.body, booking));
+      await recordDeliveryAttempt(booking.id, kind, "email", "sent", client.email, "manual_retry");
+      return { status: "submitted", message: "The email provider accepted the retry request. Delivery confirmation may arrive separately." };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Email retry failed.";
+      await recordDeliveryAttempt(booking.id, kind, "email", detail, client.email, "manual_retry");
+      throw new Error(detail);
+    }
+  }
+  if (prefs?.sms_reminders !== true) throw new Error("The client has not opted in to SMS reminders.");
+  if (!getDeliveryStatus().sms.configured) throw new Error("SMS delivery is not configured.");
+  try {
+    await sendSms(booking.phone, fill(smsBody, booking));
+    await recordDeliveryAttempt(booking.id, kind, "sms", "sent", booking.phone, "manual_retry");
+    return { status: "submitted", message: "The SMS provider accepted the retry request. Delivery confirmation may arrive separately." };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "SMS retry failed.";
+    await recordDeliveryAttempt(booking.id, kind, "sms", detail, booking.phone, "manual_retry");
+    throw new Error(detail);
   }
 }
 
