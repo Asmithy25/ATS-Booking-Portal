@@ -72,7 +72,7 @@ function projectRows(tableName: string, rows: unknown): BackupRow[] {
     const row = { ...(value as BackupRow) };
     if (row.id !== undefined && (!Number.isInteger(row.id) || row.id < 1)) throw new Error(`${tableName}[${index}].id must be a positive integer.`);
     for (const field of DATE_FIELDS[tableName] ?? []) {
-      if (row[field] !== undefined) {
+      if (row[field] !== undefined && row[field] !== null) {
         const parsed = new Date(row[field]);
         if (Number.isNaN(parsed.getTime())) throw new Error(`${tableName}.${field} is not a valid date-time.`);
         row[field] = parsed;
