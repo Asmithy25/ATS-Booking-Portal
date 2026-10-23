@@ -179,9 +179,9 @@ export default function Settings() {
       logoUrl: '',
       heroTitle: 'A safe space on the line.',
       heroDescription: 'Compassionate, judgment-free mental wellness support delivered directly to you.',
-      primaryColor: '#8F4A34',
-      secondaryColor: '#B58C50',
-      accentColor: '#C4CEB5',
+      primaryColor: '#C85E09',
+      secondaryColor: '#F3A444',
+      accentColor: '#5C2B12',
       officeHours: {
         mon: { open: '13:00', close: '20:00', closed: false },
         tue: { open: '13:00', close: '20:00', closed: false },
