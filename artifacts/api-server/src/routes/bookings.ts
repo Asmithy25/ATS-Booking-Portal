@@ -486,6 +486,12 @@ router.patch("/confirm/:code", async (req, res) => {
     const [current] = await db.select().from(bookingsTable).where(eq(bookingsTable.confirmationCode, code)).limit(1);
     if (!current) return res.status(404).json({ error: "No booking found with that confirmation code." });
     if (["completed", "cancelled"].includes(current.status)) return res.status(400).json({ error: `This booking is already ${current.status} and cannot be changed.` });
+    const [activePublicSession] = await db.select({ id: bookingSessionsTable.id })
+      .from(bookingSessionsTable)
+      .where(and(eq(bookingSessionsTable.bookingId, current.id), isNull(bookingSessionsTable.endedAt)))
+      .limit(1);
+    const publicChangesSlot = Boolean(preferredDate && preferredDate !== current.preferredDate) || Boolean(preferredTime && preferredTime !== current.preferredTime);
+    if (activePublicSession && (status === "cancelled" || publicChangesSlot)) return res.status(409).json({ error: "This booking has an active session. Please contact AWS staff to handle any changes after the session is ended." });
     if (preferredDate || preferredTime) {
       const slot = await validateBookingSlot(preferredDate ?? current.preferredDate, preferredTime ?? current.preferredTime, { excludeBookingId: current.id });
       if (!slot.ok) return res.status(409).json({ error: slot.error });
