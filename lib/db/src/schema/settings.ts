@@ -119,7 +119,7 @@ export const settingsTable = pgTable("settings", {
   heroDescription: text("hero_description").notNull().default("A warm, grounded space to explore your thoughts and feelings without judgment."),
   primaryColor: text("primary_color").notNull().default("#C85E09"),
   secondaryColor: text("secondary_color").notNull().default("#F3A444"),
-  accentColor: text("accent_color").notNull().default("#5C2B12"),
+  accentColor: text("accent_color").notNull().default("#F2C078"),
   homepageContent: jsonb("homepage_content").notNull().$type<HomepageContent>(),
   featureFlags: jsonb("feature_flags").notNull().$type<FeatureFlags>().default({
     clientBooking: true,
