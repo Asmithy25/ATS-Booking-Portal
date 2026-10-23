@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database } from 'lucide-react';
+import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 
 function toHsl(hex: string) { const value=/^#[0-9a-fA-F]{6}$/.test(hex)?hex:'#F47A18'; const r=parseInt(value.slice(1,3),16)/255,g=parseInt(value.slice(3,5),16)/255,b=parseInt(value.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),l=(max+min)/2; if(max===min)return `0 0% ${Math.round(l*100)}%`; const d=max-min,s=l>.5?d/(2-max-min):d/(max+min); let h=0;if(max===r)h=(g-b)/d+(g<b?6:0);else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;return `${Math.round(h*60)} ${Math.round(s*100)}% ${Math.round(l*100)}%`; }
@@ -22,6 +23,7 @@ function normalizeHalloweenPreferences<T extends { accentColor?: string; sidebar
 export default function StaffDashboardLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#F47A18', sidebarColor: '#120A05', darkBackgroundColor: '#100904', appearance: 'light', sidebarLabels: true, sidebarWidth: 'standard' });
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
@@ -88,13 +90,30 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
     return () => window.clearInterval(timer);
   }, []);
 
-  // AWS 3.0 command search: summon Feature Search from anywhere in the staff workspace.
+  // AWS 3.2 shortcuts: fast navigation plus a keyboard-first help reference.
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editing = Boolean(target && (target.isContentEditable || ['INPUT','TEXTAREA','SELECT'].includes(target.tagName)));
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setMobileOpen(false);
         setLocation('/staff/search');
+        return;
+      }
+      if (editing || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === '?') {
+        event.preventDefault();
+        setShortcutHelpOpen(true);
+        return;
+      }
+      if (event.key === 'Escape') setShortcutHelpOpen(false);
+      if (event.altKey) return;
+      const destinations: Record<string,string> = { '1':'/staff/bookings','2':'/staff/clients','3':'/staff/calendar','4':'/staff/notifications' };
+      if (event.key in destinations) {
+        event.preventDefault();
+        setMobileOpen(false);
+        setLocation(destinations[event.key]);
       }
     };
     window.addEventListener('keydown', handleShortcut);
@@ -321,6 +340,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
                 <Clock3 className="h-3.5 w-3.5 text-primary" />
                 <span className="font-mono tabular-nums text-foreground">{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span>
               </div>
+              <Button type="button" variant="outline" size="icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setShortcutHelpOpen(true)}>
+                <Keyboard className="h-4 w-4" />
+              </Button>
               <div className="relative">
                 <Button type="button" variant="outline" size="icon" aria-label="Notifications" onClick={() => setNotificationsOpen((value) => !value)}>
                   <Bell className="h-4 w-4" />
@@ -362,6 +384,25 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         </div>
       </main>
       </div>
+      <Dialog open={shortcutHelpOpen} onOpenChange={setShortcutHelpOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Keyboard className="h-5 w-5 text-primary" /> Keyboard shortcuts</DialogTitle>
+            <DialogDescription>Quick navigation for the AWS staff workspace. Shortcuts won't fire while you're typing into an input field.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {[
+              ["⌘ K / Ctrl K","Open Feature Search"],
+              ["?","Show this shortcut guide"],
+              ["1","Open Bookings"],
+              ["2","Open Clients"],
+              ["3","Open Command Calendar"],
+              ["4","Open Notification Center"],
+              ["Esc","Close this guide"],
+            ].map(([key,label]) => <div key={key} className="flex items-center justify-between gap-3 rounded-xl border p-3"><span className="text-sm">{label}</span><kbd className="rounded-md border bg-muted px-2 py-1 font-mono text-xs">{key}</kbd></div>)}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
