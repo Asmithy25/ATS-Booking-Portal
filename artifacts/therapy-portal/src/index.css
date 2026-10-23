@@ -383,3 +383,52 @@
   100% { opacity: 0; transform: translate3d(0, 105vh, 0) rotate(var(--confetti-rotation)); }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+
+/* AWS 3.1 — quiet-futuristic surfaces: restrained motion, warm light, clear hierarchy. */
+.aws-command-page { isolation: isolate; }
+.aws-command-hero {
+  background:
+    radial-gradient(ellipse at 82% 6%, hsl(28 92% 54% / .13), transparent 30%),
+    radial-gradient(ellipse at 100% 100%, hsl(18 70% 45% / .07), transparent 42%),
+    linear-gradient(120deg, hsl(var(--card) / .96), hsl(var(--background) / .65));
+  border-color: hsl(var(--primary) / .18);
+  box-shadow: 0 14px 44px hsl(22 35% 10% / .035), inset 0 1px 0 hsl(0 0% 100% / .28);
+}
+.aws-command-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .35;
+  background-image: linear-gradient(hsl(var(--primary) / .07) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / .07) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(90deg, transparent 4%, #000 68%, transparent);
+}
+.aws-hero-orb { position: absolute; border-radius: 9999px; pointer-events: none; filter: blur(1px); }
+.aws-hero-orb-one { width: 17rem; height: 17rem; right: 4%; top: -10rem; border: 1px solid hsl(var(--primary) / .15); box-shadow: 0 0 0 2.1rem hsl(var(--primary) / .025), 0 0 0 4.2rem hsl(var(--primary) / .02); }
+.aws-hero-orb-two { width: 9rem; height: 9rem; right: 18%; bottom: -7rem; border: 1px solid hsl(var(--primary) / .14); }
+.aws-kicker { display: inline-flex; align-items: center; gap: .45rem; color: hsl(var(--primary)); font: 700 9px/1.2 "Space Mono", monospace; letter-spacing: .16em; }
+.aws-status-pip { display: inline-block; width: .42rem; height: .42rem; border-radius: 9999px; background: hsl(145 48% 44%); box-shadow: 0 0 0 3px hsl(145 48% 44% / .12); }
+.aws-glass-card { border-color: hsl(var(--border) / .85); background: hsl(var(--card) / .84); box-shadow: 0 6px 24px hsl(22 28% 8% / .025), inset 0 1px 0 hsl(0 0% 100% / .2); transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.aws-glass-card:hover { border-color: hsl(var(--primary) / .25); box-shadow: 0 10px 28px hsl(22 28% 8% / .055), inset 0 1px 0 hsl(0 0% 100% / .2); }
+.aws-icon-tile { display: inline-flex; width: 2.5rem; height: 2.5rem; align-items: center; justify-content: center; flex: 0 0 auto; border-radius: .9rem; border: 1px solid hsl(var(--primary) / .18); color: hsl(var(--primary)); background: linear-gradient(135deg, hsl(var(--primary) / .11), hsl(var(--primary) / .035)); }
+.aws-icon-tile-small { width: 2.15rem; height: 2.15rem; border-radius: .75rem; }
+.aws-quiet-button { border-color: hsl(var(--border)); background: hsl(var(--background) / .55); }
+.aws-lifecycle-step { min-width: 0; padding: .9rem; border: 1px solid hsl(var(--border) / .78); border-radius: 1rem; background: hsl(var(--background) / .38); }
+.aws-step-dot { display: block; width: .45rem; height: .45rem; margin-bottom: .75rem; border-radius: 9999px; box-shadow: 0 0 0 4px hsl(var(--primary) / .07); background: hsl(var(--primary)); }
+.aws-step-dot.green { background: hsl(145 48% 42%); box-shadow: 0 0 0 4px hsl(145 48% 42% / .09); }
+.aws-step-dot.rose { background: hsl(4 62% 55%); box-shadow: 0 0 0 4px hsl(4 62% 55% / .08); }
+.aws-step-dot.neutral { background: hsl(var(--muted-foreground) / .72); box-shadow: 0 0 0 4px hsl(var(--muted-foreground) / .08); }
+.aws-date-chip { display: flex; flex: 0 0 3.3rem; min-height: 3.1rem; flex-direction: column; align-items: center; justify-content: center; border: 1px solid hsl(var(--primary) / .15); border-radius: .85rem; background: hsl(var(--primary) / .055); }
+.aws-date-chip span { font: 700 8px/1.25 "Space Mono", monospace; text-transform: uppercase; letter-spacing: .1em; color: hsl(var(--primary)); }
+.aws-date-chip strong { margin-top: .18rem; font-size: .7rem; font-weight: 700; }
+.aws-empty-state { display: flex; align-items: center; gap: .75rem; padding: 1.1rem; border: 1px dashed hsl(var(--border)); border-radius: 1rem; background: hsl(var(--background) / .3); }
+.aws-quick-link:hover { border-color: hsl(var(--primary) / .3); transform: translateY(-1px); }
+@media (max-width: 640px) {
+  .aws-command-hero { border-radius: 1.25rem; }
+  .aws-hero-orb-one { right: -7rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aws-glass-card, .aws-quick-link { transition: none; }
+}
