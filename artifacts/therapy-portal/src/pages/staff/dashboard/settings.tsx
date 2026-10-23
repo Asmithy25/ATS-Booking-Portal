@@ -181,7 +181,7 @@ export default function Settings() {
       heroDescription: 'Compassionate, judgment-free mental wellness support delivered directly to you.',
       primaryColor: '#C85E09',
       secondaryColor: '#F3A444',
-      accentColor: '#5C2B12',
+      accentColor: '#F2C078',
       officeHours: {
         mon: { open: '13:00', close: '20:00', closed: false },
         tue: { open: '13:00', close: '20:00', closed: false },
