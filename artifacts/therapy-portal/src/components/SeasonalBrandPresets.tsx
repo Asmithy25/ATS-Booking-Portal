@@ -240,6 +240,7 @@ export default function SeasonalBrandPresets() {
   const applyPreset = async (preset: PalettePreset) => {
     setBusyPreset(preset.id);
     try {
+      const assetId = resolveLogoId(preset);
       const current = await customFetch<any>("/api/settings", { responseType: "json" });
       const prior: PreviousBranding = {
         primaryColor: /^#[0-9a-f]{6}$/i.test(current?.primaryColor || "") ? current.primaryColor : "#C85E09",
@@ -263,7 +264,6 @@ export default function SeasonalBrandPresets() {
         responseType: "json",
       });
 
-      const assetId = resolveLogoId(preset);
       if (assetId) {
         await customFetch("/api/logo-library/" + encodeURIComponent(assetId) + "/apply", {
           method: "POST",
