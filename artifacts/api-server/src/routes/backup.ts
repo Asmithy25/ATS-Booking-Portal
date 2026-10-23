@@ -104,7 +104,12 @@ async function upsertRowsById(tx: any, table: any, rows: BackupRow[]) {
 }
 
 async function resetSequences(tx: any, tableNames: readonly string[]) {
-  for (const tableName of tableNames) await tx.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('${tableName}', 'id'), COALESCE((SELECT MAX(id) FROM "${tableName}"), 1), (SELECT MAX(id) IS NOT NULL FROM "${tableName}"))`));
+  for (const tableName of tableNames) {
+    // PostgreSQL folds unquoted identifiers to lowercase. Pass the exact quoted
+    // table name so camelCase tables (for example, "clientAccounts") resolve
+    // their serial sequence correctly.
+    await tx.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('"${tableName}"', 'id'), COALESCE((SELECT MAX(id) FROM "${tableName}"), 1), (SELECT MAX(id) IS NOT NULL FROM "${tableName}"))`));
+  }
 }
 
 async function importBackup(payload: BackupPayload) {
