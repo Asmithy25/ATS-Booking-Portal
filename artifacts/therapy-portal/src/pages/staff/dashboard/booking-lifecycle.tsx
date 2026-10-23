@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useGetAuthMe, useListBookings, type Booking } from "@workspace/api-client-react";
+import { getListBookingsQueryKey, useGetAuthMe, useListBookings, type Booking } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ const STAGES=[
 
 export default function BookingLifecycleExplorer(){
  const {data:auth}=useGetAuthMe();
- const {data:rawBookings=[],isLoading,error,refetch}=useListBookings();
+ const {data:rawBookings=[],isLoading,error,refetch}=useListBookings({query:{queryKey:getListBookingsQueryKey(),enabled:Boolean((auth as any)?.authenticated&&(auth as any)?.isAdmin)}});
  const bookings=(Array.isArray(rawBookings)?rawBookings:[]) as Booking[];
  const [stage,setStage]=useState<string>("pending");
  const counts=useMemo(()=>Object.fromEntries(STAGES.map((item)=>[item.key,bookings.filter((booking)=>String(booking.status)===item.key).length])),[bookings]);

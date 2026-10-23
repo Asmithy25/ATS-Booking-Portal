@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useGetAuthMe, useListBookings, type Booking } from "@workspace/api-client-react";
+import { getListBookingsQueryKey, useGetAuthMe, useListBookings, type Booking } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ const hourLabel=(hour:number)=>hour===0?"12 AM":hour<12?hour+" AM":hour===12?"12
 
 export default function ForecastLab() {
  const {data:auth}=useGetAuthMe();
- const {data:rawBookings=[],isLoading,error,refetch}=useListBookings();
+ const {data:rawBookings=[],isLoading,error,refetch}=useListBookings({query:{queryKey:getListBookingsQueryKey(),enabled:Boolean((auth as any)?.authenticated&&(auth as any)?.isAdmin)}});
  const bookings=(Array.isArray(rawBookings)?rawBookings:[]) as Booking[];
  const [targetDay,setTargetDay]=useState("Saturday");
  const [addedHours,setAddedHours]=useState("2");

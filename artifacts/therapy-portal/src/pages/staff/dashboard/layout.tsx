@@ -25,7 +25,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [mobileOpen, setMobileOpen] = useState(false);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#F47A18', sidebarColor: '#120A05', darkBackgroundColor: '#100904', appearance: 'light', sidebarLabels: true, sidebarWidth: 'standard' });
+  const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#F47A18', sidebarColor: '#120A05', darkBackgroundColor: '#100904', appearance: 'light', reducedMotion: false, sidebarLabels: true, sidebarWidth: 'standard' });
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
@@ -135,6 +135,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         sidebarColor: typeof themedDetail.sidebarColor === 'string' ? themedDetail.sidebarColor : current.sidebarColor,
         darkBackgroundColor: typeof themedDetail.darkBackgroundColor === 'string' ? themedDetail.darkBackgroundColor : current.darkBackgroundColor,
         appearance: typeof detail.appearance === 'string' ? detail.appearance : current.appearance,
+        reducedMotion: typeof detail.reducedMotion === 'boolean' ? detail.reducedMotion : current.reducedMotion,
         sidebarLabels: typeof detail.sidebarLabels === 'boolean' ? detail.sidebarLabels : current.sidebarLabels,
         sidebarWidth: typeof detail.sidebarWidth === 'string' ? detail.sidebarWidth : current.sidebarWidth,
       }));
@@ -145,7 +146,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
 
   useEffect(() => {
     if (!session?.authenticated) return;
-    customFetch<{ layout?: string; density?: string; navigation?: string; dashboard?: string; accentColor?: string; sidebarColor?: string; darkBackgroundColor?: string; appearance?: string; sidebarLabels?: boolean; sidebarWidth?: string }>('/api/settings/staff-preferences')
+    customFetch<{ layout?: string; density?: string; navigation?: string; dashboard?: string; accentColor?: string; sidebarColor?: string; darkBackgroundColor?: string; appearance?: string; reducedMotion?: boolean; sidebarLabels?: boolean; sidebarWidth?: string }>('/api/settings/staff-preferences')
       .then((value) => value && setPortalPrefs((current) => ({
         ...current,
         layout: value.layout ?? current.layout,
@@ -156,6 +157,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         sidebarColor: normalizeHalloweenPreferences(value).sidebarColor ?? current.sidebarColor,
         darkBackgroundColor: normalizeHalloweenPreferences(value).darkBackgroundColor ?? current.darkBackgroundColor,
         appearance: value.appearance ?? current.appearance,
+        reducedMotion: value.reducedMotion ?? current.reducedMotion,
         sidebarLabels: value.sidebarLabels ?? current.sidebarLabels,
         sidebarWidth: value.sidebarWidth ?? current.sidebarWidth,
       })))
@@ -201,7 +203,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   };
 
   return (
-      <div className={isStaffDarkMode ? "dark" : ""}>
+      <div className={`${isStaffDarkMode ? "dark" : ""} ${portalPrefs.reducedMotion ? "ats-reduced-motion" : ""}`}>
       <div
         className={`ats-staff-shell min-h-screen flex text-foreground ${isStaffDarkMode ? "" : "ats-paper " + (portalPrefs.layout === "relaxed" ? "bg-[#f4f0ea]" : portalPrefs.layout === "focused" ? "bg-[#eef1f5]" : portalPrefs.layout === "minimal" ? "bg-background" : "bg-[#edf0eb]")}`}
         style={{
