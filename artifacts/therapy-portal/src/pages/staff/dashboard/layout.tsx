@@ -258,7 +258,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/feedback', <Star className="h-4 w-4" />, 'Feedback')}
           {navItem('/staff/homepage-preview', <Eye className="h-4 w-4" />, 'Homepage preview')}
           {navItem('/staff/security', <ShieldCheck className="h-4 w-4" />, 'Security')}
-          {navItem('/staff/search', <SearchIcon className="h-4 w-4" />, 'Global Search')}
+          {navItem('/staff/search', <SearchIcon className="h-4 w-4" />, 'Feature Search')}
           {navItem('/staff/practice-control', <Leaf className="h-4 w-4" />, 'Practice Control')}
           {session.isAdmin && navItem('/staff/homepage-controls', <Eye className="h-4 w-4" />, 'Homepage Controls')}
           {navItem('/staff/staff-directory', <UserRound className="h-4 w-4" />, 'Staff Directory')}
