@@ -9,7 +9,7 @@ import {
   sessionFeedbackTable,
   wellnessAssignmentsTable,
 } from "@workspace/db";
-import { requirePermission, requireClientAuth, signPayload, verifyPayload, type RequestWithClientSession } from "../middleware/auth";
+import { requirePermission, requireClientAuth, signPayload, verifyPayload, ADMIN_EMAIL, type RequestWithClientSession } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 import { validateBookingSlot } from "../lib/scheduling";
 import { generateConfirmationCode } from "../lib/booking-utils";
@@ -20,6 +20,11 @@ const router = Router();
 
 const normalizeCode = (value: unknown) => String(value ?? "").toUpperCase().trim();
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
+
+function rowsOf(result: unknown): any[] {
+  if (Array.isArray(result)) return result as any[];
+  return (result as any)?.rows ?? [];
+}
 
 // Public booking anti-abuse validation. Keep this deliberately conservative:
 // reject obvious spam/gibberish while allowing legitimate names and reasons.
@@ -557,6 +562,72 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
   }
 });
 
+router.get("/sessions/active", requirePermission("viewClients"), async (req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        s.booking_id AS "bookingId",
+        s.staff_email AS "staffEmail",
+        s.staff_name AS "staffName",
+        s.client_name AS "clientName",
+        s.confirmation_code AS "confirmationCode",
+        b.preferred_date AS "preferredDate",
+        b.preferred_time AS "preferredTime",
+        s.started_at AS "startedAt",
+        s.auto_started AS "autoStarted"
+      FROM booking_sessions s
+      INNER JOIN bookings b ON b.id = s.booking_id
+      WHERE s.ended_at IS NULL AND b.status = 'claimed'
+      ORDER BY s.started_at ASC
+    `);
+    res.json(rowsOf(result));
+  } catch (err) {
+    req.log.error({ err }, "Failed to load active live sessions");
+    res.status(500).json({ error: "Could not load live session status." });
+  }
+});
+
+router.post("/:id/session/end", requirePermission("editAppointments"), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid booking id." });
+  const staffSession = (req as any).staffSession as { email: string; name: string } | undefined;
+  if (!staffSession?.email) return res.status(401).json({ error: "Unauthorized." });
+
+  try {
+    const current = rowsOf(await db.execute(sql`
+      SELECT booking_id AS "bookingId", staff_email AS "staffEmail", staff_name AS "staffName"
+      FROM booking_sessions
+      WHERE booking_id = ${id} AND ended_at IS NULL
+      LIMIT 1
+    `))[0];
+
+    if (!current) return res.status(404).json({ error: "There is no active session for this booking." });
+    const ownerEmail = String(current.staffEmail ?? "").trim().toLowerCase();
+    const actorEmail = staffSession.email.trim().toLowerCase();
+    if (ownerEmail !== actorEmail && actorEmail !== ADMIN_EMAIL.toLowerCase()) {
+      return res.status(403).json({ error: "Only the assigned staff member or founder can end this session." });
+    }
+
+    // Conditional update makes double-clicks and concurrent requests safe.
+    const ended = rowsOf(await db.execute(sql`
+      UPDATE booking_sessions
+      SET ended_at = now(), updated_at = now()
+      WHERE booking_id = ${id} AND ended_at IS NULL
+      RETURNING booking_id AS "bookingId", ended_at AS "endedAt"
+    `))[0];
+    if (!ended) return res.status(409).json({ error: "This session has already ended." });
+
+    await db.update(bookingsTable)
+      .set({ status: "completed" })
+      .where(and(eq(bookingsTable.id, id), eq(bookingsTable.status, "claimed")));
+    await recordAudit(req, "ended_live_session", "booking_session", String(id)).catch(() => undefined);
+    res.json({ success: true, bookingId: id, endedAt: ended.endedAt });
+  } catch (err) {
+    req.log.error({ err, bookingId: id }, "Failed to end live session");
+    res.status(500).json({ error: "Could not end the session. Please try again." });
+  }
+});
+
 router.get("/:id", requirePermission("viewClients"), async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid id." });
@@ -582,6 +653,16 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
   try {
     const [current] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
     if (!current) return res.status(404).json({ error: "Booking not found." });
+    if (status === "completed") {
+      const activeSession = rowsOf(await db.execute(sql`
+        SELECT booking_id FROM booking_sessions
+        WHERE booking_id = ${id} AND ended_at IS NULL
+        LIMIT 1
+      `));
+      if (activeSession.length) {
+        return res.status(409).json({ error: "This booking has an active live session. Use End Session and confirm the action before marking it complete." });
+      }
+    }
     const requestedDate = preferredDate ?? current.preferredDate;
     const requestedTime = preferredTime ?? current.preferredTime;
     const staffSession = (req as any).staffSession;
