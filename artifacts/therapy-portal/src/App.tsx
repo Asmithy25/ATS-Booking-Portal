@@ -11,6 +11,12 @@ const Login = lazy(() => import('@/pages/staff/login'));
 const StaffDashboardLayout = lazy(() => import('@/pages/staff/dashboard/layout'));
 const Welcome = lazy(() => import('@/pages/staff/dashboard/welcome'));
 const Bookings = lazy(() => import('@/pages/staff/dashboard/bookings'));
+const CommandCalendar = lazy(() => import('@/pages/staff/dashboard/command-calendar'));
+const ForecastLab = lazy(() => import('@/pages/staff/dashboard/forecast-lab'));
+const BookingLifecycle = lazy(() => import('@/pages/staff/dashboard/booking-lifecycle'));
+const ReleaseControlTower = lazy(() => import('@/pages/staff/dashboard/release-control-tower'));
+const AutomationStudio = lazy(() => import('@/pages/staff/dashboard/automation-studio'));
+const NotificationMissionControl = lazy(() => import('@/pages/staff/dashboard/notification-mission-control'));
 const Clients = lazy(() => import('@/pages/staff/dashboard/clients'));
 const Wellness = lazy(() => import('@/pages/staff/dashboard/wellness'));
 const Settings = lazy(() => import('@/pages/staff/dashboard/settings'));
@@ -43,6 +49,7 @@ const PublicSupport = lazy(() => import('@/pages/public/support'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const ClientTools = lazy(() => import('@/pages/client/tools'));
+const ClientWelcomePackage = lazy(() => import('@/pages/client/welcome-package'));
 const UploadPage = lazy(() => import('@/pages/public/upload'));
 const AdvancedWorkspace = lazy(() => import('@/pages/staff/dashboard/advanced-workspace'));
 const MySettings = lazy(() => import('@/pages/staff/dashboard/my-settings'));
@@ -62,6 +69,12 @@ function StaffRouter() {
         <Route path="/staff/dashboard" component={Welcome} />
         <Route path="/staff/welcome" component={Welcome} />
         <Route path="/staff/bookings" component={Bookings} />
+        <Route path="/staff/calendar" component={CommandCalendar} />
+        <Route path="/staff/forecast" component={ForecastLab} />
+        <Route path="/staff/booking-lifecycle" component={BookingLifecycle} />
+        <Route path="/staff/release-control" component={ReleaseControlTower} />
+        <Route path="/staff/automation-studio" component={AutomationStudio} />
+        <Route path="/staff/notification-mission-control" component={NotificationMissionControl} />
         <Route path="/staff/clients" component={Clients} />
         <Route path="/staff/wellness" component={Wellness} />
         <Route path="/staff/analytics" component={Analytics} />
@@ -115,6 +128,7 @@ function Router() {
       <Route path="/staff/login" component={Login} />
       <Route path="/portal/login" component={ClientAuth} />
       <Route path="/portal/tools" component={ClientTools} />
+      <Route path="/portal/welcome-package" component={ClientWelcomePackage} />
       <Route path="/portal" component={ClientPortal} />
       <Route path="/upload/:token" component={UploadPage} />
       <Route path="/staff/*" component={StaffRouter} />

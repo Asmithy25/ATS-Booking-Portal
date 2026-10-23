@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Settings from "./settings";
 import LogoLibrary from "@/components/LogoLibrary";
+import SeasonalBrandPresets from "@/components/SeasonalBrandPresets";
 import { customFetch, useGetAuthMe, getGetAuthMeQueryKey, getGetSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +46,8 @@ export default function WebsiteSettings() {
           </Button>
         </CardContent>}
       </Card>
+
+      {session?.isAdmin && <SeasonalBrandPresets />}
 
       {session?.isAdmin && <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">

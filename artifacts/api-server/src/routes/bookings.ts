@@ -16,6 +16,7 @@ import { validateBookingSlot } from "../lib/scheduling";
 import { generateConfirmationCode } from "../lib/booking-utils";
 import { findClientAccountByPhone } from "../lib/client-data-repair";
 import { notifyBooking } from "../lib/notification-service";
+import { runBookingAutomations } from "./automationStudio";
 
 const router = Router();
 
@@ -250,6 +251,7 @@ router.post("/", async (req, res) => {
       throw new Error("Booking insert returned no row.");
     }
     await notifyBooking(created, "booking_confirmation");
+    await runBookingAutomations("booking_created", created).catch((automationError) => req.log.warn({ err: automationError }, "Booking automation pass failed"));
     const prior = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.phone, phone));
     res.status(201).json({ ...serializeBooking(created), isReturningClient: prior.length > 1, previousSessionCount: Math.max(0, prior.length - 1) });
   } catch (err) {
@@ -503,6 +505,8 @@ router.patch("/confirm/:code", async (req, res) => {
     if (!Object.keys(updates).length) return res.status(400).json({ error: "No valid fields to update." });
     const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, current.id)).returning();
     await recordAudit(req, status === "cancelled" ? "cancelled_booking" : "rescheduled_booking", "booking", String(updated.id));
+    const automationEvent = status === "cancelled" ? "booking_cancelled" : publicChangesSlot ? "booking_rescheduled" : null;
+    if (automationEvent) await runBookingAutomations(automationEvent, updated).catch((automationError) => req.log.warn({ err: automationError }, "Public booking automation pass failed"));
     const releasedTime = status === "cancelled" || (preferredDate && preferredDate !== current.preferredDate) || (preferredTime && preferredTime !== current.preferredTime);
     if (releasedTime && current.status !== "waitlisted") {
       await promoteWaitlistForSlot(current.preferredDate, current.preferredTime, current.id).catch((waitlistError) => req.log.error({ err: waitlistError }, "Waitlist promotion after public booking change failed"));
@@ -562,6 +566,7 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
     }
     const [created] = await db.insert(bookingsTable).values({ confirmationCode: await createConfirmationCode(), clientAccountId: await resolveClientAccountId(phone), clientName, phone, reason, preferredDate, preferredTime, status, priority: status === "waitlisted" ? priority : 1, claimedBy: status === "claimed" ? staffSession?.name ?? null : null, sessionNotes: sessionNotes ?? null }).returning();
     await notifyBooking(created, "booking_confirmation");
+    await runBookingAutomations("booking_created", created).catch((automationError) => req.log.warn({ err: automationError }, "Booking automation pass failed"));
     res.status(201).json(serializeBooking(created));
   } catch (err) {
     req.log.error({ err }, "Failed to create staff booking");
@@ -694,6 +699,8 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
     const [updated] = await db.update(bookingsTable).set(updates).where(eq(bookingsTable.id, id)).returning();
     if (status === "cancelled") await notifyBooking(updated, "cancellation");
     else if (preferredDate || preferredTime) await notifyBooking(updated, "reschedule");
+    const automationEvent = status === "cancelled" ? "booking_cancelled" : status === "completed" ? "booking_completed" : status === "no_show" ? "booking_no_show" : (preferredDate || preferredTime) ? "booking_rescheduled" : null;
+    if (automationEvent) await runBookingAutomations(automationEvent, updated).catch((automationError) => req.log.warn({ err: automationError }, "Staff booking automation pass failed"));
     const releasedTime = status === "cancelled" || status === "waitlisted" || (preferredDate && preferredDate !== current.preferredDate) || (preferredTime && preferredTime !== current.preferredTime);
     if (releasedTime && current.status !== "waitlisted") {
       await promoteWaitlistForSlot(current.preferredDate, current.preferredTime, current.id).catch((waitlistError) => req.log.error({ err: waitlistError }, "Waitlist promotion after staff booking change failed"));

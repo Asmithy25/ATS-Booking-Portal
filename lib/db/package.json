@@ -8,7 +8,7 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
-    "push": "drizzle-kit push --config ./drizzle.config.ts",
+    "push": "if [ \"$NODE_ENV\" = \"production\" ] || [ \"$RENDER\" = \"true\" ]; then if [ \"$ALLOW_PRODUCTION_SCHEMA_PUSH\" = \"true\" ]; then drizzle-kit push --config ./drizzle.config.ts; else echo \"Skipping automatic production schema push. Use reviewed migrations; set ALLOW_PRODUCTION_SCHEMA_PUSH=true only for an explicitly reviewed maintenance window.\"; fi; else drizzle-kit push --config ./drizzle.config.ts; fi",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },
   "dependencies": {

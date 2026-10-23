@@ -105,6 +105,7 @@ export default function Home() {
   const [confirmationCode, setConfirmationCode] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [publicExperience, setPublicExperience] = useState<any>(null);
+  const [previewBrand, setPreviewBrand] = useState<{primaryColor?:string;secondaryColor?:string;accentColor?:string}|null>(null);
   const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
   useEffect(() => {
@@ -129,6 +130,7 @@ export default function Home() {
           const raw = localStorage.getItem('aydens-preview-draft');
           const draft = raw ? JSON.parse(raw) : null;
           if (!draft) { setPublicExperience(value); return; }
+          setPreviewBrand(draft.brand && typeof draft.brand === 'object' ? draft.brand : null);
           setPublicExperience({
             ...value,
             practice: { ...value.practice, ...(draft.practice ?? {}) },
@@ -263,7 +265,7 @@ export default function Home() {
   }
 
   return (
-      <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(websiteCustomizationEnabled ? settings : undefined)}>
+      <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(previewMode && previewBrand ? previewBrand : websiteCustomizationEnabled ? settings : undefined)}>
       <PublicNavbar />
       <PracticeStatus settings={settings} remote={publicExperience?.practice} />
       <AydensExperienceLayer seasonal={publicExperience?.seasonal} experience={publicExperience?.experience} />

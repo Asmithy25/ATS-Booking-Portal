@@ -12,6 +12,7 @@ import {
   useCreateStaffBooking,
   type StaffBookingInput,
   type Booking,
+  customFetch,
 } from '@workspace/api-client-react';
 
 import {
@@ -36,7 +37,7 @@ import LiveSessionPanel, { type LiveSession } from '@/components/LiveSessionPane
 import {
   Loader2, Trash2, CheckCircle2, XCircle, UserPlus, Clock, ArrowRight,
   StickyNote, ChevronDown, ChevronUp, CalendarDays, Hash, Plus, Copy, CheckCheck,
-  Search, SlidersHorizontal, AlertTriangle,
+  Search, SlidersHorizontal, AlertTriangle, Download, Save,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -62,6 +63,10 @@ type BookingUpdatePayload = {
   businessHoursConfirmationToken?: string;
 };
 
+type SavedBookingView = { id: string; name: string; activeTab: string; selectedDate: string; datePreset: "all" | "today" | "upcoming"; searchTerm: string };
+
+const SAVED_BOOKING_VIEWS_KEY = "aws-booking-saved-views-v1";
+
 type BypassConfirmation = {
   token: string;
   action: 'create' | 'update';
@@ -79,6 +84,13 @@ export default function Bookings() {
   const [selectedDate, setSelectedDate] = useState('');
   const [datePreset, setDatePreset] = useState<'all' | 'today' | 'upcoming'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [savedViewName, setSavedViewName] = useState('');
+  const [selectedBookingIds, setSelectedBookingIds] = useState<number[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<'pending' | 'claimed' | 'completed' | 'cancelled' | 'no_show' | 'waitlisted'>('claimed');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [savedViews, setSavedViews] = useState<SavedBookingView[]>(() => {
+    try { const raw = typeof window !== 'undefined' ? window.localStorage.getItem(SAVED_BOOKING_VIEWS_KEY) : null; const parsed = raw ? JSON.parse(raw) : []; return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string' && typeof item.name === 'string') : []; } catch { return []; }
+  });
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [notesDraft, setNotesDraft] = useState<Record<number, string>>({});
   const [rescheduleMode, setRescheduleMode] = useState<Record<number, boolean>>({});
@@ -234,9 +246,74 @@ export default function Bookings() {
       .map((booking) => booking.phone),
   ).size;
 
+  const toggleBookingSelection = (id: number, checked: boolean) => {
+    setSelectedBookingIds((current) => checked ? Array.from(new Set([...current, id])) : current.filter((value) => value !== id));
+  };
+
+  const toggleAllFilteredBookings = (checked: boolean) => {
+    const visibleIds = filteredBookings.map((booking) => booking.id);
+    setSelectedBookingIds((current) => checked ? Array.from(new Set([...current, ...visibleIds])) : current.filter((id) => !visibleIds.includes(id)));
+  };
+
+  const applyBulkStatus = async () => {
+    const ids = selectedBookingIds.filter((id) => filteredBookings.some((booking) => booking.id === id));
+    if (!ids.length || bulkBusy) return;
+    const statusNames: Record<string, string> = { pending: "Pending", claimed: "Scheduled", completed: "Completed", cancelled: "Cancelled", no_show: "No-show", waitlisted: "Waitlisted" };
+    if (!window.confirm("Apply “" + statusNames[bulkStatus] + "” to " + ids.length + " selected booking(s)? Active sessions and other invalid transitions will be rejected by the server.")) return;
+    setBulkBusy(true);
+    try {
+      const results = await Promise.allSettled(ids.map((id) => customFetch("/api/bookings/" + id, { method: "PATCH", body: JSON.stringify({ status: bulkStatus }), responseType: "json" })));
+      const succeeded = results.filter((result) => result.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      setSelectedBookingIds((current) => current.filter((id) => !ids.includes(id) || results[ids.indexOf(id)]?.status === "rejected"));
+      await queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: getGetBookingStatsQueryKey() });
+      toast({ title: "Bulk update finished", description: succeeded + " updated" + (failed ? "; " + failed + " rejected or failed. Active sessions and invalid transitions are protected." : ".") });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Bulk update failed", description: error instanceof Error ? error.message : "Refresh and try again." });
+    } finally { setBulkBusy(false); }
+  };
+
   const setDateFilter = (preset: 'all' | 'today' | 'upcoming') => {
     setDatePreset(preset);
     setSelectedDate('');
+  };
+
+  useEffect(() => {
+    try { window.localStorage.setItem(SAVED_BOOKING_VIEWS_KEY, JSON.stringify(savedViews)); } catch { /* Saved views are an optional browser preference. */ }
+  }, [savedViews]);
+
+  const saveCurrentView = () => {
+    const name = savedViewName.trim();
+    if (!name) { toast({ variant: 'destructive', title: 'Name this saved view first.' }); return; }
+    const view: SavedBookingView = { id: String(Date.now()), name: name.slice(0, 60), activeTab, selectedDate, datePreset, searchTerm };
+    setSavedViews((current) => [view, ...current.filter((item) => item.name.toLowerCase() !== view.name.toLowerCase())].slice(0, 20));
+    setSavedViewName('');
+    toast({ title: 'Booking view saved', description: 'Your filters and search are saved in this browser.' });
+  };
+
+  const applySavedView = (id: string) => {
+    const view = savedViews.find((item) => item.id === id);
+    if (!view) return;
+    setActiveTab(view.activeTab);
+    setSelectedDate(view.selectedDate);
+    setDatePreset(view.datePreset);
+    setSearchTerm(view.searchTerm);
+    toast({ title: 'Saved view applied', description: view.name });
+  };
+
+  const exportFilteredBookings = () => {
+    const values = [
+      ['Client', 'Phone', 'Confirmation code', 'Date', 'Time', 'Status', 'Assigned staff', 'Priority', 'Created at'],
+      ...filteredBookings.map((booking) => [booking.clientName, booking.phone, booking.confirmationCode, booking.preferredDate, booking.preferredTime, booking.status, booking.claimedBy ?? '', booking.priority, booking.createdAt]),
+    ];
+    const csv = values.map((row) => row.map((value) => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'aws-bookings-' + format(new Date(), 'yyyy-MM-dd') + '.csv';
+    document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+    toast({ title: 'Bookings exported', description: filteredBookings.length + ' filtered records were exported to CSV.' });
   };
 
   const handleStatusUpdate = (id: number, status: 'claimed' | 'completed' | 'cancelled' | 'no_show' | 'waitlisted') => {
@@ -801,6 +878,26 @@ export default function Bookings() {
                  Showing <span className="font-semibold text-foreground">{filteredBookings.length}</span> of {bookings?.length ?? 0}
                </span>
              </div>
+             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/[.04] p-3">
+               <span className="text-sm font-medium">{selectedBookingIds.filter((id) => filteredBookings.some((booking) => booking.id === id)).length} selected</span>
+               <label htmlFor="bulk-booking-status" className="text-xs text-muted-foreground">Set status</label>
+               <select id="bulk-booking-status" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value as typeof bulkStatus)} className="h-9 rounded-lg border border-input bg-background px-2 text-sm">
+                 <option value="pending">Pending</option><option value="claimed">Scheduled</option><option value="waitlisted">Waitlisted</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="no_show">No-show</option>
+               </select>
+               <Button type="button" size="sm" onClick={() => void applyBulkStatus()} disabled={bulkBusy || selectedBookingIds.length === 0}>{bulkBusy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="mr-1.5 h-3.5 w-3.5" />}Apply to selected</Button>
+               {selectedBookingIds.length > 0 && <Button type="button" size="sm" variant="ghost" onClick={() => setSelectedBookingIds([])}>Clear selection</Button>}
+             </div>
+             <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
+               <label className="text-xs font-semibold text-muted-foreground" htmlFor="saved-booking-view">Saved views</label>
+               <select id="saved-booking-view" defaultValue="" onChange={(event) => { applySavedView(event.target.value); event.target.value = ''; }} className="h-9 max-w-full rounded-lg border border-input bg-background px-2 text-sm">
+                 <option value="">Load saved view…</option>
+                 {savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}
+               </select>
+               <Input aria-label="Saved view name" placeholder="Name this view" value={savedViewName} onChange={(event) => setSavedViewName(event.target.value)} className="h-9 w-36" maxLength={60} />
+               <Button type="button" size="sm" variant="outline" onClick={saveCurrentView} disabled={!savedViewName.trim()}><Save className="mr-1.5 h-3.5 w-3.5" />Save view</Button>
+               <Button type="button" size="sm" variant="outline" onClick={exportFilteredBookings}><Download className="mr-1.5 h-3.5 w-3.5" />Export CSV</Button>
+               {savedViews.length > 0 && <Button type="button" size="sm" variant="ghost" onClick={() => { if (window.confirm('Remove all saved views from this browser?')) { setSavedViews([]); toast({ title: 'Saved views cleared' }); } }}>Clear saved</Button>}
+             </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -808,6 +905,7 @@ export default function Bookings() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40px]"></TableHead>
+                  <TableHead className="w-[40px]"><input type="checkbox" aria-label="Select all filtered bookings" checked={filteredBookings.length > 0 && filteredBookings.every((booking) => selectedBookingIds.includes(booking.id))} onChange={(event) => toggleAllFilteredBookings(event.target.checked)} className="h-4 w-4 accent-primary" /></TableHead>
                   <TableHead>Client</TableHead>
                   <TableHead>Confirmation Code</TableHead>
                   <TableHead>Date / Time</TableHead>
@@ -819,7 +917,7 @@ export default function Bookings() {
               <TableBody>
                 {filteredBookings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                        {selectedDate ? `No ${activeTab === 'all' ? '' : `${activeTab} `}bookings on ${format(parseISO(selectedDate), 'MMMM d, yyyy')}.` : 'No bookings found for this filter.'}
                     </TableCell>
                   </TableRow>
@@ -841,6 +939,9 @@ export default function Bookings() {
                           >
                             {expandedRow === b.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </Button>
+                        </TableCell>
+                        <TableCell>
+                          <input type="checkbox" aria-label={"Select booking " + b.confirmationCode} checked={selectedBookingIds.includes(b.id)} onChange={(event) => toggleBookingSelection(b.id, event.target.checked)} className="h-4 w-4 accent-primary" />
                         </TableCell>
 
                         <TableCell>
@@ -974,7 +1075,7 @@ export default function Bookings() {
                       {/* Expanded detail row */}
                       {expandedRow === b.id && (
                         <TableRow className="bg-muted/30">
-                          <TableCell colSpan={7} className="p-0">
+                          <TableCell colSpan={8} className="p-0">
                             <div className="p-6 border-t border-border space-y-6">
 
                               {/* Reason + Notes */}
