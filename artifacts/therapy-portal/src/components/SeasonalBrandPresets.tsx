@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, Check, RefreshCw, Leaf, Snowflake, Sun, Flower2, Sparkles } from "lucide-react";
+import { Loader2, Palette, Check, RefreshCw, Undo2, Leaf, Snowflake, Sun, Flower2, Sparkles } from "lucide-react";
 
 type LogoAsset = {
   id: number;
@@ -131,6 +131,8 @@ const PRESETS: PalettePreset[] = [
 ];
 
 const MAPPING_KEY = "aws-seasonal-brand-logo-map-v1";
+const UNDO_KEY = "aws-seasonal-brand-undo-v1";
+type PreviousBranding = { primaryColor: string; secondaryColor: string; accentColor: string; logoUrl: string };
 
 function readMappings(): Record<string, string> {
   try {
@@ -149,6 +151,10 @@ export default function SeasonalBrandPresets() {
   const [busyPreset, setBusyPreset] = useState<string | null>(null);
   const [selectedLogo, setSelectedLogo] = useState<Record<string, string>>(() => readMappings());
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [previousBranding, setPreviousBranding] = useState<PreviousBranding | null>(() => {
+    try { const raw = window.localStorage.getItem(UNDO_KEY); return raw ? JSON.parse(raw) as PreviousBranding : null; } catch { return null; }
+  });
+  const [undoBusy, setUndoBusy] = useState(false);
 
   const seasonalAssets = useMemo(
     () => assets.filter((asset) => asset.category === "seasonal" || /fall|autumn|halloween|christmas|winter|spring|summer|holiday|valentine|new year/i.test([asset.name, asset.notes, ...(asset.tags || [])].join(" "))),
@@ -175,10 +181,40 @@ export default function SeasonalBrandPresets() {
     }
   };
 
+  const undoLastPalette = async () => {
+    if (!previousBranding || undoBusy) return;
+    setUndoBusy(true);
+    try {
+      await customFetch("/api/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(previousBranding),
+        responseType: "json",
+      });
+      await queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
+      setActivePreset(null);
+      setPreviousBranding(null);
+      try { window.localStorage.removeItem(UNDO_KEY); } catch { /* No-op. */ }
+      toast({ title: "Previous website palette restored", description: "The last palette change was undone." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Could not undo palette", description: error instanceof Error ? error.message : "Try again." });
+    } finally { setUndoBusy(false); }
+  };
+
   const applyPreset = async (preset: PalettePreset) => {
     setBusyPreset(preset.id);
     try {
-      // Save the palette first. The API update is additive and does not touch appointments or client records.
+      const current = await customFetch<any>("/api/settings", { responseType: "json" });
+      const prior: PreviousBranding = {
+        primaryColor: /^#[0-9a-f]{6}$/i.test(current?.primaryColor || "") ? current.primaryColor : "#C85E09",
+        secondaryColor: /^#[0-9a-f]{6}$/i.test(current?.secondaryColor || "") ? current.secondaryColor : "#F3A444",
+        accentColor: /^#[0-9a-f]{6}$/i.test(current?.accentColor || "") ? current.accentColor : "#F2C078",
+        logoUrl: typeof current?.logoUrl === "string" ? current.logoUrl : "",
+      };
+      setPreviousBranding(prior);
+      try { window.localStorage.setItem(UNDO_KEY, JSON.stringify(prior)); } catch { /* Undo remains available until this page closes. */ }
+      // Save the palette first. This changes only website branding; appointments and client data are untouched.
       await customFetch("/api/settings", {
         method: "PUT",
         credentials: "include",
@@ -279,7 +315,10 @@ export default function SeasonalBrandPresets() {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
           <p className="max-w-2xl text-xs leading-5 text-muted-foreground">Need a Christmas or campaign logo? Upload it once in Logo Library and select it above. The preset remembers your chosen pairing in this browser; the applied website palette and logo are stored by AWS.</p>
-          <Button type="button" variant="outline" onClick={() => { setSelectedLogo(readMappings()); setActivePreset(null); }}><RefreshCw className="mr-2 h-4 w-4" />Refresh saved pairings</Button>
+          <div className="flex flex-wrap gap-2">
+            {previousBranding && <Button type="button" variant="outline" onClick={() => void undoLastPalette()} disabled={undoBusy}>{undoBusy?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Undo2 className="mr-2 h-4 w-4"/>}Undo last palette</Button>}
+            <Button type="button" variant="outline" onClick={() => { setSelectedLogo(readMappings()); setActivePreset(null); }}><RefreshCw className="mr-2 h-4 w-4" />Refresh saved pairings</Button>
+          </div>
         </div>
       </CardContent>
     </Card>
