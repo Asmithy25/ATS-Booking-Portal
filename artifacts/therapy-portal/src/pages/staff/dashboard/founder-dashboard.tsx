@@ -4,9 +4,9 @@ import { customFetch } from '@workspace/api-client-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, CalendarDays, CheckCircle2, Gauge, HeartHandshake, Megaphone, ShieldCheck, UsersRound } from 'lucide-react';
+import { Activity, BarChart3, CalendarDays, CheckCircle2, Gauge, HeartHandshake, Megaphone, ShieldCheck, UsersRound } from 'lucide-react';
 
-type Summary = { todayAppointments: number; upcomingAppointments: any[]; bookingTotal: number; clients: number; completed: number; cancelled: number; feedbackCount: number; averageRating: number | null; openTeamItems: number; unreadNotifications: number; activeSchedules: number; staffCount: number };
+type Summary = { todayAppointments: number; upcomingAppointments: any[]; bookingTotal: number; clients: number; completed: number; cancelled: number; feedbackCount: number; averageRating: number | null; openTeamItems: number; unreadNotifications: number; activeSchedules: number; activeSessions?: number; staffCount: number };
 
 export default function FounderDashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -27,6 +27,7 @@ export default function FounderDashboard() {
     ['Schedules', summary.activeSchedules, 'active practice modes', Gauge],
     ['Staff', summary.staffCount, 'people in workspace', ShieldCheck],
     ['Bookings', summary.bookingTotal, 'booking records', BarChart3],
+    ['Live sessions', summary.activeSessions ?? 0, 'in progress', Activity],
   ] as const;
 
   return (
