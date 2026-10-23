@@ -7,13 +7,6 @@ const FALL_THEME = {
   accent: '#5C2B12',
 };
 
-function preserveCustomOrUseHalloween(value: string | undefined, previousDefault: string, halloweenDefault: string) {
-  if (!value || !HEX_COLOR.test(value) || value.toLowerCase() === previousDefault.toLowerCase()) {
-    return halloweenDefault;
-  }
-  return value;
-}
-
 export function hexToHslValue(value: string, fallback: string): string {
   const hex = HEX_COLOR.test(value) ? value : fallback;
   const red = parseInt(hex.slice(1, 3), 16) / 255;
@@ -44,9 +37,12 @@ export function getThemeStyle(settings?: {
   secondaryColor?: string;
   accentColor?: string;
 }): React.CSSProperties {
-  const primary = [settings?.primaryColor].some((value) => !value || ['#8F4A34', '#7B4A2F'].includes(value.toUpperCase())) ? FALL_THEME.primary : settings!.primaryColor!;
-  const secondary = [settings?.secondaryColor].some((value) => !value || ['#B58C50', '#C38A4A'].includes(value.toUpperCase())) ? FALL_THEME.secondary : settings!.secondaryColor!;
-  const accent = [settings?.accentColor].some((value) => !value || ['#C4CEB5', '#D9B7A2'].includes(value.toUpperCase())) ? FALL_THEME.accent : settings!.accentColor!;
+  const savedPrimary = settings?.primaryColor;
+  const savedSecondary = settings?.secondaryColor;
+  const savedAccent = settings?.accentColor;
+  const primary = savedPrimary && HEX_COLOR.test(savedPrimary) && !['#8F4A34', '#7B4A2F'].includes(savedPrimary.toUpperCase()) ? savedPrimary : FALL_THEME.primary;
+  const secondary = savedSecondary && HEX_COLOR.test(savedSecondary) && !['#B58C50', '#C38A4A'].includes(savedSecondary.toUpperCase()) ? savedSecondary : FALL_THEME.secondary;
+  const accent = savedAccent && HEX_COLOR.test(savedAccent) && !['#C4CEB5', '#D9B7A2'].includes(savedAccent.toUpperCase()) ? savedAccent : FALL_THEME.accent;
   return {
     '--primary': hexToHslValue(primary, '22 91% 41%'),
     '--secondary': hexToHslValue(secondary, '35 86% 61%'),
