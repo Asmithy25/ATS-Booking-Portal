@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { customFetch, useGetAuthMe } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { customFetch, useGetAuthMe, getListBookingsQueryKey, getGetBookingStatsQueryKey } from '@workspace/api-client-react';
 import { Activity, CheckCircle2, Clock3, Loader2, ShieldAlert, Timer, UserRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ function sameStaffName(left: unknown, right: unknown) {
 
 export default function LiveSessionPanel({ scope = 'mine', showEmpty = false, onSessionsChange }: Props) {
   const { data: auth } = useGetAuthMe();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +104,10 @@ export default function LiveSessionPanel({ scope = 'mine', showEmpty = false, on
         description: endTarget.clientName + "'s session has been marked complete.",
       });
       setEndTarget(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetBookingStatsQueryKey() }),
+      ]);
       await load();
     } catch (error) {
       toast({
