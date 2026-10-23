@@ -456,7 +456,7 @@ router.get("/health", requireAuth, async (req, res): Promise<void> => {
   }
   await ensureWorkspaceTables().catch(() => undefined);
   const tableChecks = [];
-  for (const table of ["bookings", "client_accounts", "announcements", "collaboration_items", "staff_accounts"]) {
+  for (const table of ["bookings", "booking_sessions", "client_accounts", "announcements", "collaboration_items", "staff_accounts"]) {
     try {
       const result = await db.execute(sql.raw("select count(*)::int as count from " + table));
       tableChecks.push({ name: table, status: "healthy", count: Number(rowsOf(result)[0]?.count ?? 0) });
