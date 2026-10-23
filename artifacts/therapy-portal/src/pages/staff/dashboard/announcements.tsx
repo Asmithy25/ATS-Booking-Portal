@@ -56,6 +56,18 @@ const emptyForm = {
   signatureImageUrl: '',
 };
 
+const ANNOUNCEMENT_DRAFT_KEY = "aws-announcement-editor-draft-v1";
+
+function restoreAnnouncementDraft() {
+  try {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(ANNOUNCEMENT_DRAFT_KEY) : null;
+    if (!raw) return emptyForm;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return emptyForm;
+    return { ...emptyForm, ...parsed };
+  } catch { return emptyForm; }
+}
+
 function localDateTime(value?: string) {
   if (!value) return '';
   const date = new Date(value);
@@ -81,7 +93,8 @@ function scheduleDate(item: Announcement) {
 export default function Announcements() {
   const { toast } = useToast();
   const [items, setItems] = useState<Announcement[]>([]);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(restoreAnnouncementDraft);
+  const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingItems, setLoadingItems] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -102,6 +115,19 @@ export default function Announcements() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    try {
+      // Keep ordinary copy and settings locally; embedded image data can exceed browser storage limits.
+      const draft = {
+        ...form,
+        imageUrl: form.imageUrl.startsWith("data:") ? "" : form.imageUrl,
+        signatureImageUrl: form.signatureImageUrl.startsWith("data:") ? "" : form.signatureImageUrl,
+      };
+      window.localStorage.setItem(ANNOUNCEMENT_DRAFT_KEY, JSON.stringify(draft));
+      setDraftSaved(true);
+    } catch { setDraftSaved(false); }
+  }, [form]);
 
   const setField = (key: string, value: unknown) => setForm((current) => ({ ...current, [key]: value }));
   const reset = () => setForm(emptyForm);
@@ -239,7 +265,7 @@ export default function Announcements() {
       </div>
       <div className="grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
         <Card className="rounded-2xl">
-          <CardHeader><CardTitle>{form.id ? 'Modify announcement' : 'Create announcement'}</CardTitle><CardDescription>Client updates can be categorized and scheduled without changing the rest of the site.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>{form.id ? 'Modify announcement' : 'Create announcement'}</CardTitle><CardDescription>Client updates can be categorized and scheduled without changing the rest of the site. {draftSaved ? 'Editor draft autosaved in this browser.' : 'Local draft storage is unavailable in this browser.'}</CardDescription></CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={save}>
               <div className="grid gap-4 sm:grid-cols-2">
