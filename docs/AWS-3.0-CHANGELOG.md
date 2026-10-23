@@ -46,6 +46,7 @@
 **Release date:** October 23, 2026
 
 - Changed the Branding Runtime fallback API origin from the retired Railway API URL to the current Render API URL: `https://aws-api-437b.onrender.com`.
+- Disabled caching for the active live-session status endpoint and its polling request. Recent logs showed `304 Not Modified` responses; because these responses have no JSON body, the session panel could interpret them as an empty session list.
 - Changed the Logo Library API defaults so generated manifest URLs, PWA start/scope URLs, and stored-logo asset URLs default to the current Render API/site origins rather than Railway:
   - API: `https://aws-api-437b.onrender.com`
   - Website: `https://awsbookingportal.onrender.com`
@@ -53,7 +54,7 @@
 - This removes the known hard-coded Railway fallback that caused the browser to request `/api/logo-library/manifest.webmanifest` from the old host and hit a CORS failure.
 
 ### Live Session 404 investigation
-The source contains `GET /api/bookings/sessions/active` and the current Render request logs showed repeated **304 Not Modified** responses for that endpoint, with no matching 404 in the recent API logs examined. A 304 is a normal conditional-cache response and confirms the route is being reached. If a 404 continues after the hotfix deploy, hard-refresh the staff portal and inspect the newest Network request (Request URL, status, and response body) so the discrepancy can be reproduced against the active deployment instead of relying on an older console entry.
+The source contains `GET /api/bookings/sessions/active`. Recent Render request logs showed repeated **304 Not Modified** responses for that route and no matching 404 in the recent API logs examined. The route was reachable, but a 304 has no JSON body and could be interpreted by the session panel as an empty result. The hotfix disables caching for this poll. If a 404 remains after deploy, hard-refresh the staff portal and inspect the newest Network request (Request URL, status, and response body) so the discrepancy can be reproduced against the active deployment rather than relying on an older console entry.
 
 ## Deployment notes
 - The Render frontend and API deploy from the `main` branch.
