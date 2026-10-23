@@ -103,12 +103,31 @@ async function upsertRowsById(tx: any, table: any, rows: BackupRow[]) {
   return count;
 }
 
+const SQL_TABLE_NAMES: Record<string, string> = {
+  settings: "settings",
+  bookings: "bookings",
+  clientAccounts: "client_accounts",
+  staffAccounts: "staff_accounts",
+  announcements: "announcements",
+  auditLogs: "audit_logs",
+  supportThreads: "support_threads",
+  supportMessages: "support_messages",
+  wellnessResources: "wellness_resources",
+  wellnessAssignments: "wellness_assignments",
+  messageTemplates: "message_templates",
+  collaborationItems: "collaboration_items",
+  clientTemplates: "client_templates",
+  clientNotifications: "client_notifications",
+  sessionFeedback: "session_feedback",
+};
+
 async function resetSequences(tx: any, tableNames: readonly string[]) {
   for (const tableName of tableNames) {
-    // PostgreSQL folds unquoted identifiers to lowercase. Pass the exact quoted
-    // table name so camelCase tables (for example, "clientAccounts") resolve
-    // their serial sequence correctly.
-    await tx.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('"${tableName}"', 'id'), COALESCE((SELECT MAX(id) FROM "${tableName}"), 1), (SELECT MAX(id) IS NOT NULL FROM "${tableName}"))`));
+    const sqlTableName = SQL_TABLE_NAMES[tableName];
+    if (!sqlTableName) continue;
+    // Backup keys use camelCase, but PostgreSQL tables use the schema's
+    // actual snake_case names (for example, client_accounts).
+    await tx.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('"public"."${sqlTableName}"', 'id'), COALESCE((SELECT MAX(id) FROM "public"."${sqlTableName}"), 1), (SELECT MAX(id) IS NOT NULL FROM "public"."${sqlTableName}"))`));
   }
 }
 
