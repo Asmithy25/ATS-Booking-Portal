@@ -23,6 +23,9 @@ async function prepareDatabase() {
   // Keep existing deployments compatible without requiring a manual migration step.
   await db.execute(sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS homepage_content jsonb NOT NULL DEFAULT '{}'::jsonb`);
   await db.execute(sql`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb`);
+  await db.execute(sql`UPDATE settings SET primary_color = '#C85E09' WHERE lower(primary_color) IN ('#7b4a2f', '#8f4a34')`);
+  await db.execute(sql`UPDATE settings SET secondary_color = '#F3A444' WHERE lower(secondary_color) IN ('#c38a4a', '#b58c50')`);
+  await db.execute(sql`UPDATE settings SET accent_color = '#5C2B12' WHERE lower(accent_color) IN ('#d9b7a2', '#c4ceb5')`);
   // AWS 3.0 live sessions are additive and keep existing booking records intact.
   await db.execute(sql`CREATE TABLE IF NOT EXISTS booking_sessions (
     id serial PRIMARY KEY,
