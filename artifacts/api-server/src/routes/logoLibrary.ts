@@ -5,8 +5,8 @@ import { getStaffAccess, requireAuth } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 
 const router = Router();
-const API_ORIGIN = (process.env.PUBLIC_API_ORIGIN || "https://ats-api-live-production.up.railway.app").replace(/\/+$/, "");
-const APP_ORIGIN = (process.env.PUBLIC_APP_ORIGIN || "https://awsbookingportal.up.railway.app").replace(/\/+$/, "");
+const API_ORIGIN = (process.env.PUBLIC_API_ORIGIN || "https://aws-api-437b.onrender.com").replace(/\/+$/, "");
+const APP_ORIGIN = (process.env.PUBLIC_APP_ORIGIN || "https://awsbookingportal.onrender.com").replace(/\/+$/, "");
 const MAX_BYTES = 5 * 1024 * 1024;
 const CATEGORIES = new Set(["primary", "seasonal", "favicon", "social", "other"]);
 const APPLY_TARGETS = new Set(["siteLogo", "favicon", "appleTouchIcon", "pwaIcon"]);

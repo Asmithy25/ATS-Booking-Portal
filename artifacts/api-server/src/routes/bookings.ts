@@ -570,6 +570,9 @@ router.post("/staff", requirePermission("editAppointments"), async (req, res) =>
 });
 
 router.get("/sessions/active", requirePermission("viewClients"), async (req, res) => {
+  // Session polling must always return a JSON array. Avoid conditional-cache 304s,
+  // which have no response body and are interpreted as an empty list by clients.
+  res.setHeader("Cache-Control", "no-store");
   try {
     const result = await db.execute(sql`
       SELECT

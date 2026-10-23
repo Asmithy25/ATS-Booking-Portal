@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useGetSettings } from "@workspace/api-client-react";
 
-const FALLBACK_API_ORIGIN = "https://ats-api-live-production.up.railway.app";
+const FALLBACK_API_ORIGIN = "https://aws-api-437b.onrender.com";
 
 function syncLink(rel: string, href: string, type?: string, crossOrigin?: "anonymous" | "use-credentials") {
   let link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
