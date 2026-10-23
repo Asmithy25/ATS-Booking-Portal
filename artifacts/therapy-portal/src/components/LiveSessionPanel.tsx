@@ -53,7 +53,7 @@ export default function LiveSessionPanel({ scope = 'mine', showEmpty = false, on
 
   const load = useCallback(async () => {
     try {
-      const response = await customFetch<LiveSession[]>('/api/bookings/sessions/active');
+      const response = await customFetch<LiveSession[]>('/api/bookings/sessions/active', { cache: 'no-store' });
       const next = Array.isArray(response) ? response : [];
       setSessions(next);
       onSessionsChange?.(next);
