@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, Sun, Moon, Database } from 'lucide-react';
+import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, Sun, Moon, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -246,6 +246,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {((session.isAdmin || (session as any).permissions?.viewClientMessages === true)) && navItem('/staff/public-support', <MessageCircle className="h-4 w-4" />, 'Public Support')}
           {navItem('/staff/notifications', <Bell className="h-4 w-4" />, 'Notification center')}
           {session.isAdmin && navItem('/staff/delivery-settings', <Mail className="h-4 w-4" />, 'Email & SMS delivery')}
+          {session.isAdmin && navItem('/staff/notification-mission-control', <Send className="h-4 w-4" />, 'Notification Mission Control')}
            {navItem('/staff/team-chat', <MessageCircle className="h-4 w-4" />, 'Team chat')}
            {navItem('/staff/team', <UsersRound className="h-4 w-4" />, 'Team workspace')}
           {navItem('/staff/messages', <Mail className="h-4 w-4" />, 'Message templates')}
