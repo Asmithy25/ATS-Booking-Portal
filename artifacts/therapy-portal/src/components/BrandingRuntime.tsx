@@ -41,7 +41,10 @@ export default function BrandingRuntime() {
       themeMeta.name = "theme-color";
       document.head.appendChild(themeMeta);
     }
-    themeMeta.content = /^#[\da-f]{6}$/i.test(String(settings.primaryColor || "")) ? String(settings.primaryColor) : "#8F4A34";
+    const configuredPrimary = String(settings.primaryColor || "").trim();
+    themeMeta.content = /^#[\\da-f]{6}$/i.test(configuredPrimary) && configuredPrimary.toLowerCase() !== "#8f4a34"
+      ? configuredPrimary
+      : "#C85E09";
     document.title = settings.siteName || "Aydens Wellness Services";
   }, [settings]);
 
