@@ -677,7 +677,7 @@ export default function Settings() {
             <CardHeader className="flex flex-row items-start justify-between gap-4">
               <div>
                 <CardTitle>Homepage Content Command Center</CardTitle>
-                <CardDescription>Edit the public homepage without touching source code. Text, labels, buttons, contact copy, images, and the favicon all live here.</CardDescription>
+                <CardDescription>Edit the public homepage without touching source code. Text, labels, buttons, contact copy, images, and the favicon all live here. {homepageDraftSaved ? "Text edits are autosaved in this browser. Uploaded image data is not retained in the draft, so reselect an image after a reload if needed." : ""}</CardDescription>
               </div>
               <Button type="button" onClick={saveHomepageContent} disabled={homepageSaving}>
                 {homepageSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
