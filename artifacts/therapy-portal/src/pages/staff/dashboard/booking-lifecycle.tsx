@@ -17,7 +17,7 @@ const STAGES=[
 
 export default function BookingLifecycleExplorer(){
  const {data:auth}=useGetAuthMe();
- const {data:rawBookings=[],isLoading,error,refetch}=useListBookings();
+ const {data:rawBookings=[],isLoading,error,refetch}=useListBookings({query:{enabled:Boolean((auth as any)?.authenticated&&(auth as any)?.isAdmin)}});
  const bookings=(Array.isArray(rawBookings)?rawBookings:[]) as Booking[];
  const [stage,setStage]=useState<string>("pending");
  const counts=useMemo(()=>Object.fromEntries(STAGES.map((item)=>[item.key,bookings.filter((booking)=>String(booking.status)===item.key).length])),[bookings]);
