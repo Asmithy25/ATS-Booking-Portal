@@ -653,15 +653,15 @@ router.patch("/:id", requirePermission("editAppointments"), async (req, res) => 
   try {
     const [current] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id)).limit(1);
     if (!current) return res.status(404).json({ error: "Booking not found." });
-    if (status === "completed") {
-      const activeSession = rowsOf(await db.execute(sql`
-        SELECT booking_id FROM booking_sessions
-        WHERE booking_id = ${id} AND ended_at IS NULL
-        LIMIT 1
-      `));
-      if (activeSession.length) {
-        return res.status(409).json({ error: "This booking has an active live session. Use End Session and confirm the action before marking it complete." });
-      }
+    const activeSession = rowsOf(await db.execute(sql`
+      SELECT booking_id FROM booking_sessions
+      WHERE booking_id = ${id} AND ended_at IS NULL
+      LIMIT 1
+    `));
+    const changesLiveSession = Boolean(status && status !== "claimed") || Boolean(preferredDate || preferredTime) ||
+      (claimedBy !== undefined && claimedBy !== current.claimedBy);
+    if (activeSession.length && changesLiveSession) {
+      return res.status(409).json({ error: "This booking has an active live session. End the session from the Live Session Board and confirm the action before changing its status, assignment, or time." });
     }
     const requestedDate = preferredDate ?? current.preferredDate;
     const requestedTime = preferredTime ?? current.preferredTime;
