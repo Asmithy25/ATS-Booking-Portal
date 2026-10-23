@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   announcementsTable,
   auditLogsTable,
   bookingsTable,
+  bookingSessionsTable,
   clientAccountsTable,
   messageTemplatesTable,
   collaborationItemsTable,
@@ -954,6 +955,15 @@ router.patch("/client/bookings/:id", requireClientAuth, async (req, res): Promis
   }
   if (existing.status === "completed" || existing.status === "cancelled") {
     res.status(400).json({ error: `This appointment is already ${existing.status} and cannot be changed.` });
+    return;
+  }
+  const [activeClientSession] = await db.select({ id: bookingSessionsTable.id })
+    .from(bookingSessionsTable)
+    .where(and(eq(bookingSessionsTable.bookingId, existing.id), isNull(bookingSessionsTable.endedAt)))
+    .limit(1);
+  const clientChangesSlot = Boolean(preferredDate && preferredDate !== existing.preferredDate) || Boolean(preferredTime && preferredTime !== existing.preferredTime);
+  if (activeClientSession && (status === "cancelled" || clientChangesSlot)) {
+    res.status(409).json({ error: "This appointment has an active session. Please contact AWS staff to handle any changes after the session is ended." });
     return;
   }
   if (preferredDate || preferredTime) {
