@@ -432,3 +432,4 @@
 @media (prefers-reduced-motion: reduce) {
   .aws-glass-card, .aws-quick-link { transition: none; }
 }
+\n\n/* Staff preference: reduced motion can be enabled even when OS motion preference is not. */\n.ats-reduced-motion *,\n.ats-reduced-motion *::before,\n.ats-reduced-motion *::after {\n  animation-duration: .01ms !important;\n  animation-iteration-count: 1 !important;\n  transition-duration: .01ms !important;\n  scroll-behavior: auto !important;\n}\n
