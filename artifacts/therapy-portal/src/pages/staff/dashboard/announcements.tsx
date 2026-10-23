@@ -58,7 +58,9 @@ const emptyForm = {
 
 const ANNOUNCEMENT_DRAFT_KEY = "aws-announcement-editor-draft-v1";
 
-function restoreAnnouncementDraft() {
+type AnnouncementForm = typeof emptyForm;
+
+function restoreAnnouncementDraft(): AnnouncementForm {
   try {
     const raw = typeof window !== "undefined" ? window.localStorage.getItem(ANNOUNCEMENT_DRAFT_KEY) : null;
     if (!raw) return emptyForm;
@@ -93,7 +95,7 @@ function scheduleDate(item: Announcement) {
 export default function Announcements() {
   const { toast } = useToast();
   const [items, setItems] = useState<Announcement[]>([]);
-  const [form, setForm] = useState(restoreAnnouncementDraft);
+  const [form, setForm] = useState<AnnouncementForm>(restoreAnnouncementDraft);
   const [draftSaved, setDraftSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingItems, setLoadingItems] = useState(true);
@@ -129,7 +131,7 @@ export default function Announcements() {
     } catch { setDraftSaved(false); }
   }, [form]);
 
-  const setField = (key: string, value: unknown) => setForm((current) => ({ ...current, [key]: value }));
+  const setField = (key: string, value: unknown) => setForm((current: AnnouncementForm) => ({ ...current, [key]: value }) as AnnouncementForm);
   const reset = () => setForm(emptyForm);
 
   const upload = (key: 'imageUrl' | 'signatureImageUrl') => {
