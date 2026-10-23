@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, Sun, Moon, Database } from 'lucide-react';
+import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -266,6 +266,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/staff-directory', <UserRound className="h-4 w-4" />, 'Staff Directory')}
           {session.isAdmin && navItem('/staff/command-center', <Activity className="h-4 w-4" />, 'Command Center')}
           {session.isAdmin && navItem('/staff/forecast', <ChartNoAxesCombined className="h-4 w-4" />, 'Demand Forecast Lab')}
+          {session.isAdmin && navItem('/staff/booking-lifecycle', <GitBranch className="h-4 w-4" />, 'Booking Lifecycle Explorer')}
           {session.isAdmin && navItem('/staff/automation-studio', <Workflow className="h-4 w-4" />, 'Aurora Automation Studio')}
           {session.isAdmin && navItem('/staff/founder-dashboard', <Crown className="h-4 w-4" />, 'Founder Dashboard')}
           {navItem('/staff/system-health', <Activity className="h-4 w-4" />, 'System Health')}
