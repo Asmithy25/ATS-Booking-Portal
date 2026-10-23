@@ -24,7 +24,8 @@ const icons: Record<string, any> = {
 
 const FEATURES: Feature[] = [
   { type: 'feature', id: 'live-sessions', title: 'Live Session Mode', subtitle: 'See sessions in progress and safely confirm when one ends.', href: '/staff/bookings', keywords: 'ongoing session active start end live appointments timer' , permission: 'viewClients' },
-  { type: 'feature', id: 'bookings', title: 'Bookings & calendar', subtitle: 'Search appointments, claim sessions, reschedule and review history.', href: '/staff/bookings', keywords: 'appointment calendar schedule date time confirmation code' , permission: 'viewClients' },
+  { type: 'feature', id: 'bookings', title: 'Bookings & calendar', subtitle: 'Search appointments, claim sessions, reschedule and review history.', href: '/staff/bookings', keywords: 'appointment schedule date time confirmation code' , permission: 'viewClients' },
+  { type: 'feature', id: 'command-calendar', title: 'Command Calendar', subtitle: 'View appointments by day and filter by status or staff assignment.', href: '/staff/calendar', keywords: 'calendar month week day schedule timeline staff filters', permission: 'viewClients' },
   { type: 'feature', id: 'clients', title: 'Client directory', subtitle: 'Find client profiles and appointment history.', href: '/staff/clients', keywords: 'client directory phone email search profile' , permission: 'viewClients' },
   { type: 'feature', id: 'notifications', title: 'Notification Center', subtitle: 'Review staff alerts and customize notification preferences.', href: '/staff/notifications', keywords: 'alerts inbox notification preferences unread' },
   { type: 'feature', id: 'announcements', title: 'Announcements', subtitle: 'Publish internal team updates and manage existing notices.', href: '/staff/announcements', keywords: 'news bulletin banner team update post' , permission: 'postAnnouncements' },
@@ -100,7 +101,7 @@ export default function GlobalSearch() {
   return (
     <div className="max-w-5xl space-y-7">
       <div className="rounded-[1.5rem] border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-secondary/10 p-6 sm:p-8">
-        <div className="flex items-center gap-3 text-primary"><div className="rounded-xl bg-primary/10 p-3"><Search className="h-5 w-5" /></div><Badge variant="outline">AWS 3.1</Badge><span className="text-xs font-semibold uppercase tracking-[.18em]">Feature Search</span></div>
+        <div className="flex items-center gap-3 text-primary"><div className="rounded-xl bg-primary/10 p-3"><Search className="h-5 w-5" /></div><Badge variant="outline">AWS 3.2</Badge><span className="text-xs font-semibold uppercase tracking-[.18em]">Feature Search</span></div>
         <h1 className="mt-4 text-3xl font-semibold sm:text-4xl">Find it. Open it. Done.</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Search features, pages, settings, clients, bookings, announcements, team items, and staff. Results adapt to your staff permissions.</p>
         <div className="mt-4 inline-flex items-center gap-2 rounded-lg border bg-background/75 px-3 py-2 text-xs text-muted-foreground"><Command className="h-3.5 w-3.5" /> Press <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono">⌘ K</kbd> or <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono">Ctrl K</kbd> from anywhere in the staff workspace.</div>
