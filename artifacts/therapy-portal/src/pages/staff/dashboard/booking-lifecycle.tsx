@@ -22,7 +22,7 @@ export default function BookingLifecycleExplorer(){
  const [stage,setStage]=useState<string>("pending");
  const counts=useMemo(()=>Object.fromEntries(STAGES.map((item)=>[item.key,bookings.filter((booking)=>String(booking.status)===item.key).length])),[bookings]);
  const selected=useMemo(()=>bookings.filter((booking)=>String(booking.status)===stage).sort((a,b)=>String(a.preferredDate||"").localeCompare(String(b.preferredDate||""))),[bookings,stage]);
- if((auth as any)?.authenticated&&(auth as any)?.role!=="founder"&&(auth as any)?.role!=="manager") return <Card className="rounded-2xl"><CardHeader><CardTitle>Management access required</CardTitle><CardDescription>The lifecycle explorer summarizes operational booking records.</CardDescription></CardHeader></Card>;
+ if(!(auth as any)?.isAdmin) return <Card className="rounded-2xl"><CardHeader><CardTitle>Founder access required</CardTitle><CardDescription>The lifecycle explorer summarizes operational booking records and is limited to founder accounts.</CardDescription></CardHeader></Card>;
  const stageMeta=STAGES.find((item)=>item.key===stage)||STAGES[0];
  return <div className="mx-auto max-w-7xl space-y-6">
   <section className="rounded-[1.6rem] border border-primary/20 bg-gradient-to-br from-primary/[.13] via-card to-secondary/[.12] p-6 sm:p-8">
