@@ -1,4 +1,5 @@
 export * from "./bookings";
+export * from "./bookingSessions";
 export * from "./settings";
 export * from "./staffAccounts";
 export * from "./clientAccounts";
