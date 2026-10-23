@@ -4,7 +4,7 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const FALL_THEME = {
   primary: '#C85E09',
   secondary: '#F3A444',
-  accent: '#5C2B12',
+  accent: '#F2C078',
 };
 
 export function hexToHslValue(value: string, fallback: string): string {
@@ -46,7 +46,7 @@ export function getThemeStyle(settings?: {
   return {
     '--primary': hexToHslValue(primary, '22 91% 41%'),
     '--secondary': hexToHslValue(secondary, '35 86% 61%'),
-    '--accent': hexToHslValue(accent, '22 67% 22%'),
+    '--accent': hexToHslValue(accent, '36 82% 72%'),
     '--ring': hexToHslValue(primary, '22 91% 41%'),
   } as React.CSSProperties;
 }
