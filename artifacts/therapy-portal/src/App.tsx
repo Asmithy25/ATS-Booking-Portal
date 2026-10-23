@@ -11,6 +11,7 @@ const Login = lazy(() => import('@/pages/staff/login'));
 const StaffDashboardLayout = lazy(() => import('@/pages/staff/dashboard/layout'));
 const Welcome = lazy(() => import('@/pages/staff/dashboard/welcome'));
 const Bookings = lazy(() => import('@/pages/staff/dashboard/bookings'));
+const CommandCalendar = lazy(() => import('@/pages/staff/dashboard/command-calendar'));
 const Clients = lazy(() => import('@/pages/staff/dashboard/clients'));
 const Wellness = lazy(() => import('@/pages/staff/dashboard/wellness'));
 const Settings = lazy(() => import('@/pages/staff/dashboard/settings'));
@@ -62,6 +63,7 @@ function StaffRouter() {
         <Route path="/staff/dashboard" component={Welcome} />
         <Route path="/staff/welcome" component={Welcome} />
         <Route path="/staff/bookings" component={Bookings} />
+        <Route path="/staff/calendar" component={CommandCalendar} />
         <Route path="/staff/clients" component={Clients} />
         <Route path="/staff/wellness" component={Wellness} />
         <Route path="/staff/analytics" component={Analytics} />
