@@ -48,7 +48,7 @@ const TABLES = {
 } as const;
 
 const SCOPE_TABLES: Record<BackupScope, readonly string[]> = {
-  bookings: ["bookings"],
+  bookings: ["bookings", "bookingSessions"],
   settings: ["settings"],
   "site-data": ["bookings", "bookingSessions", "clientAccounts", "staffAccounts", "announcements", "auditLogs", "supportThreads", "supportMessages", "wellnessResources", "wellnessAssignments", "messageTemplates", "collaborationItems", "clientTemplates", "clientNotifications", "sessionFeedback"],
   everything: Object.keys(TABLES),
