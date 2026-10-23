@@ -16,6 +16,7 @@ import staffPreferencesRouter from "./staffPreferences";
 import workspaceRouter from "./workspace";
 import logoLibraryRouter from "./logoLibrary";
 import deliverySettingsRouter from "./deliverySettings";
+import automationStudioRouter from "./automationStudio";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use("/advanced", assistantRouter);
 router.use("/advanced", advancedRouter);
 router.use("/final", finalStaffRouter);
 router.use("/final/aurora", finalAuroraRouter);
+router.use("/automation-studio", automationStudioRouter);
 
 export default router;
