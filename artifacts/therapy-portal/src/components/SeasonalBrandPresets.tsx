@@ -258,7 +258,7 @@ export default function SeasonalBrandPresets() {
           primaryColor: preset.primary,
           secondaryColor: preset.secondary,
           accentColor: preset.accent,
-          ...(preset.logoBehavior === "fall-default" && !selectedLogo[preset.id] ? { logoUrl: "" } : {}),
+          ...(preset.id === "fall" && !assetId ? { logoUrl: new URL("/seasonal/aws-fall-logo.png", window.location.origin).toString() } : {}),
         }),
         responseType: "json",
       });
@@ -276,8 +276,8 @@ export default function SeasonalBrandPresets() {
       setActivePreset(preset.id);
       const logoNote = assetId
         ? " Your selected seasonal logo was applied too."
-        : preset.logoBehavior === "fall-default"
-          ? " The built-in Fall logo is selected."
+        : preset.id === "fall"
+          ? " The bundled Fall logo matching your uploaded brand asset was applied."
           : preset.logoBehavior === "auto-match"
             ? " No matching seasonal logo was found in Logo Library, so the current logo was kept. Upload or tag the matching logo to pair it automatically."
             : " Your current logo was kept; choose a seasonal logo below to pair one with this palette.";
@@ -312,6 +312,7 @@ export default function SeasonalBrandPresets() {
             const suggested = !hasExplicitPairing && preset.logoBehavior === "auto-match" ? matchingAssetForPreset(preset) : undefined;
             const logoId = hasExplicitPairing ? selectedLogo[preset.id] : String(suggested?.id || "");
             const matched = seasonalAssets.find((asset) => String(asset.id) === logoId);
+            const previewLogoUrl = matched?.assetUrl || (preset.id === "fall" ? "/seasonal/aws-fall-logo.png" : "");
             const busy = busyPreset === preset.id;
             return (
               <article key={preset.id} className={`flex flex-col rounded-2xl border p-4 transition-colors ${activePreset === preset.id ? "border-primary bg-primary/[0.045] ring-1 ring-primary/20" : "border-border bg-card"}`}>
@@ -342,6 +343,7 @@ export default function SeasonalBrandPresets() {
                     <option value="">{preset.logoBehavior === "fall-default" ? "Built-in Fall logo" : "Keep currently applied logo"}</option>
                     {seasonalAssets.map((asset) => <option key={asset.id} value={String(asset.id)}>{asset.name}</option>)}
                   </select>
+                  {previewLogoUrl && <div className="mt-3 flex h-20 items-center justify-center rounded-xl border bg-background/70 p-2"><img src={previewLogoUrl} alt={matched?.name || "AWS Fall seasonal logo"} className="max-h-full max-w-full object-contain" /></div>}
                   {matched && <span className="block break-all text-[11px] text-muted-foreground">{!hasExplicitPairing && suggested ? "Suggested pairing: " : "Selected asset: "}{matched.name}</span>}
                   {!matched && preset.logoBehavior === "auto-match" && <span className="block text-[11px] text-muted-foreground">No matching seasonal logo found yet. The current website logo stays in place.</span>}
                 </label>
