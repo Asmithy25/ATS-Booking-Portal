@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,11 +36,9 @@ export default function DailyResetCard() {
   const [action, setAction] = useState('');
   const [complete, setComplete] = useState(false);
   const today = new Date();
-  const affirmation = useMemo(() => {
-    const start = new Date(today.getFullYear(), 0, 0).getTime();
-    const day = Math.floor((today.getTime() - start) / 86_400_000);
-    return AFFIRMATIONS[day % AFFIRMATIONS.length];
-  }, [today.getFullYear(), today.getMonth(), today.getDate()]);
+  const start = new Date(today.getFullYear(), 0, 0).getTime();
+  const day = Math.floor((today.getTime() - start) / 86_400_000);
+  const affirmation = AFFIRMATIONS[day % AFFIRMATIONS.length];
   const chosenAction = RESET_ACTIONS.find((item) => item.id === action);
 
   return (
