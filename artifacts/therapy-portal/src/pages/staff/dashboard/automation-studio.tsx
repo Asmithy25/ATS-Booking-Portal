@@ -27,7 +27,7 @@ const ACTIONS = [
   { value:"create_staff_task", label:"Create an internal staff task" },
 ];
 
-const emptyForm = { name:"", triggerKey:"booking_created", actionKey:"notify_founder", message:"Booking {{confirmationCode}} needs attention for {{date}} at {{time}}.", taskTitle:"Follow up on {{confirmationCode}}", taskDescription:"Review the booking for {{clientName}}.", assignedTo:"", dueDate:"", enabled:true };
+const emptyForm = { name:"", triggerKey:"booking_created", actionKey:"notify_founder", message:"Booking {{confirmationCode}} needs attention for {{date}} at {{time}}.", taskTitle:"Follow up on {{confirmationCode}}", taskDescription:"Review the booking for {{clientName}}.", assignedTo:"", dueDate:"", enabled:false };
 
 export default function AutomationStudio() {
   const { data: auth } = useGetAuthMe();
