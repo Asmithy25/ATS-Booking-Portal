@@ -47,6 +47,7 @@ const PublicSupport = lazy(() => import('@/pages/public/support'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const ClientTools = lazy(() => import('@/pages/client/tools'));
+const ClientWelcomePackage = lazy(() => import('@/pages/client/welcome-package'));
 const UploadPage = lazy(() => import('@/pages/public/upload'));
 const AdvancedWorkspace = lazy(() => import('@/pages/staff/dashboard/advanced-workspace'));
 const MySettings = lazy(() => import('@/pages/staff/dashboard/my-settings'));
@@ -123,6 +124,7 @@ function Router() {
       <Route path="/staff/login" component={Login} />
       <Route path="/portal/login" component={ClientAuth} />
       <Route path="/portal/tools" component={ClientTools} />
+      <Route path="/portal/welcome-package" component={ClientWelcomePackage} />
       <Route path="/portal" component={ClientPortal} />
       <Route path="/upload/:token" component={UploadPage} />
       <Route path="/staff/*" component={StaffRouter} />
