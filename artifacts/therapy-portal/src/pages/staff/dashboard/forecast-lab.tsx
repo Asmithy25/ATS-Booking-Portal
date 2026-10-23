@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarRange, ChartNoAxesCombined, Clock3, Download, Lightbulb, RefreshCw, ShieldCheck } from "lucide-react";
+import { ChartNoAxesCombined, Clock3, Download, Lightbulb, RefreshCw, ShieldCheck } from "lucide-react";
 
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const HOURS = Array.from({length:13},(_,index)=>index+9);
@@ -52,7 +52,7 @@ export default function ForecastLab() {
    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="aws-booking-demand-"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
  };
 
- if((auth as any)?.authenticated&&(auth as any)?.role!=="founder"&&(auth as any)?.role!=="manager") return <Card className="rounded-2xl"><CardHeader><CardTitle>Management access required</CardTitle><CardDescription>Booking demand reports are limited to the founder and managers.</CardDescription></CardHeader></Card>;
+ if(!(auth as any)?.isAdmin) return <Card className="rounded-2xl"><CardHeader><CardTitle>Founder access required</CardTitle><CardDescription>Booking demand reports are limited to founder accounts.</CardDescription></CardHeader></Card>;
 
  return <div className="mx-auto max-w-7xl space-y-6">
   <section className="rounded-[1.6rem] border border-primary/20 bg-gradient-to-br from-primary/[.12] via-card to-secondary/[.12] p-6 sm:p-8">
