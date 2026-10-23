@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Sun, Moon } from 'lucide-react';
+import { Calendar, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Sun, Moon, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -264,6 +264,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/staff-directory', <UserRound className="h-4 w-4" />, 'Staff Directory')}
           {session.isAdmin && navItem('/staff/founder-dashboard', <Crown className="h-4 w-4" />, 'Founder Dashboard')}
           {navItem('/staff/system-health', <Activity className="h-4 w-4" />, 'System Health')}
+          {session.isAdmin && navItem('/staff/backup', <Database className="h-4 w-4" />, 'Backup & Recovery')}
 
           {/* Employees — admin only */}
           {session.isAdmin && (
