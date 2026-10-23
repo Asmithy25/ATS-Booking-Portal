@@ -12,6 +12,7 @@ const StaffDashboardLayout = lazy(() => import('@/pages/staff/dashboard/layout')
 const Welcome = lazy(() => import('@/pages/staff/dashboard/welcome'));
 const Bookings = lazy(() => import('@/pages/staff/dashboard/bookings'));
 const CommandCalendar = lazy(() => import('@/pages/staff/dashboard/command-calendar'));
+const ForecastLab = lazy(() => import('@/pages/staff/dashboard/forecast-lab'));
 const AutomationStudio = lazy(() => import('@/pages/staff/dashboard/automation-studio'));
 const NotificationMissionControl = lazy(() => import('@/pages/staff/dashboard/notification-mission-control'));
 const Clients = lazy(() => import('@/pages/staff/dashboard/clients'));
@@ -66,6 +67,7 @@ function StaffRouter() {
         <Route path="/staff/welcome" component={Welcome} />
         <Route path="/staff/bookings" component={Bookings} />
         <Route path="/staff/calendar" component={CommandCalendar} />
+        <Route path="/staff/forecast" component={ForecastLab} />
         <Route path="/staff/automation-studio" component={AutomationStudio} />
         <Route path="/staff/notification-mission-control" component={NotificationMissionControl} />
         <Route path="/staff/clients" component={Clients} />
