@@ -176,7 +176,7 @@ export async function runBookingAutomations(triggerKey: string, booking: typeof 
     const rulesResult = await db.execute(sql`SELECT id,name,action_key AS "actionKey",config FROM aws_automation_rules WHERE trigger_key=${triggerKey} AND enabled=true ORDER BY id ASC`);
     for (const rule of rows(rulesResult)) {
       const signature = [rule.id, triggerKey, booking.id, booking.status, booking.preferredDate, booking.preferredTime].join(":");
-      const claimed = await db.execute(sql`INSERT INTO aws_automation_runs (rule_id,booking_id,trigger_key,event_signature,outcome,detail) VALUES (${rule.id},${booking.id},${triggerKey},${signature},"running","Started") ON CONFLICT (event_signature) DO NOTHING RETURNING id`);
+      const claimed = await db.execute(sql`INSERT INTO aws_automation_runs (rule_id,booking_id,trigger_key,event_signature,outcome,detail) VALUES (${rule.id},${booking.id},${triggerKey},${signature},${"running"},${"Started"}) ON CONFLICT (event_signature) DO NOTHING RETURNING id`);
       if (rows(claimed).length === 0) continue;
       try {
         const config = rule.config && typeof rule.config === "object" ? rule.config : {};
@@ -191,7 +191,7 @@ export async function runBookingAutomations(triggerKey: string, booking: typeof 
           await ensureAdvancedStorage();
           await db.execute(sql`INSERT INTO staff_tasks (title,description,assigned_to,status,due_date,created_by,created_at,updated_at) VALUES (${clean(config.taskTitle,160)},${fillTemplate(config.taskDescription || body, booking)},${clean(config.assignedTo,160)},'open',${clean(config.dueDate,10) || null},'AWS Automation',now(),now())`);
         }
-        await db.execute(sql`UPDATE aws_automation_runs SET outcome="success",detail=${"Action completed: " + clean(rule.actionKey,60)} WHERE event_signature=${signature}`);
+        await db.execute(sql`UPDATE aws_automation_runs SET outcome=${"success"},detail=${"Action completed: " + clean(rule.actionKey,60)} WHERE event_signature=${signature}`);
       } catch (error) {
         const detail = error instanceof Error ? error.message : "Automation action failed.";
         await db.execute(sql`UPDATE aws_automation_runs SET outcome="failed",detail=${clean(detail,500)} WHERE event_signature=${signature}`).catch(() => undefined);
