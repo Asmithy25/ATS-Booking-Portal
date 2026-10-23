@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { customFetch, useGetAuthMe, useListBookings, type Booking } from '@workspace/api-client-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarClock,
   CalendarDays, CheckCircle2, CircleAlert, Clock3, Mail, MessageSquareText,
-  RefreshCw, ShieldCheck, Sparkles, UsersRound, Zap,
+  RefreshCw, ShieldCheck, Sparkles, UsersRound,
 } from 'lucide-react';
 
 type DeliveryChannel = {
@@ -68,6 +68,7 @@ function MetricCard({ label, value, detail, icon: Icon, trend }: {
 
 export default function CommandCenter() {
   const { data: session } = useGetAuthMe();
+  const [, setLocation] = useLocation();
   const { data: bookingsData = [], isLoading: bookingsLoading, refetch: refetchBookings } = useListBookings();
   const { toast } = useToast();
   const [delivery, setDelivery] = useState<DeliveryStatus | null>(null);
@@ -142,7 +143,7 @@ export default function CommandCenter() {
     setRefreshing(false);
   };
 
-  const goToBookings = () => { window.location.href = '/staff/bookings'; };
+  const goToBookings = () => setLocation('/staff/bookings');
 
   return (
     <div className="aws-command-page space-y-6 sm:space-y-7">
