@@ -394,6 +394,7 @@ router.get("/founder-summary", requireAuth, async (req, res): Promise<void> => {
   const openTeam = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM collaboration_items WHERE status <> 'done'`))[0]?.count ?? 0;
   const unread = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM staff_notifications WHERE read = false`)).at(0)?.count ?? 0;
   const activeSchedules = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM practice_mode_schedules WHERE starts_at <= now() AND ends_at > now()`)).at(0)?.count ?? 0;
+  const activeSessions = rowsOf(await db.execute(sql`SELECT count(*)::int AS count FROM booking_sessions WHERE ended_at IS NULL`)).at(0)?.count ?? 0;
   const staffCount = 1 + (await db.select({ id: staffAccountsTable.id }).from(staffAccountsTable)).length;
   const avg = feedback.length ? Math.round((feedback.reduce((sum, item) => sum + item.rating, 0) / feedback.length) * 10) / 10 : null;
   res.json({
@@ -408,6 +409,7 @@ router.get("/founder-summary", requireAuth, async (req, res): Promise<void> => {
     openTeamItems: Number(openTeam),
     unreadNotifications: Number(unread),
     activeSchedules: Number(activeSchedules),
+    activeSessions: Number(activeSessions),
     staffCount,
   });
 });
