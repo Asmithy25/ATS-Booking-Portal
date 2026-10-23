@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { customFetch, getGetSettingsQueryKey } from "@workspace/api-client-react";
+import { customFetch, getGetSettingsQueryKey, useGetSettings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ type PalettePreset = {
   primary: string;
   secondary: string;
   accent: string;
-  logoBehavior: "keep" | "fall-default";
+  logoBehavior: "keep" | "fall-default" | "auto-match";
   icon: typeof Palette;
 };
 
@@ -37,7 +37,7 @@ const PRESETS: PalettePreset[] = [
     primary: "#C85E09",
     secondary: "#F3A444",
     accent: "#F2C078",
-    logoBehavior: "keep",
+    logoBehavior: "auto-match",
     icon: Sparkles,
   },
   {
@@ -59,7 +59,7 @@ const PRESETS: PalettePreset[] = [
     primary: "#176344",
     secondary: "#B72D38",
     accent: "#D9B86C",
-    logoBehavior: "keep",
+    logoBehavior: "auto-match",
     icon: Sparkles,
   },
   {
@@ -70,7 +70,7 @@ const PRESETS: PalettePreset[] = [
     primary: "#244A73",
     secondary: "#88B9D9",
     accent: "#E6EFF6",
-    logoBehavior: "keep",
+    logoBehavior: "auto-match",
     icon: Snowflake,
   },
   {
@@ -81,7 +81,7 @@ const PRESETS: PalettePreset[] = [
     primary: "#4F8060",
     secondary: "#E9AFC2",
     accent: "#E7D17A",
-    logoBehavior: "keep",
+    logoBehavior: "auto-match",
     icon: Flower2,
   },
   {
@@ -92,7 +92,7 @@ const PRESETS: PalettePreset[] = [
     primary: "#087E8B",
     secondary: "#FFD166",
     accent: "#FF8C69",
-    logoBehavior: "keep",
+    logoBehavior: "auto-match",
     icon: Sun,
   },
   {
@@ -103,7 +103,7 @@ const PRESETS: PalettePreset[] = [
     primary: "#9E2348",
     secondary: "#E46C89",
     accent: "#F6C9D3",
-    logoBehavior: "keep",
+    logoBehavior: "auto-match",
     icon: Flower2,
   },
   {
@@ -114,7 +114,7 @@ const PRESETS: PalettePreset[] = [
     primary: "#182847",
     secondary: "#9BAFC7",
     accent: "#D8B56A",
-    logoBehavior: "keep",
+    logoBehavior: "auto-match",
     icon: Sparkles,
   },
   {
@@ -125,7 +125,7 @@ const PRESETS: PalettePreset[] = [
     primary: "#8F4A34",
     secondary: "#C98549",
     accent: "#E9C18A",
-    logoBehavior: "keep",
+    logoBehavior: "auto-match",
     icon: Palette,
   },
 ];
@@ -144,6 +144,7 @@ function readMappings(): Record<string, string> {
 }
 
 export default function SeasonalBrandPresets() {
+  const { data: currentSettings } = useGetSettings();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [assets, setAssets] = useState<LogoAsset[]>([]);
@@ -155,6 +156,16 @@ export default function SeasonalBrandPresets() {
     try { const raw = window.localStorage.getItem(UNDO_KEY); return raw ? JSON.parse(raw) as PreviousBranding : null; } catch { return null; }
   });
   const [undoBusy, setUndoBusy] = useState(false);
+
+  useEffect(() => {
+    if (!currentSettings) return;
+    const matches = PRESETS.find((preset) =>
+      String(currentSettings.primaryColor || "").toLowerCase() === preset.primary.toLowerCase()
+      && String(currentSettings.secondaryColor || "").toLowerCase() === preset.secondary.toLowerCase()
+      && String(currentSettings.accentColor || "").toLowerCase() === preset.accent.toLowerCase()
+    );
+    setActivePreset(matches?.id ?? null);
+  }, [currentSettings]);
 
   const seasonalAssets = useMemo(
     () => assets.filter((asset) => asset.category === "seasonal" || /fall|autumn|halloween|christmas|winter|spring|summer|holiday|valentine|new year/i.test([asset.name, asset.notes, ...(asset.tags || [])].join(" "))),
@@ -169,6 +180,30 @@ export default function SeasonalBrandPresets() {
       .finally(() => { if (!cancelled) setLoadingAssets(false); });
     return () => { cancelled = true; };
   }, []);
+
+  const matchingAssetForPreset = (preset: PalettePreset) => {
+    const keywords: Record<string, string[]> = {
+      halloween: ["halloween", "spooky", "october"],
+      fall: ["fall", "autumn"],
+      christmas: ["christmas", "xmas", "holiday"],
+      winter: ["winter", "snow", "ice"],
+      spring: ["spring", "bloom", "blossom"],
+      summer: ["summer", "sunshine", "sun"],
+      valentines: ["valentine", "valentines", "valentine's", "love"],
+      "new-year": ["new year", "new-year", "newyear"],
+      everyday: ["everyday", "primary", "standard brand"],
+    };
+    const terms = keywords[preset.id] || [preset.id];
+    return seasonalAssets.find((asset) => {
+      const haystack = [asset.name, asset.notes, ...(asset.tags || [])].join(" ").toLowerCase();
+      return terms.some((term) => haystack.includes(term));
+    });
+  };
+
+  const resolveLogoId = (preset: PalettePreset) => {
+    if (Object.prototype.hasOwnProperty.call(selectedLogo, preset.id)) return selectedLogo[preset.id];
+    return preset.logoBehavior === "auto-match" ? String(matchingAssetForPreset(preset)?.id || "") : "";
+  };
 
   const saveLogoMapping = (presetId: string, assetId: string) => {
     const next = { ...selectedLogo, [presetId]: assetId };
@@ -228,7 +263,7 @@ export default function SeasonalBrandPresets() {
         responseType: "json",
       });
 
-      const assetId = selectedLogo[preset.id];
+      const assetId = resolveLogoId(preset);
       if (assetId) {
         await customFetch("/api/logo-library/" + encodeURIComponent(assetId) + "/apply", {
           method: "POST",
@@ -243,7 +278,9 @@ export default function SeasonalBrandPresets() {
         ? " Your selected seasonal logo was applied too."
         : preset.logoBehavior === "fall-default"
           ? " The built-in Fall logo is selected."
-          : " Your current logo was kept; choose a seasonal logo below to pair one with this palette.";
+          : preset.logoBehavior === "auto-match"
+            ? " No matching seasonal logo was found in Logo Library, so the current logo was kept. Upload or tag the matching logo to pair it automatically."
+            : " Your current logo was kept; choose a seasonal logo below to pair one with this palette.";
       toast({ title: preset.name + " palette applied", description: "The public website colors have been updated." + logoNote });
     } catch (error) {
       toast({ variant: "destructive", title: "Seasonal palette could not be applied", description: error instanceof Error ? error.message : "Check founder access and try again." });
@@ -271,7 +308,9 @@ export default function SeasonalBrandPresets() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {PRESETS.map((preset) => {
             const Icon = preset.icon;
-            const logoId = selectedLogo[preset.id] || "";
+            const hasExplicitPairing = Object.prototype.hasOwnProperty.call(selectedLogo, preset.id);
+            const suggested = !hasExplicitPairing && preset.logoBehavior === "auto-match" ? matchingAssetForPreset(preset) : undefined;
+            const logoId = hasExplicitPairing ? selectedLogo[preset.id] : String(suggested?.id || "");
             const matched = seasonalAssets.find((asset) => String(asset.id) === logoId);
             const busy = busyPreset === preset.id;
             return (
@@ -303,7 +342,8 @@ export default function SeasonalBrandPresets() {
                     <option value="">{preset.logoBehavior === "fall-default" ? "Built-in Fall logo" : "Keep currently applied logo"}</option>
                     {seasonalAssets.map((asset) => <option key={asset.id} value={String(asset.id)}>{asset.name}</option>)}
                   </select>
-                  {matched && <span className="block break-all text-[11px] text-muted-foreground">Selected asset: {matched.name}</span>}
+                  {matched && <span className="block break-all text-[11px] text-muted-foreground">{!hasExplicitPairing && suggested ? "Suggested pairing: " : "Selected asset: "}{matched.name}</span>}
+                  {!matched && preset.logoBehavior === "auto-match" && <span className="block text-[11px] text-muted-foreground">No matching seasonal logo found yet. The current website logo stays in place.</span>}
                 </label>
                 <Button type="button" className="mt-4 w-full rounded-xl" onClick={() => void applyPreset(preset)} disabled={busyPreset !== null}>
                   {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
