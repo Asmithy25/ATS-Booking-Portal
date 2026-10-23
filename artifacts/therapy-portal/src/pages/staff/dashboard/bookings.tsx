@@ -32,6 +32,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { CelebrationConfetti } from '@/components/celebration-confetti';
+import LiveSessionPanel, { type LiveSession } from '@/components/LiveSessionPanel';
 import {
   Loader2, Trash2, CheckCircle2, XCircle, UserPlus, Clock, ArrowRight,
   StickyNote, ChevronDown, ChevronUp, CalendarDays, Hash, Plus, Copy, CheckCheck,
@@ -74,6 +75,7 @@ type BypassConfirmation = {
 
 export default function Bookings() {
   const [activeTab, setActiveTab] = useState('all');
+  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
   const [selectedDate, setSelectedDate] = useState('');
   const [datePreset, setDatePreset] = useState<'all' | 'today' | 'upcoming'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -381,6 +383,11 @@ export default function Bookings() {
       })
     : baseFilteredBookings.sort((a, b) => `${b.preferredDate}T${b.preferredTime}`.localeCompare(`${a.preferredDate}T${a.preferredTime}`));
 
+  const liveSessionByBooking = useMemo(
+    () => new Map(liveSessions.map((session) => [session.bookingId, session])),
+    [liveSessions],
+  );
+
   if (loadingBookings || loadingStats) {
     return <div className="space-y-5"><div className="h-10 w-48 rounded-xl bg-muted animate-pulse" /><div className="h-24 rounded-2xl bg-muted animate-pulse" /><div className="h-72 rounded-2xl bg-muted animate-pulse" /></div>;
   }
@@ -443,6 +450,8 @@ export default function Bookings() {
           </CardContent>
         </Card>
       </div>
+
+       <LiveSessionPanel scope="all" showEmpty onSessionsChange={setLiveSessions} />
 
        <CelebrationConfetti trigger={celebrationKey} />
 
@@ -867,6 +876,12 @@ export default function Bookings() {
                           <Badge variant="secondary" className={`${statusColors[b.status as keyof typeof statusColors]} border-0 capitalize`}>
                             {b.status}
                           </Badge>
+                          {liveSessionByBooking.has(b.id) && (
+                            <div className="mt-1.5">
+                              <Badge className="border border-orange-500/25 bg-orange-500/10 text-orange-800 dark:text-orange-200">Live now</Badge>
+                              <p className="mt-1 text-[11px] text-muted-foreground">{liveSessionByBooking.get(b.id)?.staffName}</p>
+                            </div>
+                          )}
                         </TableCell>
 
                         <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
