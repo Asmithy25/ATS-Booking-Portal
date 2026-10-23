@@ -186,7 +186,7 @@ export async function runBookingAutomations(triggerKey: string, booking: typeof 
           await db.execute(sql`INSERT INTO staff_notifications (staff_email,title,body,read,created_at) VALUES (${ADMIN_EMAIL},${clean(rule.name,120)},${body},false,now())`);
         } else if (rule.actionKey === "notify_client") {
           if (!booking.clientAccountId) throw new Error("This booking is not linked to a client portal account.");
-          await db.execute(sql`INSERT INTO client_notifications (client_account_id,title,body,pushed_by,read,created_at) VALUES (${booking.clientAccountId},${clean(rule.name,120)},${body},"AWS Automation",false,now())`);
+          await db.execute(sql`INSERT INTO client_notifications (client_account_id,title,body,pushed_by,read,created_at) VALUES (${booking.clientAccountId},${clean(rule.name,120)},${body},${"AWS Automation"},false,now())`);
         } else if (rule.actionKey === "create_staff_task") {
           await ensureAdvancedStorage();
           await db.execute(sql`INSERT INTO staff_tasks (title,description,assigned_to,status,due_date,created_by,created_at,updated_at) VALUES (${clean(config.taskTitle,160)},${fillTemplate(config.taskDescription || body, booking)},${clean(config.assignedTo,160)},'open',${clean(config.dueDate,10) || null},'AWS Automation',now(),now())`);
@@ -194,7 +194,7 @@ export async function runBookingAutomations(triggerKey: string, booking: typeof 
         await db.execute(sql`UPDATE aws_automation_runs SET outcome=${"success"},detail=${"Action completed: " + clean(rule.actionKey,60)} WHERE event_signature=${signature}`);
       } catch (error) {
         const detail = error instanceof Error ? error.message : "Automation action failed.";
-        await db.execute(sql`UPDATE aws_automation_runs SET outcome="failed",detail=${clean(detail,500)} WHERE event_signature=${signature}`).catch(() => undefined);
+        await db.execute(sql`UPDATE aws_automation_runs SET outcome=${"failed"},detail=${clean(detail,500)} WHERE event_signature=${signature}`).catch(() => undefined);
       }
     }
   } catch (error) {
