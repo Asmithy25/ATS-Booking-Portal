@@ -20,6 +20,9 @@ jobs:
     name: Typecheck and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PORT: "3000"
+      BASE_PATH: "/"
     steps:
       - name: Check out source
         uses: actions/checkout@v4
