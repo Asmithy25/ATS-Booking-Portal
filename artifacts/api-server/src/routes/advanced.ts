@@ -335,6 +335,57 @@ router.get("/client/uploads",requireClientAuth,async(req,res)=>{const id=clientI
 
 
 
+const CLIENT_WELCOME_DOCUMENTS = [
+  { key: "service-scope", version: "1.0", title: "Understanding AWS phone-based services", summary: "Aydens Wellness Services currently provides support by phone. Submitting a request is not the same as a confirmed appointment; the care team will follow up with scheduling details.", label: "I understand the service format and booking confirmation process." },
+  { key: "privacy-choice", version: "1.0", title: "Privacy and information-sharing choice", summary: "I can review the portal's privacy information and choose what I share. Private journal entries are not automatically shared with staff; optional session-preparation responses are shared only when I enable that option.", label: "I understand that sharing choices are separate from writing private journal entries." },
+  { key: "urgent-support", version: "1.0", title: "Urgent and emergency support", summary: "The AWS client portal and wellness assistant are not emergency services and are not monitored as a crisis line. If there is immediate danger, contact local emergency services or a crisis resource in your area.", label: "I understand that the portal is not an emergency or crisis-response service." },
+];
+
+router.get("/client/welcome-package", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  try {
+    await ensureAdvancedStorage();
+    const result = await db.execute(sql`SELECT consent_key AS "consentKey",consent_value AS "consentValue",created_at AS "createdAt"
+      FROM client_consent_events
+      WHERE client_account_id=${id} AND consent_key LIKE 'welcome_package:%'
+      ORDER BY created_at DESC`);
+    const latest = new Map<string, any>();
+    for (const item of rows(result)) {
+      const key = String(item.consentKey || "");
+      if (!latest.has(key)) latest.set(key, item);
+    }
+    const documents = CLIENT_WELCOME_DOCUMENTS.map((document) => {
+      const event = latest.get("welcome_package:" + document.key + ":" + document.version);
+      return { ...document, status: event?.consentValue === "acknowledged" ? "acknowledged" : event?.consentValue === "withdrawn" ? "withdrawn" : "needed", acknowledgedAt: event?.consentValue === "acknowledged" ? event.createdAt : null };
+    });
+    res.json({ documents, completed: documents.every((document) => document.status === "acknowledged"), generatedAt: new Date().toISOString() });
+  } catch (error) {
+    req.log.error({ err: error }, "Could not load client welcome package");
+    res.status(500).json({ error: "Your welcome package could not be loaded." });
+  }
+});
+
+router.post("/client/welcome-package/acknowledge", requireClientAuth, async (req, res) => {
+  const id = clientId(req);
+  if (!id) { res.status(401).json({ error: "Client account required." }); return; }
+  const key = text(req.body?.key, 80);
+  const version = text(req.body?.version, 20);
+  const accepted = req.body?.accepted;
+  const document = CLIENT_WELCOME_DOCUMENTS.find((item) => item.key === key && item.version === version);
+  if (!document) { res.status(400).json({ error: "That welcome-package document version is not available." }); return; }
+  if (typeof accepted !== "boolean") { res.status(400).json({ error: "Choose whether you acknowledge this item." }); return; }
+  try {
+    await ensureAdvancedStorage();
+    const consentKey = "welcome_package:" + document.key + ":" + document.version;
+    await exec("INSERT INTO client_consent_events(client_account_id,consent_key,consent_value,created_at) VALUES (" + id + "," + q(consentKey) + "," + q(accepted ? "acknowledged" : "withdrawn") + ",now())");
+    res.json({ success: true, key: document.key, version: document.version, status: accepted ? "acknowledged" : "withdrawn", message: accepted ? "Your acknowledgement was recorded." : "Your acknowledgement was withdrawn." });
+  } catch (error) {
+    req.log.error({ err: error }, "Could not save client welcome-package acknowledgement");
+    res.status(500).json({ error: "Your acknowledgement could not be saved." });
+  }
+});
+
 router.get("/client/preferences", requireClientAuth, async (req, res) => {
   const id = clientId(req);
   if (!id) { res.status(401).json({ error: "Client account required." }); return; }
