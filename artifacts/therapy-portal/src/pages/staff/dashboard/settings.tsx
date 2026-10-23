@@ -132,6 +132,8 @@ const BACKUP_OPTIONS: Array<{
   },
 ];
 
+const HOMEPAGE_DRAFT_KEY = 'aws-homepage-editor-draft-v1';
+
 export default function Settings() {
   const { data: session } = useGetAuthMe({
     query: { queryKey: getGetAuthMeQueryKey(), retry: false },
@@ -146,12 +148,14 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const backupFileInput = useRef<HTMLInputElement>(null);
+  const homepageBaselineRef = useRef<Record<string, any>>({});
   const [backupScope, setBackupScope] = useState<BackupScope>('everything');
   const [backupFileName, setBackupFileName] = useState('');
   const [backupPayload, setBackupPayload] = useState<BackupExport | null>(null);
   const [lastImport, setLastImport] = useState<BackupImportResult | null>(null);
   const [homepageDraft, setHomepageDraft] = useState<Record<string, any>>({});
   const [homepageSaving, setHomepageSaving] = useState(false);
+  const [homepageDraftSaved, setHomepageDraftSaved] = useState(false);
   const hoursForm = useForm<{ officeHours: SettingsFormValues['officeHours'] }>({
     resolver: zodResolver(z.object({
       officeHours: settingsSchema.shape.officeHours,
@@ -221,7 +225,21 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
-      setHomepageDraft(getHomepageContent(settings));
+      const baseline = getHomepageContent(settings);
+      homepageBaselineRef.current = baseline;
+      let restoredDraft: Record<string, any> = baseline;
+      try {
+        const raw = window.localStorage.getItem(HOMEPAGE_DRAFT_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved?.draft && saved?.base && JSON.stringify(saved.base) === JSON.stringify(baseline) && Date.now() - Number(saved.savedAt || 0) < 7 * 24 * 60 * 60 * 1000) {
+            restoredDraft = saved.draft;
+          } else {
+            window.localStorage.removeItem(HOMEPAGE_DRAFT_KEY);
+          }
+        }
+      } catch { /* Ignore an invalid local draft and use the live website content. */ }
+      setHomepageDraft(restoredDraft);
       form.reset({
         ...settings,
         featureFlags: {
@@ -236,6 +254,18 @@ export default function Settings() {
       });
     }
   }, [settings, form]);
+
+  useEffect(() => {
+    if (!settings || !Object.keys(homepageBaselineRef.current).length || !Object.keys(homepageDraft).length) return;
+    try {
+      const safeDraft = Object.fromEntries(Object.entries(homepageDraft).map(([key, value]) => [
+        key,
+        typeof value === 'string' && value.startsWith('data:') ? '' : value,
+      ]));
+      window.localStorage.setItem(HOMEPAGE_DRAFT_KEY, JSON.stringify({ base: homepageBaselineRef.current, draft: safeDraft, savedAt: Date.now() }));
+      setHomepageDraftSaved(true);
+    } catch { setHomepageDraftSaved(false); }
+  }, [homepageDraft, settings]);
 
   useEffect(() => {
     if (myHours) {
@@ -280,6 +310,9 @@ export default function Settings() {
         body: JSON.stringify({ homepageContent: homepageDraft }),
       });
 
+      homepageBaselineRef.current = homepageDraft;
+      window.localStorage.removeItem(HOMEPAGE_DRAFT_KEY);
+      setHomepageDraftSaved(false);
       await queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
       toast({ title: 'Homepage saved', description: 'Every editable homepage field is now live.' });
     } catch (err) {
