@@ -10,13 +10,13 @@ import { getDailyQuote, getTimeGreeting } from '@/lib/motivationalQuotes';
 
 function toHsl(hex: string) { const value=/^#[0-9a-fA-F]{6}$/.test(hex)?hex:'#F47A18'; const r=parseInt(value.slice(1,3),16)/255,g=parseInt(value.slice(3,5),16)/255,b=parseInt(value.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),l=(max+min)/2; if(max===min)return `0 0% ${Math.round(l*100)}%`; const d=max-min,s=l>.5?d/(2-max-min):d/(max+min); let h=0;if(max===r)h=(g-b)/d+(g<b?6:0);else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;return `${Math.round(h*60)} ${Math.round(s*100)}% ${Math.round(l*100)}%`; }
 
-function normalizeHalloweenPreferences(value: Record<string, any>) {
+function normalizeHalloweenPreferences<T extends { accentColor?: string; sidebarColor?: string; darkBackgroundColor?: string }>(value: T): T {
   return {
     ...value,
     accentColor: typeof value.accentColor === 'string' && value.accentColor.toLowerCase() === '#7b4a2f' ? '#F47A18' : value.accentColor,
     sidebarColor: typeof value.sidebarColor === 'string' && value.sidebarColor.toLowerCase() === '#3f3028' ? '#120A05' : value.sidebarColor,
     darkBackgroundColor: typeof value.darkBackgroundColor === 'string' && value.darkBackgroundColor.toLowerCase() === '#181818' ? '#100904' : value.darkBackgroundColor,
-  };
+  } as T;
 }
 
 export default function StaffDashboardLayout({ children }: { children: React.ReactNode }) {
