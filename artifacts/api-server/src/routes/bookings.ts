@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   db,
   auditLogsTable,
   bookingsTable,
+  bookingSessionsTable,
   clientAccountsTable,
   clientNotificationsTable,
   sessionFeedbackTable,
@@ -699,6 +700,11 @@ router.delete("/:id", requirePermission("editAppointments"), async (req, res) =>
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid id." });
   try {
+    const [activeSession] = await db.select({ id: bookingSessionsTable.id })
+      .from(bookingSessionsTable)
+      .where(and(eq(bookingSessionsTable.bookingId, id), isNull(bookingSessionsTable.endedAt)))
+      .limit(1);
+    if (activeSession) return res.status(409).json({ error: "This booking has an active session. End it with confirmation before deleting the booking." });
     const [deleted] = await db.delete(bookingsTable).where(eq(bookingsTable.id, id)).returning();
     if (!deleted) return res.status(404).json({ error: "Booking not found." });
     await recordAudit(req, "deleted_booking", "booking", String(id));
