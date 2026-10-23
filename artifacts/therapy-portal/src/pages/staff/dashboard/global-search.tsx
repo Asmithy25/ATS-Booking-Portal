@@ -31,6 +31,7 @@ const FEATURES: Feature[] = [
   { type: 'feature', id: 'aurora', title: 'Aurora AI', subtitle: 'Open the staff-side assistant for administrative support.', href: '/staff/aurora', keywords: 'assistant ai aurora help summarize draft' , permission: 'useAuroraAI' },
   { type: 'feature', id: 'analytics', title: 'Analytics', subtitle: 'Review booking and practice trends.', href: '/staff/analytics', keywords: 'metrics charts reporting statistics trends' , permission: 'viewAnalytics' },
   { type: 'feature', id: 'founder', title: 'Founder Command Center', subtitle: 'Founder overview of bookings, team activity and platform operations.', href: '/staff/founder-dashboard', keywords: 'founder owner command center overview operations' , adminOnly: true },
+  { type: 'feature', id: 'aws-operations-center', title: 'Operations Command Center', subtitle: 'Appointment lifecycle, priority queue, live sessions and communication readiness.', href: '/staff/command-center', keywords: 'aws 3.1 appointments lifecycle pending waitlisted delivery email sms notifications readiness live sessions', adminOnly: true },
   { type: 'feature', id: 'system-health', title: 'System Health', subtitle: 'Inspect API, database, scheduler and frontend status.', href: '/staff/system-health', keywords: 'server api database health downtime uptime errors' },
   { type: 'feature', id: 'backup', title: 'Backup & Recovery', subtitle: 'Open backup tools and inspect the available recovery workflow.', href: '/staff/backup', keywords: 'backup restore recovery database data safety' , adminOnly: true },
   { type: 'feature', id: 'security', title: 'Security Center', subtitle: 'Manage account security and staff sign-in options.', href: '/staff/security', keywords: 'security passkey pin login account sessions permissions' },
@@ -99,7 +100,7 @@ export default function GlobalSearch() {
   return (
     <div className="max-w-5xl space-y-7">
       <div className="rounded-[1.5rem] border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-secondary/10 p-6 sm:p-8">
-        <div className="flex items-center gap-3 text-primary"><div className="rounded-xl bg-primary/10 p-3"><Search className="h-5 w-5" /></div><Badge variant="outline">AWS 3.0</Badge><span className="text-xs font-semibold uppercase tracking-[.18em]">Feature Search</span></div>
+        <div className="flex items-center gap-3 text-primary"><div className="rounded-xl bg-primary/10 p-3"><Search className="h-5 w-5" /></div><Badge variant="outline">AWS 3.1</Badge><span className="text-xs font-semibold uppercase tracking-[.18em]">Feature Search</span></div>
         <h1 className="mt-4 text-3xl font-semibold sm:text-4xl">Find it. Open it. Done.</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Search features, pages, settings, clients, bookings, announcements, team items, and staff. Results adapt to your staff permissions.</p>
         <div className="mt-4 inline-flex items-center gap-2 rounded-lg border bg-background/75 px-3 py-2 text-xs text-muted-foreground"><Command className="h-3.5 w-3.5" /> Press <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono">⌘ K</kbd> or <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono">Ctrl K</kbd> from anywhere in the staff workspace.</div>
