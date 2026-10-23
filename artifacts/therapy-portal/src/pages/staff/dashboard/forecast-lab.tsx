@@ -13,7 +13,7 @@ const hourLabel=(hour:number)=>hour===0?"12 AM":hour<12?hour+" AM":hour===12?"12
 
 export default function ForecastLab() {
  const {data:auth}=useGetAuthMe();
- const {data:rawBookings=[],isLoading,error,refetch}=useListBookings();
+ const {data:rawBookings=[],isLoading,error,refetch}=useListBookings({query:{enabled:Boolean((auth as any)?.authenticated&&(auth as any)?.isAdmin)}});
  const bookings=(Array.isArray(rawBookings)?rawBookings:[]) as Booking[];
  const [targetDay,setTargetDay]=useState("Saturday");
  const [addedHours,setAddedHours]=useState("2");
