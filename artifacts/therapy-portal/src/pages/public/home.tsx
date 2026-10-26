@@ -106,6 +106,8 @@ export default function Home() {
   const [now, setNow] = useState(() => new Date());
   const [publicExperience, setPublicExperience] = useState<any>(null);
   const [previewBrand, setPreviewBrand] = useState<{primaryColor?:string;secondaryColor?:string;accentColor?:string}|null>(null);
+  const [corporateStatus, setCorporateStatus] = useState<{maintenanceMode:boolean;bookingsPaused:boolean;maintenanceMessage:string}|null>(null);
+  const bookingsPaused = corporateStatus?.maintenanceMode === true || corporateStatus?.bookingsPaused === true;
   const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
 
   useEffect(() => {
@@ -121,6 +123,12 @@ export default function Home() {
     }
     document.title = websiteCustomizationEnabled && settings?.siteName ? settings.siteName : 'Aydens Wellness Services';
   }, [content.faviconUrl, settings?.logoUrl, settings?.siteName, websiteCustomizationEnabled]);
+
+  useEffect(() => {
+    customFetch<{maintenanceMode:boolean;bookingsPaused:boolean;maintenanceMessage:string}>('/api/corporate/operations/public', { responseType: 'json' })
+      .then((value) => setCorporateStatus(value))
+      .catch(() => setCorporateStatus(null));
+  }, []);
 
   useEffect(() => {
     customFetch<any>('/api/workspace/public-experience')
@@ -267,6 +275,7 @@ export default function Home() {
   return (
       <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(previewMode && previewBrand ? previewBrand : websiteCustomizationEnabled ? settings : undefined)}>
       <PublicNavbar />
+      {bookingsPaused && <section role="status" aria-live="polite" className="border-b border-amber-500/25 bg-amber-500/10"><div className="container mx-auto flex items-start gap-3 px-4 py-4"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" /><div><p className="text-sm font-semibold text-foreground">{corporateStatus?.maintenanceMode ? "Scheduled maintenance in progress" : "Online booking is temporarily paused"}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{corporateStatus?.maintenanceMode ? corporateStatus?.maintenanceMessage : "Your existing appointments remain in place. Please check back later or contact Ayden’s Wellness Services for assistance."}</p></div></div></section>}
       <PracticeStatus settings={settings} remote={publicExperience?.practice} />
       <AydensExperienceLayer seasonal={publicExperience?.seasonal} experience={publicExperience?.experience} />
       {previewMode && (
@@ -738,7 +747,7 @@ export default function Home() {
                         type="submit" 
                         size="lg" 
                          className="px-8 rounded-full w-full sm:w-auto"
-                        disabled={createBooking.isPending || !settings?.sessionRequestsOpen}
+                        disabled={createBooking.isPending || !settings?.sessionRequestsOpen || bookingsPaused}
                       >
                          {createBooking.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {content.bookingSendingText}</> : content.bookingSubmitText}
                       </Button>
