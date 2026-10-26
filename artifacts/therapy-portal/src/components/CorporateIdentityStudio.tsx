@@ -10,6 +10,8 @@ import { Switch as SwitchComponent } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { ImagePlus, Save, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 
+type BrandingConfigKey = "staffLoginLogoUrl" | "founderDeckLogoUrl" | "executiveDeckLogoUrl" | "publicLogoUrl";
+
 type BrandingConfig = {
   staffLoginLogoUrl: string;
   founderDeckLogoUrl: string;
