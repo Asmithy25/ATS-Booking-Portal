@@ -214,7 +214,9 @@ router.get("/me", async (req, res) => {
     authenticated: true,
     staffName: session.name,
     email: session.email,
-    isAdmin: session.email === ADMIN_EMAIL,
+    isAdmin: session.email === ADMIN_EMAIL || staff?.role === "ash_executive",
+    isFounder: session.email === ADMIN_EMAIL,
+    isCorporateExecutive: session.email === ADMIN_EMAIL || staff?.role === "ash_executive",
     role: staff?.role ?? "therapist",
     permissions: staff?.permissions ?? {},
   });

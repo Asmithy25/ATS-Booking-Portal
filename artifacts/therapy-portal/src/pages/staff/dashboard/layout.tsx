@@ -29,6 +29,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
+  const [corporateBranding, setCorporateBranding] = useState<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>({ founderDeckLogoUrl: "/ash-aws-crossover.webp", executiveDeckLogoUrl: "/ash-corporate.webp" });
   const isStaffDarkMode = portalPrefs.appearance === 'dark';
   const { toast } = useToast();
 
@@ -70,6 +71,20 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
       retry: false,
     },
   });
+
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    customFetch<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>("/api/corporate/branding/public", { responseType: "json" })
+      .then((value) => value && setCorporateBranding((current) => ({ ...current, ...value })))
+      .catch(() => undefined);
+  }, [session?.authenticated]);
+
+  const sessionRole = String((session as any)?.role || "");
+  const activeStaffLogoUrl = sessionRole === "ash_executive"
+    ? (corporateBranding.executiveDeckLogoUrl || "/ash-corporate.webp")
+    : sessionRole === "founder"
+      ? (corporateBranding.founderDeckLogoUrl || settings?.logoUrl || "/ash-aws-crossover.webp")
+      : (settings?.logoUrl || logoUrl);
 
   const logout = useStaffLogout({
     mutation: {
@@ -238,7 +253,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         <div className="border-b border-sidebar-border p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-sidebar-primary p-1">
-              <img src={settings?.logoUrl || logoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
+              <img src={activeStaffLogoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
             </span>
             <div>
               <h2 className="font-serif text-xl font-normal text-sidebar-foreground">Ayden’s</h2>
@@ -291,6 +306,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {session.isAdmin && navItem('/staff/release-control', <ShieldCheck className="h-4 w-4" />, 'Release Control Tower')}
           {session.isAdmin && navItem('/staff/automation-studio', <Workflow className="h-4 w-4" />, 'Aurora Automation Studio')}
           {session.isAdmin && navItem('/staff/founder-dashboard', <Crown className="h-4 w-4" />, 'Founder Dashboard')}
+          {((session as any)?.role === 'founder' || (session as any)?.role === 'ash_executive') && navItem('/staff/corporate', <BriefcaseBusiness className="h-4 w-4" />, 'ASH Corporate Command')}
           {navItem('/staff/system-health', <Activity className="h-4 w-4" />, 'System Health')}
           {session.isAdmin && navItem('/staff/backup', <Database className="h-4 w-4" />, 'Backup & Recovery')}
 
@@ -321,7 +337,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         <div className="fixed top-0 left-0 right-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center bg-secondary p-1">
-              <img src={settings?.logoUrl || logoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
+              <img src={activeStaffLogoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
             </span>
             <span className="font-serif text-lg">{settings?.siteName ?? "Ayden's Therapy Services"}</span>
           </div>

@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, ArrowUpRight, Fingerprint, Loader2, ShieldCheck } from 'lucide-react';
-import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { Link } from 'wouter';
 
 const loginSchema = z.object({
@@ -41,7 +40,9 @@ export default function Login() {
       const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [pinRecoveryBusy, setPinRecoveryBusy] = useState(false);
   const [pinLength, setPinLength] = useState<4|6|8>(6);
+  const [loginLogoUrl, setLoginLogoUrl] = useState("/ash-aws-crossover.webp");
   useEffect(() => { customFetch<{pinLength:4|6|8}>('/api/auth/staff-pin/policy',{responseType:'json'}).then((value)=>setPinLength(value.pinLength)).catch(()=>undefined); }, []);
+  useEffect(() => { customFetch<{staffLoginLogoUrl?:string}>("/api/corporate/branding/public",{responseType:"json"}).then((value)=>{if(value?.staffLoginLogoUrl)setLoginLogoUrl(value.staffLoginLogoUrl);}).catch(()=>undefined); }, []);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -181,7 +182,7 @@ export default function Login() {
         <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-xl items-center">
           <section className="w-full rounded-2xl border border-border bg-card p-7 shadow-xl sm:p-12">
             <Link href="/" className="mb-10 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground"><ArrowLeft className="h-4 w-4"/> Practice home</Link>
-            <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center bg-secondary p-1"><img src={logoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><div><p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff security</p><h1 className="font-serif text-4xl">Set your PIN.</h1></div></div>
+            <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center bg-secondary p-1"><img src={loginLogoUrl} alt="" className="h-full w-full object-contain"/></span><div><p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff security</p><h1 className="font-serif text-4xl">Set your PIN.</h1></div></div>
             <p className="mt-5 text-sm leading-6 text-muted-foreground">Choose your personal PIN length. Your selection applies only to your staff account.</p>
             <div className="mt-8 space-y-4">
               <div className="space-y-2"><label className="text-sm font-medium">PIN length</label><Select value={String(pinLength)} onValueChange={(value)=>{ const next=Number(value) as 4|6|8; setPinLength(next); setSetupPin(''); setSetupConfirm(''); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="4">4 digits</SelectItem><SelectItem value="6">6 digits</SelectItem><SelectItem value="8">8 digits</SelectItem></SelectContent></Select></div>
@@ -200,7 +201,7 @@ export default function Login() {
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-stretch overflow-hidden rounded-2xl border border-border bg-card shadow-xl lg:grid-cols-[1fr_420px]">
         <section className="hidden flex-col justify-between bg-primary p-10 text-primary-foreground lg:flex">
           <div>
-            <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center bg-secondary p-1"><img src={logoUrl} alt="Aydens Wellness Services" className="h-full w-full object-cover mix-blend-multiply"/></span><span className="max-w-[180px] text-[11px] font-extrabold uppercase leading-[1.15] tracking-[.1em]">Aydens Wellness Services</span></div>
+            <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center bg-secondary p-1"><img src={loginLogoUrl} alt="Aydens Wellness Services" className="h-full w-full object-cover mix-blend-multiply"/></span><span className="max-w-[180px] text-[11px] font-extrabold uppercase leading-[1.15] tracking-[.1em]">Aydens Wellness Services</span></div>
             <p className="mt-24 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-secondary">Care workspace</p>
             <h1 className="mt-5 max-w-md font-serif text-7xl font-normal leading-[.87]">Clarity for the work that matters.</h1>
             <p className="mt-7 max-w-sm text-sm leading-7 text-primary-foreground/70">A private operational space for appointments, client care, and the details that help the practice move well.</p>
@@ -210,7 +211,7 @@ export default function Login() {
         <section className="flex items-center p-7 sm:p-12">
           <div className="w-full">
             <Link href="/" className="mb-12 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-destructive"><ArrowLeft className="h-4 w-4"/> Practice home</Link>
-            <div className="mb-9"><span className="flex h-12 w-12 items-center justify-center bg-secondary p-1 lg:hidden"><img src={logoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><p className="mt-7 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff access</p><h2 className="mt-3 font-serif text-5xl font-normal leading-none">Welcome back.</h2><p className="mt-4 text-sm leading-6 text-muted-foreground">Sign in with your password and either your {pinLength}-digit PIN or registered passkey.</p></div>
+            <div className="mb-9"><span className="flex h-12 w-12 items-center justify-center bg-secondary p-1 lg:hidden"><img src={loginLogoUrl} alt="" className="h-full w-full object-cover mix-blend-multiply"/></span><p className="mt-7 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">Staff access</p><h2 className="mt-3 font-serif text-5xl font-normal leading-none">Welcome back.</h2><p className="mt-4 text-sm leading-6 text-muted-foreground">Sign in with your password and either your {pinLength}-digit PIN or registered passkey.</p></div>
             <form onSubmit={form.handleSubmit(signIn)} className="space-y-5">
               <div className="space-y-2"><label className="text-sm font-medium">Email Address</label><Input autoComplete="username" placeholder="ayden@aydenstherapyservices.com" {...form.register('email')}/>{form.formState.errors.email&&<p className="text-xs text-destructive">{form.formState.errors.email.message}</p>}</div>
               <div className="space-y-2"><label className="text-sm font-medium">Password</label><Input autoComplete="current-password" type="password" placeholder="Enter your password" {...form.register('password')}/>{form.formState.errors.password&&<p className="text-xs text-destructive">{form.formState.errors.password.message}</p>}</div>

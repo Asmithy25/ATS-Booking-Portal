@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { customFetch } from '@workspace/api-client-react';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
 import { getHomepageContent } from '@/lib/homepageContent';
 
 export function PublicFooter() {
   const { data: settings } = useGetSettings();
+  const [corporateBranding, setCorporateBranding] = useState<{ publicAttributionEnabled?: boolean; attributionText?: string; publicLogoUrl?: string } | null>(null);
+  useEffect(() => {
+    customFetch<{ publicAttributionEnabled?: boolean; attributionText?: string; publicLogoUrl?: string }>('/api/corporate/branding/public', { responseType: 'json' })
+      .then(setCorporateBranding)
+      .catch(() => setCorporateBranding(null));
+  }, []);
   const content = getHomepageContent(settings);
   const websiteCustomizationEnabled = settings?.homepageContent?.websiteCustomizationEnabled === true;
   const brandName = websiteCustomizationEnabled && settings?.siteName ? settings.siteName : 'Aydens Wellness Services';
@@ -43,7 +50,10 @@ export function PublicFooter() {
         
         <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-primary-foreground/15 pt-6 text-[10px] uppercase tracking-[.12em] text-primary-foreground/55 sm:flex-row sm:items-center">
           <p>© {new Date().getFullYear()} {brandName}</p>
-          <p>{content.footerCopyrightText}</p>
+          <div className="flex flex-wrap items-center gap-4 sm:justify-end">
+            <p>{content.footerCopyrightText}</p>
+            {corporateBranding?.publicAttributionEnabled === true && <div className="inline-flex items-center gap-2 border-l border-primary-foreground/15 pl-4 text-primary-foreground/70"><img src={corporateBranding.publicLogoUrl || '/ash-corporate.webp'} alt="Ayden Smith Holdings" className="h-6 w-6 object-contain" /><span>{corporateBranding.attributionText || 'An Ayden Smith Holdings company'}</span></div>}
+          </div>
         </div>
       </div>
     </footer>

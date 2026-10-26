@@ -2,6 +2,7 @@ import { and, eq, gte, lt } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { db, bookingsTable, clientAccountsTable, clientNotificationsTable, staffAccountsTable, messageTemplatesTable } from "@workspace/db";
 import { getDeliveryStatus, sendBookingDelivery, sendEmail, sendSms } from "./delivery-providers";
+import { getCorporateOperationsConfig } from "./corporate-config";
 
 const DEFAULT_TEMPLATES: Record<string, { title: string; body: string }> = {
   booking_confirmation: {
@@ -124,6 +125,15 @@ async function claimEvent(eventKey: string, bookingId: number | null, recipientT
 }
 
 export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, kind: keyof typeof DEFAULT_TEMPLATES) {
+  try {
+    const corporateControls = await getCorporateOperationsConfig();
+    if (corporateControls.notificationsPaused) return;
+  } catch (error) {
+    // A notification-control read failure must not turn an already-created
+    // booking into a 500 response; suppress this notification attempt instead.
+    console.warn("Corporate notification controls are unavailable; notification suppressed.", error);
+    return;
+  }
   await ensureNotificationEventsTable();
   const fallback = DEFAULT_TEMPLATES[kind];
   const [stored] = await db.select().from(messageTemplatesTable).where(eq(messageTemplatesTable.key, kind)).limit(1);
@@ -209,6 +219,8 @@ export async function processScheduledNotifications() {
 }
 
 export async function retryBookingDelivery(bookingId: number, kind: string, channel: "email" | "sms") {
+  const corporateControls = await getCorporateOperationsConfig();
+  if (corporateControls.notificationsPaused) throw new Error("Corporate notifications are paused. Restore notifications before retrying delivery.");
   const supportedKinds = ["booking_confirmation", "appointment_reminder", "appointment_start", "starting_soon", "cancellation", "reschedule"];
   if (!supportedKinds.includes(kind)) throw new Error("This notification type cannot be retried.");
   const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, bookingId)).limit(1);

@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { staffAccountsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { ensureAdvancedStorage } from "../lib/advanced-storage";
-import { requireAdminAuth } from "../middleware/auth";
+import { ADMIN_EMAIL, requireAdminAuth } from "../middleware/auth";
 import { hashPassword } from "../middleware/auth";
 import type { OfficeHours } from "@workspace/db";
 import type { StaffSession } from "../middleware/auth";
@@ -101,6 +101,11 @@ router.patch("/:id", requireAdminAuth, async (req, res) => {
   }
   if (body.role !== undefined) {
     const role = body.role.trim().toLowerCase();
+    const actingEmail = (req as RequestWithSession).staffSession?.email ?? "";
+    if (role === "ash_executive" && actingEmail !== ADMIN_EMAIL) {
+      res.status(403).json({ error: "Only the founder can promote staff to ASH Executive." });
+      return;
+    }
     const builtIn = ["manager", "therapist", "customer_service_representative", "receptionist"];
     if (!builtIn.includes(role)) {
       await ensureAdvancedStorage();
@@ -211,6 +216,11 @@ router.post("/", requireAdminAuth, async (req, res) => {
   const creator = (req as RequestWithSession).staffSession?.email ?? "admin";
   const passwordHash = hashPassword(password);
   const requestedRole = (role ?? "therapist").trim().toLowerCase();
+  const actingEmail = (req as RequestWithSession).staffSession?.email ?? "";
+  if (requestedRole === "ash_executive" && actingEmail !== ADMIN_EMAIL) {
+    res.status(403).json({ error: "Only the founder can assign the Ayden Smith Holdings Executive role." });
+    return;
+  }
   const builtInRoles = ["manager", "therapist", "customer_service_representative", "receptionist"];
   let finalRole = requestedRole;
   if (!builtInRoles.includes(finalRole)) {

@@ -17,8 +17,26 @@ import { generateConfirmationCode } from "../lib/booking-utils";
 import { findClientAccountByPhone } from "../lib/client-data-repair";
 import { notifyBooking } from "../lib/notification-service";
 import { runBookingAutomations } from "./automationStudio";
+import { getCorporateOperationsConfig } from "../lib/corporate-config";
 
 const router = Router();
+
+async function blockBookingCreation(res: any): Promise<boolean> {
+  let controls;
+  try { controls = await getCorporateOperationsConfig(); }
+  catch {
+    res.status(503).json({ error: "Booking availability could not be verified. Please try again shortly.", code: "BOOKING_CONTROL_UNAVAILABLE" });
+    return true;
+  }
+  if (controls.bookingsPaused || controls.maintenanceMode) {
+    res.status(503).json({
+      error: controls.maintenanceMode ? controls.maintenanceMessage : "New booking requests are temporarily paused by Ayden Smith Holdings. Existing appointments remain in place.",
+      code: "CORPORATE_BOOKINGS_PAUSED",
+    });
+    return true;
+  }
+  return false;
+}
 
 const normalizeCode = (value: unknown) => String(value ?? "").toUpperCase().trim();
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
@@ -227,6 +245,7 @@ router.get("/", requirePermission("viewClients"), async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
+  if (await blockBookingCreation(res)) return;
   const { clientName, phone, reason, preferredDate, preferredTime } = req.body as Record<string, string>;
   if (!clientName || !phone || !reason || !preferredDate || !preferredTime) {
     res.status(400).json({ error: "All fields are required." });
@@ -551,6 +570,7 @@ router.post("/confirm/:code/feedback", async (req, res) => {
 });
 
 router.post("/staff", requirePermission("editAppointments"), async (req, res) => {
+  if (await blockBookingCreation(res)) return;
   const { clientName, phone, reason, preferredDate, preferredTime, status = "claimed", priority = 1, sessionNotes, businessHoursConfirmationToken } = req.body as Record<string, any>;
   if (!clientName || !phone || !reason || !preferredDate || !preferredTime) return res.status(400).json({ error: "clientName, phone, reason, preferredDate and preferredTime are required." });
   const allowed = ["pending", "claimed", "completed", "waitlisted"];
