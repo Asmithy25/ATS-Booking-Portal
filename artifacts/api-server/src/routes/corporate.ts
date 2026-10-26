@@ -125,6 +125,11 @@ const DEFAULT_BRANDING = {
   publicAttributionEnabled: false,
   attributionText: "An Ayden Smith Holdings company",
   publicLogoUrl: "/ash-corporate.webp",
+  publicHomepageBrandingEnabled: true,
+  publicHomepageHeroSignatureEnabled: true,
+  publicHomepageBrandingText: "An Ayden Smith Holdings company",
+  publicHomepageBrandingDetail: "The corporate parent behind Ayden’s Wellness Services.",
+  publicHomepageLogoUrl: "/ash-corporate.webp",
   logoUpdatedAt: null as string | null,
 };
 
@@ -152,6 +157,11 @@ router.get("/branding/public", async (_req, res) => {
       publicAttributionEnabled: value.publicAttributionEnabled === true,
       attributionText: text(value.attributionText, 140) || DEFAULT_BRANDING.attributionText,
       publicLogoUrl: value.publicLogoUrl || DEFAULT_BRANDING.publicLogoUrl,
+      publicHomepageBrandingEnabled: value.publicHomepageBrandingEnabled !== false,
+      publicHomepageHeroSignatureEnabled: value.publicHomepageHeroSignatureEnabled !== false,
+      publicHomepageBrandingText: text(value.publicHomepageBrandingText, 140) || DEFAULT_BRANDING.publicHomepageBrandingText,
+      publicHomepageBrandingDetail: text(value.publicHomepageBrandingDetail, 220) || DEFAULT_BRANDING.publicHomepageBrandingDetail,
+      publicHomepageLogoUrl: value.publicHomepageLogoUrl || DEFAULT_BRANDING.publicHomepageLogoUrl,
     });
   } catch {
     res.json(DEFAULT_BRANDING);
@@ -188,6 +198,11 @@ router.put("/branding", requireAuth, async (req, res) => {
     publicAttributionEnabled: body.publicAttributionEnabled === true,
     attributionText: text(body.attributionText, 140) || DEFAULT_BRANDING.attributionText,
     publicLogoUrl: validUrl(body.publicLogoUrl, prior.publicLogoUrl),
+    publicHomepageBrandingEnabled: typeof body.publicHomepageBrandingEnabled === "boolean" ? body.publicHomepageBrandingEnabled : prior.publicHomepageBrandingEnabled,
+    publicHomepageHeroSignatureEnabled: typeof body.publicHomepageHeroSignatureEnabled === "boolean" ? body.publicHomepageHeroSignatureEnabled : prior.publicHomepageHeroSignatureEnabled,
+    publicHomepageBrandingText: text(body.publicHomepageBrandingText, 140) || DEFAULT_BRANDING.publicHomepageBrandingText,
+    publicHomepageBrandingDetail: text(body.publicHomepageBrandingDetail, 220) || DEFAULT_BRANDING.publicHomepageBrandingDetail,
+    publicHomepageLogoUrl: validUrl(body.publicHomepageLogoUrl, prior.publicHomepageLogoUrl),
     logoUpdatedAt: new Date().toISOString(),
   };
   await writeConfig("branding", next, access.email);
