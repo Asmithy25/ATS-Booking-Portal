@@ -102,7 +102,16 @@ async function listRecords() {
 
 async function readConfig(key: string) {
   const result = await exec("SELECT value FROM ash_corporate_config WHERE key=" + q(key) + " LIMIT 1");
-  return rows(result)[0]?.value ?? null;
+  const saved = rows(result)[0]?.value ?? null;
+  if (key === "operations" && saved && typeof saved === "object" && saved.changeFreeze === true && saved.freezeUntil) {
+    const expiry = new Date(String(saved.freezeUntil));
+    if (!Number.isNaN(expiry.getTime()) && expiry.getTime() <= Date.now()) {
+      const normalized = { ...DEFAULT_CORPORATE_CONFIG, ...saved, changeFreeze: false, freezeReason: "", freezeUntil: "", updatedAt: new Date().toISOString() };
+      await exec("UPDATE ash_corporate_config SET value=" + qJson(normalized) + ",updated_at=now() WHERE key='operations'");
+      return normalized;
+    }
+  }
+  return saved;
 }
 
 async function writeConfig(key: string, value: unknown, actor: string) {
@@ -384,6 +393,23 @@ router.post("/records/:id/action", requireAuth, async (req, res) => {
     if (text(body.evidence, 800).length < 8) { res.status(400).json({ error: "Record what was actually deployed and how it was verified." }); return; }
     await exec("UPDATE ash_corporate_records SET details=" + qJson(details) + ",status='deployed',updated_at=now() WHERE id=" + id);
     await recordAudit(req, "recorded_corporate_release_deployment", "ash_corporate_record", String(id));
+  } else if (action === "advance_rollout") {
+    if (record.recordType !== "release") { res.status(400).json({ error: "Only releases have staged rollout records." }); return; }
+    if (record.status !== "deployed") { res.status(409).json({ error: "Record the actual deployment before advancing rollout stage." }); return; }
+    const evidence = text(body.evidence, 800);
+    if (evidence.length < 8) { res.status(400).json({ error: "Describe what was validated at the current stage before progressing." }); return; }
+    const details = { ...(record.details ?? {}) };
+    const stages = ["founder_test", "selected_staff", "limited_clients", "general_release"];
+    const currentStage = text((details as any).rolloutStage, 60) || "founder_test";
+    const currentIndex = stages.indexOf(currentStage);
+    if (currentIndex < 0 || currentIndex >= stages.length - 1) { res.status(409).json({ error: "This release is already at its final rollout stage or has an unknown stage." }); return; }
+    const nextStage = stages[currentIndex + 1];
+    const history = Array.isArray((details as any).rolloutHistory) ? [...(details as any).rolloutHistory] : [];
+    history.push({ from: currentStage, to: nextStage, evidence, advancedBy: access.email, advancedAt: new Date().toISOString() });
+    (details as any).rolloutStage = nextStage;
+    (details as any).rolloutHistory = history;
+    await exec("UPDATE ash_corporate_records SET details=" + qJson(details) + ",updated_at=now() WHERE id=" + id);
+    await recordAudit(req, "advanced_corporate_release_rollout", "ash_corporate_record", String(id), currentStage + " -> " + nextStage);
   } else if (action === "update") {
     const details = body.details && typeof body.details === "object" && !Array.isArray(body.details) ? body.details : record.details;
     const summary = body.summary === undefined ? record.summary : text(body.summary, 2000);
