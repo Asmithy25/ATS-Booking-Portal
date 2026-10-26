@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, settingsTable } from "@workspace/db";
+import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getStaffAccess, isCorporateExecutiveAccess, requireAuth } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
