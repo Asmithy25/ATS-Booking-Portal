@@ -140,21 +140,43 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
  * Require the session to belong specifically to the admin account.
  * Does not need a DB round-trip because the admin is always the hardcoded account.
  */
-export function requireAdminAuth(req: Request, res: Response, next: NextFunction): void {
+/**
+ * Founder or the specially assigned ASH Executive role may manage operations.
+ * The protected founder account itself is never represented in staff_accounts,
+ * so this cannot grant the executive role the ability to edit or delete ownership.
+ */
+export async function requireAdminAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const session = extractSession(req);
-
   if (!session?.email) {
     res.status(401).json({ error: "Unauthorized." });
     return;
   }
 
-  if (session.email !== ADMIN_EMAIL) {
-    res.status(403).json({ error: "Admin access required." });
+  if (session.email === ADMIN_EMAIL) {
+    (req as RequestWithSession).staffSession = { email: session.email, name: session.name };
+    next();
     return;
   }
 
-  (req as RequestWithSession).staffSession = { email: session.email, name: session.name };
-  next();
+  try {
+    const [staff] = await db
+      .select({ email: staffAccountsTable.email, name: staffAccountsTable.name, role: staffAccountsTable.role })
+      .from(staffAccountsTable)
+      .where(eq(staffAccountsTable.email, session.email))
+      .limit(1);
+    if (!staff || staff.role !== "ash_executive") {
+      res.status(403).json({ error: "Founder or Ayden Smith Holdings Executive access required." });
+      return;
+    }
+    (req as RequestWithSession).staffSession = { email: staff.email, name: staff.name };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function isCorporateExecutiveAccess(access: { role: string } | null | undefined): boolean {
+  return access?.role === "founder" || access?.role === "ash_executive";
 }
 
 export async function getStaffAccess(req: Request): Promise<{
@@ -188,7 +210,7 @@ export function hasPermission(
   access: { role: string; permissions: Record<string, boolean> },
   permission: string,
 ): boolean {
-  if (access.role === "founder") return true;
+  if (access.role === "founder" || access.role === "ash_executive") return true;
   // Explicit role permissions are authoritative. This lets the founder
   // revoke a built-in role capability instead of having defaults re-grant it.
   if (Object.prototype.hasOwnProperty.call(access.permissions ?? {}, permission)) {
