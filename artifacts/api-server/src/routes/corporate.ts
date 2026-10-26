@@ -307,8 +307,8 @@ router.post("/records/:id/action", requireAuth, async (req, res) => {
     if (operations.changeFreeze === true && action === "approve" && !["incident", "emergency"].includes(record.recordType)) {
       res.status(423).json({ error: "Corporate change freeze is active. Only approved emergency exceptions may proceed." }); return;
     }
-    if (action === "approve" && !["pending_review", "in_review", "draft"].includes(record.status)) {
-      res.status(409).json({ error: "This record is not in an approvable state." }); return;
+    if (!["pending_review", "in_review", "draft"].includes(record.status)) {
+      res.status(409).json({ error: "This record is no longer open for approval or rejection." }); return;
     }
     if (!["change_request", "release", "policy", "change_freeze", "emergency"].includes(record.recordType)) {
       res.status(400).json({ error: "This record type does not use the approval workflow." }); return;
