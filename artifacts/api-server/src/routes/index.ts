@@ -18,6 +18,7 @@ import logoLibraryRouter from "./logoLibrary";
 import deliverySettingsRouter from "./deliverySettings";
 import automationStudioRouter from "./automationStudio";
 import notificationMissionControlRouter from "./notificationMissionControl";
+import corporateRouter from "./corporate";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use("/final", finalStaffRouter);
 router.use("/final/aurora", finalAuroraRouter);
 router.use("/automation-studio", automationStudioRouter);
 router.use("/notification-mission-control", notificationMissionControlRouter);
+router.use("/corporate", corporateRouter);
 
 export default router;
