@@ -337,7 +337,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         <div className="fixed top-0 left-0 right-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center bg-secondary p-1">
-              <img src={settings?.logoUrl || logoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
+              <img src={activeStaffLogoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
             </span>
             <span className="font-serif text-lg">{settings?.siteName ?? "Ayden's Therapy Services"}</span>
           </div>
