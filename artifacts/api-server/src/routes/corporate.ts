@@ -313,6 +313,27 @@ router.post("/records/:id/action", requireAuth, async (req, res) => {
     if (!["change_request", "release", "policy", "change_freeze", "emergency"].includes(record.recordType)) {
       res.status(400).json({ error: "This record type does not use the approval workflow." }); return;
     }
+    if (action === "approve" && (record.priority === "high" || record.priority === "critical") && ["change_request", "release"].includes(record.recordType)) {
+      const details = record.details && typeof record.details === "object" ? record.details as Record<string, unknown> : {};
+      const hasImpact = text(details.impact, 2000).length > 0;
+      const hasAffectedAreas = text(details.affectedAreas, 1200).length > 0;
+      const hasSuccessCriteria = text(details.successCriteria, 1200).length > 0;
+      const hasRollbackPlan = text(details.rollbackPlan, 1200).length > 0;
+      if (!hasImpact || !hasAffectedAreas || !hasSuccessCriteria || (record.priority === "critical" && !hasRollbackPlan)) {
+        res.status(409).json({
+          error: record.priority === "critical"
+            ? "Critical changes require impact, affected areas, success criteria and a rollback/recovery plan before approval."
+            : "High-risk changes require impact, affected areas and success criteria before approval.",
+          missing: [
+            ...(!hasImpact ? ["impact"] : []),
+            ...(!hasAffectedAreas ? ["affectedAreas"] : []),
+            ...(!hasSuccessCriteria ? ["successCriteria"] : []),
+            ...(record.priority === "critical" && !hasRollbackPlan ? ["rollbackPlan"] : []),
+          ],
+        });
+        return;
+      }
+    }
     if (action === "approve" && record.requestedEmail === access.email && (record.priority === "critical" || record.requiredApprovals > 1)) {
       res.status(409).json({ error: "A requester cannot approve their own critical change." }); return;
     }
