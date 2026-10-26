@@ -186,6 +186,18 @@ router.put("/branding", requireAuth, async (req, res) => {
   res.json(next);
 });
 
+router.get("/operations/public", async (_req, res) => {
+  try {
+    await ensureCorporateStorage();
+    const saved = await readConfig("operations");
+    const value = { ...DEFAULT_CORPORATE_CONFIG, ...(saved && typeof saved === "object" ? saved : {}) };
+    res.set("Cache-Control", "public, max-age=30");
+    res.json({ maintenanceMode: value.maintenanceMode === true, bookingsPaused: value.bookingsPaused === true, maintenanceMessage: text(value.maintenanceMessage, 500) || DEFAULT_CORPORATE_CONFIG.maintenanceMessage });
+  } catch {
+    res.json({ maintenanceMode: false, bookingsPaused: false, maintenanceMessage: DEFAULT_CORPORATE_CONFIG.maintenanceMessage });
+  }
+});
+
 router.get("/config", requireAuth, async (req, res) => {
   const access = await accessFor(req, res, true);
   if (!access) return;
@@ -291,6 +303,13 @@ router.post("/records/:id/action", requireAuth, async (req, res) => {
   const action = text(body.action, 40);
 
   if (action === "approve" || action === "reject") {
+    const operations = { ...DEFAULT_CORPORATE_CONFIG, ...((await readConfig("operations")) ?? {}) };
+    if (operations.changeFreeze === true && action === "approve" && !["incident", "emergency"].includes(record.recordType)) {
+      res.status(423).json({ error: "Corporate change freeze is active. Only approved emergency exceptions may proceed." }); return;
+    }
+    if (action === "approve" && !["pending_review", "in_review", "draft"].includes(record.status)) {
+      res.status(409).json({ error: "This record is not in an approvable state." }); return;
+    }
     if (!["change_request", "release", "policy", "change_freeze", "emergency"].includes(record.recordType)) {
       res.status(400).json({ error: "This record type does not use the approval workflow." }); return;
     }
@@ -323,15 +342,20 @@ router.post("/records/:id/action", requireAuth, async (req, res) => {
     if (index >= 0) checks[index] = check; else checks.push(check);
     (details as any).verificationChecks = checks;
     const mandatory = VERIFICATION_KEYS.filter((item) => item !== "deployment");
-    const ready = mandatory.every((item) => {
+    const checksComplete = mandatory.every((item) => {
       const value = checks.find((check: any) => check.key === item);
       return value?.status === "pass" && text(value.evidence, 800).length >= 8;
     });
+    const approvalsRecorded = Array.isArray(record.approvals) && record.approvals.filter((item: any) => item?.action === "approve").length >= record.requiredApprovals;
+    const approved = record.status === "approved" || record.status === "ready_to_deploy" || record.status === "deployed" || approvalsRecorded;
+    const ready = checksComplete && approved;
     const hasFail = checks.some((item: any) => item.status === "fail" || item.status === "blocked");
     const statusNext = hasFail ? "blocked" : ready ? "ready_to_deploy" : "in_review";
     await exec("UPDATE ash_corporate_records SET details=" + qJson(details) + ",status=" + q(statusNext) + ",updated_at=now() WHERE id=" + id);
     await recordAudit(req, "updated_release_verification", "ash_corporate_record", String(id));
   } else if (action === "mark_deployed") {
+    const operations = { ...DEFAULT_CORPORATE_CONFIG, ...((await readConfig("operations")) ?? {}) };
+    if (operations.changeFreeze === true) { res.status(423).json({ error: "Deployment is blocked while a corporate change freeze is active." }); return; }
     if (record.recordType !== "release") { res.status(400).json({ error: "Only releases can be marked deployed." }); return; }
     if (record.status !== "ready_to_deploy") { res.status(409).json({ error: "Release verification must be ready before a deployment can be recorded." }); return; }
     const details = { ...(record.details ?? {}), deployment: { status: "deployed", version: text(body.version, 120), commit: text(body.commit, 120), deployedBy: access.email, deployedAt: new Date().toISOString(), evidence: text(body.evidence, 800) } };
@@ -345,6 +369,9 @@ router.post("/records/:id/action", requireAuth, async (req, res) => {
     if (!title) { res.status(400).json({ error: "Title cannot be blank." }); return; }
     const status = body.status === undefined ? record.status : text(body.status, 40);
     if (!STATUSES.has(status)) { res.status(400).json({ error: "Unsupported status." }); return; }
+    if (["approved", "ready_to_deploy", "deployed"].includes(status)) {
+      res.status(400).json({ error: "Approval, release readiness and deployment must use their dedicated workflows." }); return;
+    }
     if (record.recordType === "release" && status === "ready_to_deploy") {
       const checks = Array.isArray((details as any).verificationChecks) ? (details as any).verificationChecks : [];
       const mandatory = VERIFICATION_KEYS.filter((item) => item !== "deployment");
