@@ -347,7 +347,8 @@ router.post("/records/:id/action", requireAuth, async (req, res) => {
       return value?.status === "pass" && text(value.evidence, 800).length >= 8;
     });
     const approvalsRecorded = Array.isArray(record.approvals) && record.approvals.filter((item: any) => item?.action === "approve").length >= record.requiredApprovals;
-    const approved = record.status === "approved" || record.status === "ready_to_deploy" || record.status === "deployed" || approvalsRecorded;
+    const hasRejection = Array.isArray(record.approvals) && record.approvals.some((item: any) => item?.action === "reject");
+    const approved = !hasRejection && record.status !== "rejected" && (record.status === "approved" || record.status === "ready_to_deploy" || record.status === "deployed" || approvalsRecorded);
     const ready = checksComplete && approved;
     const hasFail = checks.some((item: any) => item.status === "fail" || item.status === "blocked");
     const statusNext = hasFail ? "blocked" : ready ? "ready_to_deploy" : "in_review";
@@ -369,8 +370,17 @@ router.post("/records/:id/action", requireAuth, async (req, res) => {
     if (!title) { res.status(400).json({ error: "Title cannot be blank." }); return; }
     const status = body.status === undefined ? record.status : text(body.status, 40);
     if (!STATUSES.has(status)) { res.status(400).json({ error: "Unsupported status." }); return; }
-    if (["approved", "ready_to_deploy", "deployed"].includes(status)) {
-      res.status(400).json({ error: "Approval, release readiness and deployment must use their dedicated workflows." }); return;
+    if (body.status !== undefined) {
+      const allowedStatus = record.recordType === "incident"
+        ? ["active", "resolved", "cancelled"].includes(status)
+        : record.recordType === "maintenance"
+          ? ["planned", "active", "resolved", "cancelled"].includes(status)
+          : ["decision", "briefing", "milestone"].includes(record.recordType)
+            ? ["recorded", "cancelled"].includes(status)
+            : status === record.status;
+      if (!allowedStatus) {
+        res.status(400).json({ error: "Use the dedicated approval or release workflow to change this record's status." }); return;
+      }
     }
     if (record.recordType === "release" && status === "ready_to_deploy") {
       const checks = Array.isArray((details as any).verificationChecks) ? (details as any).verificationChecks : [];
