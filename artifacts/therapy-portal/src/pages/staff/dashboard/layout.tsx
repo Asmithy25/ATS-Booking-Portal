@@ -83,8 +83,8 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const activeStaffLogoUrl = sessionRole === "ash_executive"
     ? (corporateBranding.executiveDeckLogoUrl || "/ash-corporate.webp")
     : sessionRole === "founder"
-      ? (corporateBranding.founderDeckLogoUrl || "/ash-aws-crossover.webp")
-      : logoUrl;
+      ? (corporateBranding.founderDeckLogoUrl || settings?.logoUrl || "/ash-aws-crossover.webp")
+      : (settings?.logoUrl || logoUrl);
 
   const logout = useStaffLogout({
     mutation: {
@@ -253,7 +253,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         <div className="border-b border-sidebar-border p-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-sidebar-primary p-1">
-              <img src={settings?.logoUrl || logoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
+              <img src={activeStaffLogoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
             </span>
             <div>
               <h2 className="font-serif text-xl font-normal text-sidebar-foreground">Ayden’s</h2>
