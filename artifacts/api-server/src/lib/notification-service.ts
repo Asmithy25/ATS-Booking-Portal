@@ -125,8 +125,15 @@ async function claimEvent(eventKey: string, bookingId: number | null, recipientT
 }
 
 export async function notifyBooking(booking: typeof bookingsTable.$inferSelect, kind: keyof typeof DEFAULT_TEMPLATES) {
-  const corporateControls = await getCorporateOperationsConfig();
-  if (corporateControls.notificationsPaused) return;
+  try {
+    const corporateControls = await getCorporateOperationsConfig();
+    if (corporateControls.notificationsPaused) return;
+  } catch (error) {
+    // A notification-control read failure must not turn an already-created
+    // booking into a 500 response; suppress this notification attempt instead.
+    console.warn("Corporate notification controls are unavailable; notification suppressed.", error);
+    return;
+  }
   await ensureNotificationEventsTable();
   const fallback = DEFAULT_TEMPLATES[kind];
   const [stored] = await db.select().from(messageTemplatesTable).where(eq(messageTemplatesTable.key, kind)).limit(1);
