@@ -160,8 +160,8 @@ router.get("/branding", requireAuth, async (req, res) => {
 router.put("/branding", requireAuth, async (req, res) => {
   const access = await accessFor(req, res, true);
   if (!access) return;
-  if (access.role !== "founder") {
-    res.status(403).json({ error: "Only the AWS Founder can change shared brand defaults." });
+  if (!isCorporateExecutiveAccess(access)) {
+    res.status(403).json({ error: "Corporate access is required to change shared brand defaults." });
     return;
   }
   await ensureCorporateStorage();
@@ -197,8 +197,8 @@ router.get("/config", requireAuth, async (req, res) => {
 router.put("/config", requireAuth, async (req, res) => {
   const access = await accessFor(req, res, true);
   if (!access) return;
-  if (access.role !== "founder") {
-    res.status(403).json({ error: "Only the AWS Founder can change emergency and freeze controls." });
+  if (!isCorporateExecutiveAccess(access)) {
+    res.status(403).json({ error: "Corporate access is required to change emergency and freeze controls." });
     return;
   }
   await ensureCorporateStorage();
