@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db, settingsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getStaffAccess, requireAuth } from "../middleware/auth";
+import { getStaffAccess, isCorporateExecutiveAccess, requireAuth } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 
 const router = Router();
@@ -48,8 +48,8 @@ async function founderOnly(req: Request, res: Response) {
     res.status(401).json({ error: "Sign in to manage brand assets." });
     return null;
   }
-  if (access.role !== "founder") {
-    res.status(403).json({ error: "Only the AWS founder can manage the Logo Library." });
+  if (!isCorporateExecutiveAccess(access)) {
+    res.status(403).json({ error: "Corporate access is required to manage the Logo Library." });
     return null;
   }
   return access;
