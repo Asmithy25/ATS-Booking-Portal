@@ -10,7 +10,7 @@ import { Switch as SwitchComponent } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { ImagePlus, Save, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 
-type BrandingConfigKey = "staffLoginLogoUrl" | "founderDeckLogoUrl" | "executiveDeckLogoUrl" | "publicLogoUrl";
+type BrandingConfigKey = "staffLoginLogoUrl" | "founderDeckLogoUrl" | "executiveDeckLogoUrl" | "publicLogoUrl" | "publicHomepageLogoUrl";
 
 type BrandingConfig = {
   staffLoginLogoUrl: string;
@@ -19,6 +19,11 @@ type BrandingConfig = {
   publicAttributionEnabled: boolean;
   attributionText: string;
   publicLogoUrl: string;
+  publicHomepageBrandingEnabled: boolean;
+  publicHomepageHeroSignatureEnabled: boolean;
+  publicHomepageBrandingText: string;
+  publicHomepageBrandingDetail: string;
+  publicHomepageLogoUrl: string;
 };
 type LogoAsset = { id: number; name: string; assetUrl: string; category?: string; sizeBytes?: number };
 
@@ -29,12 +34,18 @@ const DEFAULTS: BrandingConfig = {
   publicAttributionEnabled: false,
   attributionText: "An Ayden Smith Holdings company",
   publicLogoUrl: "/ash-corporate.webp",
+  publicHomepageBrandingEnabled: true,
+  publicHomepageHeroSignatureEnabled: true,
+  publicHomepageBrandingText: "An Ayden Smith Holdings company",
+  publicHomepageBrandingDetail: "The corporate parent behind Ayden’s Wellness Services.",
+  publicHomepageLogoUrl: "/ash-corporate.webp",
 };
-const SLOTS: Array<{ key: keyof Pick<BrandingConfig, "staffLoginLogoUrl" | "founderDeckLogoUrl" | "executiveDeckLogoUrl" | "publicLogoUrl">; title: string; note: string; fallback: string }> = [
+const SLOTS: Array<{ key: keyof Pick<BrandingConfig, "staffLoginLogoUrl" | "founderDeckLogoUrl" | "executiveDeckLogoUrl" | "publicLogoUrl" | "publicHomepageLogoUrl">; title: string; note: string; fallback: string }> = [
   { key: "staffLoginLogoUrl", title: "Staff sign-in", note: "The first impression across the staff login and PIN setup screens.", fallback: "ASH × AWS crossover" },
   { key: "founderDeckLogoUrl", title: "Founder Command Deck", note: "The combined identity for your founder-level AWS workspace.", fallback: "ASH × AWS crossover" },
   { key: "executiveDeckLogoUrl", title: "ASH Executive Command Deck", note: "The ASH-only identity for the corporate executive workspace.", fallback: "ASH corporate emblem" },
-  { key: "publicLogoUrl", title: "Public corporate attribution", note: "Used only when public attribution is enabled below.", fallback: "ASH corporate emblem" },
+  { key: "publicLogoUrl", title: "Public footer attribution", note: "Used when footer-level corporate attribution is enabled.", fallback: "ASH corporate emblem" },
+  { key: "publicHomepageLogoUrl", title: "Main homepage ASH mark", note: "Displayed in the corporate banner and the small hero signature.", fallback: "ASH corporate emblem" },
 ];
 const DEFAULT_URLS = ["/ash-aws-crossover.webp", "/ash-corporate.webp"];
 
@@ -147,7 +158,7 @@ export default function CorporateIdentityStudio() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-xl"><Sparkles className="h-5 w-5 text-primary" /> Corporate Identity Studio</CardTitle>
-            <CardDescription className="mt-2 max-w-3xl leading-6">Choose which logo appears across the combined AWS × ASH and ASH-only areas. Uploads use the existing persistent Logo Library, and these assignments can be changed later without a code edit.</CardDescription>
+            <CardDescription className="mt-2 max-w-3xl leading-6">Choose which logo appears across the combined AWS × ASH and ASH-only areas, including the newly branded public homepage. Uploads use the existing persistent Logo Library, and these assignments can be changed later without a code edit.</CardDescription>
           </div>
           <Badge variant="outline"><ShieldCheck className="mr-1 h-3 w-3" /> {configured ? "Settings loaded" : "Default identity"}</Badge>
         </div>
@@ -179,6 +190,33 @@ export default function CorporateIdentityStudio() {
             </div>
           ))}
         </div>}
+        <div className="rounded-2xl border border-primary/20 p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="max-w-2xl">
+              <p className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-primary" /> Main homepage ASH branding · AWS 3.2.1</p>
+              <p className="mt-1 text-sm leading-5 text-muted-foreground">Add a premium corporate signature to the public homepage without replacing the AWS identity or making the wellness experience feel overly corporate.</p>
+            </div>
+            <Badge variant="outline">{branding.publicHomepageBrandingEnabled ? "Homepage banner on" : "Homepage banner off"}</Badge>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className="flex items-start justify-between gap-4 rounded-xl border p-3">
+              <div><p className="text-sm font-medium">Homepage corporate banner</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Shows the ASH logo and parent-company attribution directly below the main navigation.</p></div>
+              <SwitchComponent checked={branding.publicHomepageBrandingEnabled} onCheckedChange={(checked) => setBranding((current) => ({ ...current, publicHomepageBrandingEnabled: checked }))} />
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-xl border p-3">
+              <div><p className="text-sm font-medium">Hero corporate signature</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Adds a smaller ASH brand signature beside the homepage welcome content.</p></div>
+              <SwitchComponent checked={branding.publicHomepageHeroSignatureEnabled} onCheckedChange={(checked) => setBranding((current) => ({ ...current, publicHomepageHeroSignatureEnabled: checked }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ash-homepage-branding-text">Homepage corporate line</Label>
+              <Input id="ash-homepage-branding-text" value={branding.publicHomepageBrandingText} maxLength={140} onChange={(event) => setBranding((current) => ({ ...current, publicHomepageBrandingText: event.target.value }))} placeholder="An Ayden Smith Holdings company" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ash-homepage-branding-detail">Supporting description</Label>
+              <Input id="ash-homepage-branding-detail" value={branding.publicHomepageBrandingDetail} maxLength={220} onChange={(event) => setBranding((current) => ({ ...current, publicHomepageBrandingDetail: event.target.value }))} placeholder="The corporate parent behind Ayden’s Wellness Services." />
+            </div>
+          </div>
+        </div>
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => void upload(event)} />
         <div className="rounded-2xl border p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

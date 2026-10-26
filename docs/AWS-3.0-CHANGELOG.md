@@ -1,5 +1,30 @@
 # AWS Portal Changelog
 
+## AWS 3.2.1 — ASH Homepage Branding
+**Release date:** October 26, 2026 · Proposed release
+
+### Public homepage identity
+- Added a corporate identity banner immediately below the public navigation, featuring the ASH-only logo, the configurable parent-company line, and a supporting description.
+- Added a compact ASH × AWS signature to the homepage hero so the corporate relationship is visible without replacing AWS's warm, client-facing identity.
+- Kept the existing AWS navigation logo and wellness content intact.
+- Uses the /ash-corporate.webp asset as the default homepage corporate mark.
+
+### Founder customization
+- Extended the existing Corporate Identity Studio with a dedicated **Main homepage ASH branding** panel.
+- Added separate toggles for the homepage corporate banner and the hero signature.
+- Added editable corporate attribution and supporting description fields.
+- Added a separate homepage logo assignment that can be selected from the existing asset library or replaced using its upload flow.
+- Existing public-footer attribution remains separately configurable and disabled by default.
+
+### Implementation
+- Extended the public corporate-branding API response and saved settings with homepage display options.
+- The homepage pulls public branding options from the existing corporate branding endpoint; if the request fails, it uses the documented ASH defaults.
+- No database migration is introduced; the existing corporate configuration storage is reused.
+
+### Verification scope
+- This proposed change should be typechecked and built on the feature branch before merge.
+- Final public appearance and Founder Identity Studio changes must be checked against the live deployment after an approved release.
+
 ## AWS 3.0 — Halloween / Fall Release
 **Release date:** October 23, 2026
 

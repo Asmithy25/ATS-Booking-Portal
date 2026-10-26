@@ -106,6 +106,13 @@ export default function Home() {
   const [now, setNow] = useState(() => new Date());
   const [publicExperience, setPublicExperience] = useState<any>(null);
   const [previewBrand, setPreviewBrand] = useState<{primaryColor?:string;secondaryColor?:string;accentColor?:string}|null>(null);
+  const [homepageBranding, setHomepageBranding] = useState({
+    publicHomepageBrandingEnabled: true,
+    publicHomepageHeroSignatureEnabled: true,
+    publicHomepageBrandingText: "An Ayden Smith Holdings company",
+    publicHomepageBrandingDetail: "The corporate parent behind Ayden’s Wellness Services.",
+    publicHomepageLogoUrl: "/ash-corporate.webp",
+  });
   const [corporateStatus, setCorporateStatus] = useState<{maintenanceMode:boolean;bookingsPaused:boolean;maintenanceMessage:string}|null>(null);
   const bookingsPaused = corporateStatus?.maintenanceMode === true || corporateStatus?.bookingsPaused === true;
   const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
@@ -123,6 +130,12 @@ export default function Home() {
     }
     document.title = websiteCustomizationEnabled && settings?.siteName ? settings.siteName : 'Aydens Wellness Services';
   }, [content.faviconUrl, settings?.logoUrl, settings?.siteName, websiteCustomizationEnabled]);
+
+  useEffect(() => {
+    customFetch<Partial<typeof homepageBranding>>('/api/corporate/branding/public', { responseType: 'json' })
+      .then((value) => { if (value) setHomepageBranding((current) => ({ ...current, ...value })); })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     customFetch<{maintenanceMode:boolean;bookingsPaused:boolean;maintenanceMessage:string}>('/api/corporate/operations/public', { responseType: 'json' })
@@ -275,6 +288,26 @@ export default function Home() {
   return (
       <div className="ats-public-home min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/20" style={getThemeStyle(previewMode && previewBrand ? previewBrand : websiteCustomizationEnabled ? settings : undefined)}>
       <PublicNavbar />
+      {homepageBranding.publicHomepageBrandingEnabled && (
+        <section aria-label="Corporate identity" className="border-b border-primary/25 bg-foreground text-background">
+          <div className="container mx-auto flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-3.5">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg border border-background/15 bg-background p-1.5 shadow-sm">
+                <img src={homepageBranding.publicHomepageLogoUrl || "/ash-corporate.webp"} alt="Ayden Smith Holdings logo" className="h-full w-full object-contain" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-[.22em] text-background/60">AYDEN SMITH HOLDINGS · CORPORATE FAMILY</p>
+                <p className="mt-0.5 text-sm font-semibold leading-snug text-background">{homepageBranding.publicHomepageBrandingText}</p>
+                <p className="mt-0.5 text-xs leading-5 text-background/70">{homepageBranding.publicHomepageBrandingDetail}</p>
+              </div>
+            </div>
+            <div className="hidden shrink-0 items-center gap-2 border-l border-background/15 pl-5 text-[10px] font-semibold uppercase tracking-[.18em] text-background/70 sm:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              ASH × AWS
+            </div>
+          </div>
+        </section>
+      )}
       {bookingsPaused && <section role="status" aria-live="polite" className="border-b border-amber-500/25 bg-amber-500/10"><div className="container mx-auto flex items-start gap-3 px-4 py-4"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" /><div><p className="text-sm font-semibold text-foreground">{corporateStatus?.maintenanceMode ? "Scheduled maintenance in progress" : "Online booking is temporarily paused"}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{corporateStatus?.maintenanceMode ? corporateStatus?.maintenanceMessage : "Your existing appointments remain in place. Please check back later or contact Ayden’s Wellness Services for assistance."}</p></div></div></section>}
       <PracticeStatus settings={settings} remote={publicExperience?.practice} />
       <AydensExperienceLayer seasonal={publicExperience?.seasonal} experience={publicExperience?.experience} />
@@ -312,6 +345,14 @@ export default function Home() {
                 variants={staggerContainer}
                 className="max-w-2xl ats-rise"
               >
+                {homepageBranding.publicHomepageHeroSignatureEnabled && (
+                  <motion.div variants={fadeUp} className="mb-5 inline-flex max-w-full items-center gap-2.5 rounded-full border border-primary/20 bg-card/85 px-3 py-2 shadow-sm backdrop-blur">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-md bg-background p-1">
+                      <img src={homepageBranding.publicHomepageLogoUrl || "/ash-corporate.webp"} alt="" aria-hidden="true" className="h-full w-full object-contain" />
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">ASH × AWS <span className="mx-1 text-primary/60">·</span> Corporate family</span>
+                  </motion.div>
+                )}
                 {settings?.acceptingClients && (
                   <motion.div variants={fadeUp} className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 text-secondary-foreground text-sm font-medium border border-secondary/30">
                     <Sparkles className="w-4 h-4" />
