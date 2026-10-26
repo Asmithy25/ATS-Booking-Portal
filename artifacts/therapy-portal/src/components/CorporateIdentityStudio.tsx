@@ -72,8 +72,6 @@ export default function CorporateIdentityStudio() {
     return () => { alive = false; };
   }, []);
 
-  type BrandingConfigKey = "staffLoginLogoUrl" | "founderDeckLogoUrl" | "executiveDeckLogoUrl" | "publicLogoUrl";
-
   const save = async () => {
     setSaving(true);
     try {
