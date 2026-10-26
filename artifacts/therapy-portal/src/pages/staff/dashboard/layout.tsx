@@ -29,6 +29,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: settings } = useGetSettings();
+  const [corporateBranding, setCorporateBranding] = useState<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>({ founderDeckLogoUrl: "/ash-aws-crossover.webp", executiveDeckLogoUrl: "/ash-corporate.webp" });
   const isStaffDarkMode = portalPrefs.appearance === 'dark';
   const { toast } = useToast();
 
@@ -70,6 +71,20 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
       retry: false,
     },
   });
+
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    customFetch<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>("/api/corporate/branding/public", { responseType: "json" })
+      .then((value) => value && setCorporateBranding((current) => ({ ...current, ...value })))
+      .catch(() => undefined);
+  }, [session?.authenticated]);
+
+  const sessionRole = String((session as any)?.role || "");
+  const activeStaffLogoUrl = sessionRole === "ash_executive"
+    ? (corporateBranding.executiveDeckLogoUrl || "/ash-corporate.webp")
+    : sessionRole === "founder"
+      ? (corporateBranding.founderDeckLogoUrl || "/ash-aws-crossover.webp")
+      : logoUrl;
 
   const logout = useStaffLogout({
     mutation: {
@@ -291,6 +306,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {session.isAdmin && navItem('/staff/release-control', <ShieldCheck className="h-4 w-4" />, 'Release Control Tower')}
           {session.isAdmin && navItem('/staff/automation-studio', <Workflow className="h-4 w-4" />, 'Aurora Automation Studio')}
           {session.isAdmin && navItem('/staff/founder-dashboard', <Crown className="h-4 w-4" />, 'Founder Dashboard')}
+          {((session as any)?.role === 'founder' || (session as any)?.role === 'ash_executive') && navItem('/staff/corporate', <BriefcaseBusiness className="h-4 w-4" />, 'ASH Corporate Command')}
           {navItem('/staff/system-health', <Activity className="h-4 w-4" />, 'System Health')}
           {session.isAdmin && navItem('/staff/backup', <Database className="h-4 w-4" />, 'Backup & Recovery')}
 
