@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { staffAccountsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { ensureAdvancedStorage } from "../lib/advanced-storage";
-import { ADMIN_EMAIL, requireAdminAuth, type RequestWithSession } from "../middleware/auth";
+import { ADMIN_EMAIL, requireAdminAuth } from "../middleware/auth";
 import { hashPassword } from "../middleware/auth";
 import type { OfficeHours } from "@workspace/db";
 import type { StaffSession } from "../middleware/auth";
