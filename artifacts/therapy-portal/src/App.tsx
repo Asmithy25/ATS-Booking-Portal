@@ -57,6 +57,7 @@ const WebsiteSettings = lazy(() => import('@/pages/staff/dashboard/website-setti
 const ManagementSettings = lazy(() => import('@/pages/staff/dashboard/management-settings'));
 const StaffRequests = lazy(() => import('@/pages/staff/dashboard/staff-requests'));
 const CorporateCommand = lazy(() => import('@/pages/staff/dashboard/corporate-command'));
+const PhoneCenter = lazy(() => import('@/pages/staff/dashboard/phone-center'));
 const Aurora = lazy(() => import('@/pages/staff/dashboard/aurora'));
 const StaffPublicSupport = lazy(() => import('@/pages/staff/dashboard/public-support'));
 const NotFound = lazy(() => import('@/pages/not-found'));
@@ -95,6 +96,7 @@ function StaffRouter() {
         <Route path="/staff/practice-control" component={PracticeControl} />
         <Route path="/staff/homepage-controls" component={HomepageControls} />
         <Route path="/staff/staff-directory" component={StaffDirectory} />
+        <Route path="/staff/phone" component={PhoneCenter} />
         <Route path="/staff/founder-dashboard" component={FounderDashboard} />
         <Route path="/staff/corporate" component={CorporateCommand} />
         <Route path="/staff/command-center" component={CommandCenter} />
