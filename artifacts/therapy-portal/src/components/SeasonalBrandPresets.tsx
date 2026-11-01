@@ -298,7 +298,7 @@ export default function SeasonalBrandPresets() {
             <CardTitle className="text-xl">Seasonal Brand Presets</CardTitle>
             <CardDescription>Apply a shared seasonal palette to the website, client portal, and staff workspace. Personal layout and light/dark preferences remain independent.</CardDescription>
           </div>
-          <Badge className="ml-auto" variant="outline">AWS 3.2</Badge>
+          <Badge className="ml-auto" variant="outline">AWS 3.2.2</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-5 p-4 sm:p-6">
