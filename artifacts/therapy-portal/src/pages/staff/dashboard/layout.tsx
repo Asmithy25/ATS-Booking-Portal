@@ -32,9 +32,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [corporateBranding, setCorporateBranding] = useState<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>({ founderDeckLogoUrl: "/ash-aws-crossover.webp", executiveDeckLogoUrl: "/ash-corporate.webp" });
   const isStaffDarkMode = portalPrefs.appearance === 'dark';
   // Season selection is shared across public, client and staff portals.
-  const brandPrimary = /^#[0-9a-f]{6}$/i.test(settings?.primaryColor || "") ? settings!.primaryColor : "#8F4A34";
-  const brandSecondary = /^#[0-9a-f]{6}$/i.test(settings?.secondaryColor || "") ? settings!.secondaryColor : "#B58C50";
-  const brandAccent = /^#[0-9a-f]{6}$/i.test(settings?.accentColor || "") ? settings!.accentColor : "#C4CEB5";
+  const brandPrimary: string = /^#[0-9a-f]{6}$/i.test(settings?.primaryColor || "") ? String(settings?.primaryColor) : "#8F4A34";
+  const brandSecondary: string = /^#[0-9a-f]{6}$/i.test(settings?.secondaryColor || "") ? String(settings?.secondaryColor) : "#B58C50";
+  const brandAccent: string = /^#[0-9a-f]{6}$/i.test(settings?.accentColor || "") ? String(settings?.accentColor) : "#C4CEB5";
   const brandHue = toHsl(brandPrimary).split(" ")[0];
   const foregroundFor = (hex: string) => {
     const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
