@@ -43,7 +43,7 @@ export default function PhoneWorkspace({ manage = false }: { manage?: boolean })
     setDirty(true);
     setBook((previous) => ({
       ...previous,
-      [section]: (previous[section] as Array<Record<string, string>>).map((item) =>
+      [section]: (previous[section] as any[]).map((item) =>
         item.id === id ? { ...item, [field]: value } : item),
     }));
   };
