@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database, Keyboard } from 'lucide-react';
+import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database, Keyboard, PhoneCall } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -291,7 +291,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/announcements', <Megaphone className="h-4 w-4" />, 'Announcements')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Activity history')}
           {navItem('/staff/my-settings', <SettingsIcon className="h-4 w-4" />, 'My Settings')}
-          {session.isAdmin && navItem('/staff/website-settings', <Eye className="h-4 w-4" />, 'Website Settings')}
+          {(session.isAdmin || sessionRole === 'ash_executive') && navItem('/staff/website-settings', <Eye className="h-4 w-4" />, 'Website Settings')}
           {session.isAdmin && navItem('/staff/management-settings', <ShieldCheck className="h-4 w-4" />, 'Management Settings')}
           {navItem('/staff/feedback', <Star className="h-4 w-4" />, 'Feedback')}
           {navItem('/staff/homepage-preview', <Eye className="h-4 w-4" />, 'Homepage preview')}
@@ -300,6 +300,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/practice-control', <Leaf className="h-4 w-4" />, 'Practice Control')}
           {session.isAdmin && navItem('/staff/homepage-controls', <Eye className="h-4 w-4" />, 'Homepage Controls')}
           {navItem('/staff/staff-directory', <UserRound className="h-4 w-4" />, 'Staff Directory')}
+          {navItem('/staff/phone', <PhoneCall className="h-4 w-4" />, 'Phone Center')}
           {session.isAdmin && navItem('/staff/command-center', <Activity className="h-4 w-4" />, 'Command Center')}
           {session.isAdmin && navItem('/staff/forecast', <ChartNoAxesCombined className="h-4 w-4" />, 'Demand Forecast Lab')}
           {session.isAdmin && navItem('/staff/booking-lifecycle', <GitBranch className="h-4 w-4" />, 'Booking Lifecycle Explorer')}
