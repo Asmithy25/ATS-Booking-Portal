@@ -1,3 +1,28 @@
+## AWS 3.2.2 — Christmas Season: Staff Phone Center & Shared Palettes
+**November 1, 2026 · Release candidate**
+
+### Phone Center (authenticated staff only)
+- Added **Phone Center** to the staff navigation at `/staff/phone` with searchable division and staff extensions.
+- Staff names are seeded from current staff accounts on first use, with no invented phone extensions. Founder and Corporate can add division entries and staff extensions.
+- Added customizable call scripts: greetings, hold requests, transfers, messages, call closing and voicemail.
+- Added copy-to-clipboard scripts and last-updated context; this is a reference directory, not a VoIP dialer or actual phone routing.
+- Founder and ASH Corporate can edit all three lists under **Staff → Website Settings → Phone Center management**. Other staff have read-only access.
+- New authenticated `GET /api/phone` and Founder/Corporate-only `PUT /api/phone` endpoints; directory persists in `ash_corporate_config` and writes are audit-logged. No required new table/migration.
+
+### Shared seasonal palette across AWS
+- All existing seasonal presets, including Christmas evergreen/cranberry/champagne, now drive shared design tokens on public and client pages.
+- Staff workspace now reads the same persisted `primaryColor`, `secondaryColor` and `accentColor` settings for buttons, sidebar accents, cards, surfaces and key interactive states.
+- Replaces hardcoded Halloween-era staff shell colors; staff may still choose individual light/dark appearance, spacing and navigation layout.
+- Existing personal color overrides no longer supersede the active corporate seasonal palette. The staff My Settings page explains the distinction.
+- Choosing **Christmas** in Website Settings applies the seasonal palette; the update does not silently change persisted site colors.
+
+### Release safety
+- No live telephone integration, call placement or phone number provisioning is implied.
+- Staff directory and scripts require staff authentication; mutation requires server-side Founder/ASH Executive authorization.
+- Must pass CI/build and post-merge deployment verification before production is declared released.
+
+---
+
 # AWS Portal Changelog
 
 ## AWS 3.2.1 — ASH Homepage Branding

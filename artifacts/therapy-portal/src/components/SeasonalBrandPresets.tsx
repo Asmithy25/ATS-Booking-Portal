@@ -231,7 +231,7 @@ export default function SeasonalBrandPresets() {
       setActivePreset(null);
       setPreviousBranding(null);
       try { window.localStorage.removeItem(UNDO_KEY); } catch { /* No-op. */ }
-      toast({ title: "Previous website palette restored", description: "The last palette change was undone." });
+      toast({ title: "Previous website palette restored", description: "The previous shared AWS palette was restored." });
     } catch (error) {
       toast({ variant: "destructive", title: "Could not undo palette", description: error instanceof Error ? error.message : "Try again." });
     } finally { setUndoBusy(false); }
@@ -281,7 +281,7 @@ export default function SeasonalBrandPresets() {
           : preset.logoBehavior === "auto-match"
             ? " No matching seasonal logo was found in Logo Library, so the current logo was kept. Upload or tag the matching logo to pair it automatically."
             : " Your current logo was kept; choose a seasonal logo below to pair one with this palette.";
-      toast({ title: preset.name + " palette applied", description: "The public website colors have been updated." + logoNote });
+      toast({ title: preset.name + " palette applied", description: "The shared AWS colors now apply to the public website, client portal, and staff workspace." + logoNote });
     } catch (error) {
       toast({ variant: "destructive", title: "Seasonal palette could not be applied", description: error instanceof Error ? error.message : "Check founder access and try again." });
     } finally {
@@ -296,9 +296,9 @@ export default function SeasonalBrandPresets() {
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Palette className="h-5 w-5" /></span>
           <div>
             <CardTitle className="text-xl">Seasonal Brand Presets</CardTitle>
-            <CardDescription>Switch the public website palette in one move. Staff personal themes stay untouched.</CardDescription>
+            <CardDescription>Apply a shared seasonal palette to the website, client portal, and staff workspace. Personal layout and light/dark preferences remain independent.</CardDescription>
           </div>
-          <Badge className="ml-auto" variant="outline">AWS 3.2</Badge>
+          <Badge className="ml-auto" variant="outline">AWS 3.2.2</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-5 p-4 sm:p-6">
