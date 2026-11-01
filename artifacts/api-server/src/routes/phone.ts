@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, staffAccountsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getStaffAccess, isCorporateExecutiveAccess, requireAuth } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
@@ -57,9 +57,19 @@ async function readPhoneBook() {
   await ensureStorage();
   const result = await db.execute(sql`SELECT value FROM ash_corporate_config WHERE key = 'staff_phone_directory' LIMIT 1`);
   const stored = resultRows(result)[0]?.value;
-  return stored && typeof stored === "object" && !Array.isArray(stored)
-    ? { ...DEFAULT_PHONE_BOOK, ...stored }
-    : DEFAULT_PHONE_BOOK;
+  if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+    return { ...DEFAULT_PHONE_BOOK, ...stored };
+  }
+  // First-time setup: use actual staff account names, never invented extensions.
+  const accounts = await db.select({ name: staffAccountsTable.name }).from(staffAccountsTable);
+  const seeded = [{ id: "founder-ayden", name: "Ayden Smith", division: "Founder", extension: "", notes: "" }];
+  for (const account of accounts) {
+    const name = clean(account.name, 100);
+    if (name && !seeded.some((entry) => entry.name.toLowerCase() === name.toLowerCase())) {
+      seeded.push({ id: "staff-" + seeded.length, name, division: "", extension: "", notes: "" });
+    }
+  }
+  return { ...DEFAULT_PHONE_BOOK, staff: seeded };
 }
 router.get("/", requireAuth, async (req, res) => {
   try {
