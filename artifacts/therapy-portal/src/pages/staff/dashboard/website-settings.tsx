@@ -2,6 +2,7 @@ import { useState } from "react";
 import Settings from "./settings";
 import LogoLibrary from "@/components/LogoLibrary";
 import SeasonalBrandPresets from "@/components/SeasonalBrandPresets";
+import PhoneWorkspace from "@/components/PhoneWorkspace";
 import { customFetch, useGetAuthMe, getGetAuthMeQueryKey, getGetSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,7 @@ export default function WebsiteSettings() {
       <Card className="overflow-hidden rounded-2xl border-primary/15 shadow-sm">
         <CardHeader className="bg-gradient-to-r from-primary/[0.07] via-card to-secondary/[0.12]">
           <CardTitle className="flex items-center gap-2 text-xl"><Eye className="h-5 w-5 text-primary" /> Website & Brand Studio</CardTitle>
-          <CardDescription className="max-w-3xl leading-6">Manage the public AWS identity, seasonal brand assets, website copy, palette, and booking presentation in one place. Staff personal appearance settings remain separate under My Settings.</CardDescription>
+          <CardDescription className="max-w-3xl leading-6">Manage the AWS identity, seasonal brand assets, website copy, staff-wide palette, and booking presentation. Ayden and ASH Corporate also manage the internal Phone Center below.</CardDescription>
         </CardHeader>
         {session?.isAdmin && <CardContent className="flex flex-col gap-4 border-t border-border/70 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
@@ -57,6 +58,8 @@ export default function WebsiteSettings() {
         </div>
         <LogoLibrary />
       </div>}
+
+      {(session?.isAdmin || ["founder","ash_executive"].includes(String((session as any)?.role))) && <section className="space-y-3"><h2 className="font-serif text-2xl">Phone Center management</h2><p className="text-sm text-muted-foreground">Edit division extensions, staff member extensions, and the scripts used across the staff phone reference.</p><PhoneWorkspace manage /></section>}
 
       <Settings />
     </div>
