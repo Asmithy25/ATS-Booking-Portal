@@ -31,6 +31,15 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const { data: settings } = useGetSettings();
   const [corporateBranding, setCorporateBranding] = useState<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>({ founderDeckLogoUrl: "/ash-aws-crossover.webp", executiveDeckLogoUrl: "/ash-corporate.webp" });
   const isStaffDarkMode = portalPrefs.appearance === 'dark';
+  // Season selection is shared across public, client and staff portals.
+  const brandPrimary = /^#[0-9a-f]{6}$/i.test(settings?.primaryColor || "") ? settings!.primaryColor : "#8F4A34";
+  const brandSecondary = /^#[0-9a-f]{6}$/i.test(settings?.secondaryColor || "") ? settings!.secondaryColor : "#B58C50";
+  const brandAccent = /^#[0-9a-f]{6}$/i.test(settings?.accentColor || "") ? settings!.accentColor : "#C4CEB5";
+  const brandHue = toHsl(brandPrimary).split(" ")[0];
+  const foregroundFor = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 145 ? "0 0% 9%" : "0 0% 100%";
+  };
   const { toast } = useToast();
 
   // The staff workspace has its own persisted appearance. Do not use the
@@ -220,31 +229,35 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   return (
       <div className={`${isStaffDarkMode ? "dark" : ""} ${portalPrefs.reducedMotion ? "ats-reduced-motion" : ""}`}>
       <div
-        className={`ats-staff-shell min-h-screen flex text-foreground ${isStaffDarkMode ? "" : "ats-paper " + (portalPrefs.layout === "relaxed" ? "bg-[#f4f0ea]" : portalPrefs.layout === "focused" ? "bg-[#eef1f5]" : portalPrefs.layout === "minimal" ? "bg-background" : "bg-[#edf0eb]")}`}
+        className="ats-staff-shell min-h-screen flex bg-background text-foreground"
         style={{
-          "--primary": toHsl(portalPrefs.accentColor),
-          "--ring": toHsl(portalPrefs.accentColor),
-          "--secondary": toHsl(portalPrefs.accentColor),
-          "--sidebar": toHsl(portalPrefs.sidebarColor),
-          "--sidebar-primary": toHsl(portalPrefs.accentColor),
-          "--sidebar-accent": toHsl(portalPrefs.accentColor),
-          // Keep this shell's palette independent from any public/client theme.
-          "--background": isStaffDarkMode ? "22 32% 6%" : "35 48% 96%",
-          "--foreground": isStaffDarkMode ? "36 38% 94%" : "22 30% 12%",
-          "--card": isStaffDarkMode ? "22 27% 10%" : "36 60% 99%",
-          "--card-foreground": isStaffDarkMode ? "36 38% 94%" : "22 30% 12%",
-          "--card-border": isStaffDarkMode ? "22 24% 22%" : "28 24% 86%",
-          "--border": isStaffDarkMode ? "22 25% 22%" : "28 26% 82%",
-          "--input": isStaffDarkMode ? "22 25% 22%" : "28 26% 82%",
-          "--muted": isStaffDarkMode ? "22 25% 15%" : "30 25% 90%",
-          "--muted-foreground": isStaffDarkMode ? "33 23% 73%" : "23 17% 38%",
-          "--popover": isStaffDarkMode ? "22 27% 10%" : "36 60% 99%",
-          "--popover-foreground": isStaffDarkMode ? "36 38% 94%" : "22 30% 12%",
-          "--primary-foreground": "21 45% 7%",
-          "--secondary-foreground": "21 42% 9%",
-          "--accent": isStaffDarkMode ? "22 34% 17%" : "28 82% 89%",
-          "--accent-foreground": isStaffDarkMode ? "36 38% 94%" : "22 32% 13%",
-          backgroundColor: isStaffDarkMode ? portalPrefs.darkBackgroundColor : undefined,
+          "--primary": toHsl(brandPrimary),
+          "--ring": toHsl(brandPrimary),
+          "--secondary": toHsl(brandSecondary),
+          "--accent": toHsl(brandAccent),
+          "--primary-foreground": foregroundFor(brandPrimary),
+          "--secondary-foreground": foregroundFor(brandSecondary),
+          "--accent-foreground": foregroundFor(brandAccent),
+          "--sidebar": `${brandHue} 25% ${isStaffDarkMode ? "6%" : "12%"}`,
+          "--sidebar-foreground": "0 0% 96%",
+          "--sidebar-border": `${brandHue} 18% 27%`,
+          "--sidebar-primary": toHsl(brandAccent),
+          "--sidebar-primary-foreground": foregroundFor(brandAccent),
+          "--sidebar-accent": `${brandHue} 30% 23%`,
+          "--sidebar-accent-foreground": "0 0% 98%",
+          "--sidebar-ring": toHsl(brandAccent),
+          "--background": `${brandHue} ${isStaffDarkMode ? "16% 7%" : "22% 97%"}`,
+          "--foreground": isStaffDarkMode ? "0 0% 96%" : `${brandHue} 28% 12%`,
+          "--card": isStaffDarkMode ? `${brandHue} 15% 11%` : "0 0% 100%",
+          "--card-foreground": isStaffDarkMode ? "0 0% 96%" : `${brandHue} 28% 12%`,
+          "--card-border": `${brandHue} 18% ${isStaffDarkMode ? "23%" : "85%"}`,
+          "--border": `${brandHue} 18% ${isStaffDarkMode ? "23%" : "85%"}`,
+          "--input": `${brandHue} 18% ${isStaffDarkMode ? "23%" : "85%"}`,
+          "--muted": `${brandHue} 14% ${isStaffDarkMode ? "16%" : "92%"}`,
+          "--muted-foreground": `${brandHue} 10% ${isStaffDarkMode ? "72%" : "37%"}`,
+          "--popover": isStaffDarkMode ? `${brandHue} 15% 11%` : "0 0% 100%",
+          "--popover-foreground": isStaffDarkMode ? "0 0% 96%" : `${brandHue} 28% 12%`,
+          backgroundColor: undefined,
           backgroundImage: isStaffDarkMode ? "none" : undefined,
         } as React.CSSProperties}
       >
