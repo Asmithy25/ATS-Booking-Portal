@@ -374,7 +374,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
             <span className="flex h-8 w-8 items-center justify-center bg-secondary p-1">
               <img src={activeStaffLogoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
             </span>
-            <span className="font-serif text-lg">{settings?.siteName ?? "Ayden's Therapy Services"}</span>
+            <span className="font-serif text-lg">{settings?.siteName ?? "Aydens Wellness Services"}</span>
           </div>
           <Button data-testid="button-open-sidebar" variant="outline" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
