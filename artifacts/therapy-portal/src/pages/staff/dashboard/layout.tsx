@@ -89,6 +89,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   }, [session?.authenticated]);
 
   const sessionRole = String((session as any)?.role || "");
+  const canManageRecruitment = sessionRole === 'founder' || sessionRole === 'ash_executive';
   const activeStaffLogoUrl = sessionRole === "ash_executive"
     ? (corporateBranding.executiveDeckLogoUrl || "/ash-corporate.webp")
     : sessionRole === "founder"
@@ -283,6 +284,9 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           <p className="px-3 pb-3 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-sidebar-foreground/40">Workspace</p>
           {navItem('/staff/welcome', <Leaf className="h-4 w-4" />, 'Welcome Screen')}
+          {navItem('/staff/v4', <Sparkles className="h-4 w-4" />, 'AWS 4.0 Workspace')}
+          {navItem('/staff/staff-logs', <ClipboardList className="h-4 w-4" />, 'Staff Logging')}
+          {canManageRecruitment && navItem('/staff/careers', <BriefcaseBusiness className="h-4 w-4" />, 'Careers Management')}
           {navItem('/staff/bookings', <Calendar className="h-4 w-4" />, 'Bookings')}
           {navItem('/staff/calendar', <CalendarDays className="h-4 w-4" />, 'Command Calendar')}
           {navItem('/staff/clients', <Users className="h-4 w-4" />, 'Clients')}
@@ -302,7 +306,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
            {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/client-templates', <Copy className="h-4 w-4" />, 'Client Templates')}
            {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/rollout', <Megaphone className="h-4 w-4" />, 'Rollout')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/announcements', <Megaphone className="h-4 w-4" />, 'Announcements')}
-          {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Activity history')}
+          {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager' || canManageRecruitment)) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Automatic Audit Log')}
           {navItem('/staff/my-settings', <SettingsIcon className="h-4 w-4" />, 'My Settings')}
           {(session.isAdmin || sessionRole === 'ash_executive') && navItem('/staff/website-settings', <Eye className="h-4 w-4" />, 'Website Settings')}
           {session.isAdmin && navItem('/staff/management-settings', <ShieldCheck className="h-4 w-4" />, 'Management Settings')}
