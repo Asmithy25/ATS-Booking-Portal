@@ -262,6 +262,21 @@ router.get("/whats-new",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;await init();const all=rows(await exec('SELECT g.id,g.title,g.description,g.body,g.scope,g.published,g.created_at AS "createdAt",EXISTS(SELECT 1 FROM aws4_release_acks k WHERE k.guide_id=g.id AND k.actor_email='+q(a.email)+') AS acknowledged FROM aws4_release_guides g ORDER BY g.created_at DESC'));
  res.json(all.filter(x=>isCorporateExecutiveAccess(a)||(x.published&&(x.scope==="all"||x.scope===a.role))));
 }));
+
+router.get("/whats-new/client",requireClientAuth,safe(async(req,res)=>{
+ const clientId=id((req as RequestWithClientSession).clientSession?.id);if(!clientId){fail(res,401,"Client account required.");return;}
+ await init();
+ res.setHeader("Cache-Control","private, no-store");
+ res.json(rows(await exec('SELECT g.id,g.title,g.description,g.body,g.created_at AS "createdAt",EXISTS(SELECT 1 FROM aws4_release_acks a WHERE a.guide_id=g.id AND a.actor_email='+q("client:"+clientId)+') AS acknowledged FROM aws4_release_guides g WHERE g.published=true AND g.scope=\'client\' ORDER BY g.created_at DESC')));
+}));
+router.post("/whats-new/client/:id/ack",requireClientAuth,safe(async(req,res)=>{
+ const clientId=id((req as RequestWithClientSession).clientSession?.id),guideId=id(req.params.id);
+ if(!clientId||!guideId){fail(res,400,"Invalid client or guide.");return;}await init();
+ const guide=rows(await exec("SELECT id FROM aws4_release_guides WHERE id="+guideId+" AND published=true AND scope='client'"))[0];
+ if(!guide){fail(res,404,"Published guide not found.");return;}
+ await exec("INSERT INTO aws4_release_acks(guide_id,actor_email) VALUES ("+guideId+","+q("client:"+clientId)+") ON CONFLICT DO NOTHING");
+ res.json({acknowledged:true});
+}));
 router.post("/whats-new",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res,"executive");if(!a)return;const title=clean(req.body?.title,180),description=clean(req.body?.description,500),body=clean(req.body?.body,9000),scope=clean(req.body?.scope,80)||"all",published=req.body?.published===true;
  if(!title||!body){fail(res,400,"Release guide title and content required.");return;}await init();
