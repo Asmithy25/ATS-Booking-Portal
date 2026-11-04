@@ -36,6 +36,7 @@ export function PublicNavbar() {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
+          <Link href="/careers" className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-primary">Careers</Link>
           <button data-testid="button-nav-about" onClick={() => { window.location.hash = content.navAboutUrl || '#about'; }} className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground transition-colors hover:text-destructive">
             {content.navAbout}
           </button>
@@ -68,6 +69,7 @@ export function PublicNavbar() {
           <button data-testid="button-mobile-about" onClick={() => { window.location.hash = content.navAboutUrl || '#about'; setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navAbout}</button>
           <button data-testid="button-mobile-book" onClick={() => { window.location.hash = content.navBookUrl || '#book'; setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navBook}</button>
           <button data-testid="button-mobile-wellness" onClick={() => { window.location.hash = content.navWellnessUrl || '#wellness-lookup'; setMenuOpen(false); }} className="w-full border-b border-border py-3 text-left text-sm font-semibold">{content.navWellness}</button>
+          <Link href="/careers" onClick={() => setMenuOpen(false)} className="border-b border-border py-3 text-sm font-semibold">Careers</Link>
           <Link href="/staff/login" data-testid="link-mobile-staff" onClick={() => setMenuOpen(false)} className="border-b border-border py-3 text-sm font-semibold">{content.navStaff} {content.navStaffSuffix}</Link>
           <Link href="/portal/login" data-testid="link-mobile-client" onClick={() => setMenuOpen(false)} className="py-3 text-sm font-semibold">{content.navClientPortal}</Link>
         </div>
