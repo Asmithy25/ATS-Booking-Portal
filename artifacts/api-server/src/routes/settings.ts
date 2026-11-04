@@ -491,7 +491,9 @@ router.put("/", requirePermission("manageSettings"), async (req, res) => {
       .where(eq(settingsTable.id, current.id))
       .returning();
 
-    await recordAudit(req, "updated_site_settings", "settings", String(updated.id));
+    const siteAuditKeys = ["siteName","siteTagline","primaryColor","secondaryColor","accentColor"] as const;
+    const siteAuditChanges = Object.fromEntries(siteAuditKeys.filter(key => (updates as any)[key] !== undefined && (current as any)[key] !== (updated as any)[key]).map(key => [key,{before:(current as any)[key],after:(updated as any)[key]}]));
+    await recordAudit(req, "updated_site_settings", "settings", String(updated.id), JSON.stringify({changedFields:Object.keys(updates),safeBeforeAfter:siteAuditChanges}));
 
     res.json({
       acceptingClients: updated.acceptingClients,
