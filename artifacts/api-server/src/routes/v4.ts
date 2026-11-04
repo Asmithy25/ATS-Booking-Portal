@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import { randomBytes } from "node:crypto";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getStaffAccess, hasPermission, isCorporateExecutiveAccess, requireAuth, requireClientAuth, extractStaffSession, type RequestWithClientSession, type RequestWithSession } from "../middleware/auth";
@@ -25,7 +26,8 @@ let initializing: Promise<void> | null = null;
 export async function ensureV4Tables() {
   if (!initializing) initializing = (async () => {
     await exec("CREATE TABLE IF NOT EXISTS aws4_career_openings (id bigserial PRIMARY KEY, title text NOT NULL, department text NOT NULL DEFAULT '', description text NOT NULL DEFAULT '', requirements text NOT NULL DEFAULT '', active boolean NOT NULL DEFAULT true, created_by text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())");
-    await exec("CREATE TABLE IF NOT EXISTS aws4_career_applications (id bigserial PRIMARY KEY, opening_id bigint NOT NULL REFERENCES aws4_career_openings(id), role_title text NOT NULL, first_name text NOT NULL, last_name text NOT NULL, phone text NOT NULL, email text NOT NULL, status text NOT NULL DEFAULT 'submitted', internal_notes text NOT NULL DEFAULT '', decision_by text, decision_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())");
+    await exec("CREATE TABLE IF NOT EXISTS aws4_career_applications (id bigserial PRIMARY KEY, application_reference text UNIQUE, opening_id bigint NOT NULL REFERENCES aws4_career_openings(id), role_title text NOT NULL, first_name text NOT NULL, last_name text NOT NULL, phone text NOT NULL, email text NOT NULL, status text NOT NULL DEFAULT 'submitted', internal_notes text NOT NULL DEFAULT '', decision_by text, decision_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())");
+    await exec("ALTER TABLE aws4_career_applications ADD COLUMN IF NOT EXISTS application_reference text UNIQUE");
     await exec("CREATE INDEX IF NOT EXISTS idx_aws4_applications_created ON aws4_career_applications(created_at DESC)");
     await exec("CREATE TABLE IF NOT EXISTS aws4_pending_manual_logs (id bigserial PRIMARY KEY, actor_email text NOT NULL, actor_name text NOT NULL, method text NOT NULL, endpoint text NOT NULL, occurred_at timestamptz NOT NULL DEFAULT now(), resolved_log_id bigint)");
     await exec("CREATE INDEX IF NOT EXISTS idx_aws4_pending_actor ON aws4_pending_manual_logs(actor_email, resolved_log_id, occurred_at DESC)");
@@ -74,10 +76,29 @@ router.post("/careers/apply", safe(async (req, res) => {
   await ensureV4Tables();
   const opening = rows(await exec("SELECT id,title FROM aws4_career_openings WHERE id=" + openingId + " AND active=true LIMIT 1"))[0];
   if (!opening) { error(res, 404, "That position is not currently accepting applications."); return; }
-  const inserted = rows(await exec("INSERT INTO aws4_career_applications(opening_id,role_title,first_name,last_name,phone,email) VALUES (" + openingId + "," + q(opening.title) + "," + q(first) + "," + q(last) + "," + q(phone) + "," + q(email) + ") RETURNING id"))[0];
+  const applicationReference = "AWS-" + randomBytes(6).toString("hex").toUpperCase();
+  const inserted = rows(await exec("INSERT INTO aws4_career_applications(application_reference,opening_id,role_title,first_name,last_name,phone,email) VALUES (" + q(applicationReference) + "," + openingId + "," + q(opening.title) + "," + q(first) + "," + q(last) + "," + q(phone) + "," + q(email) + ") RETURNING id"))[0];
   submissionTimes.set(key, Date.now());
   if (submissionTimes.size > 3000) submissionTimes.clear();
-  res.status(201).json({ reference: "AWS-" + inserted.id, status: "submitted", message: "Application received. Keep your reference number." });
+  res.status(201).json({ reference: applicationReference, status: "submitted", message: "Application received. Keep your reference number." });
+}));
+// Applicant status lookup requires both unpredictable reference and original email.
+// Never return internal notes, decision maker, or personal contact fields.
+const statusRequests = new Map<string,{count:number;window:number}>();
+router.post("/careers/status", safe(async (req, res) => {
+  const ref = txt(req.body?.reference, 70).toUpperCase(), email = txt(req.body?.email, 200).toLowerCase();
+  const key = String(req.ip||"anonymous");
+  const now=Date.now(), seen=statusRequests.get(key);
+  const next=seen&&now-seen.window<60000?{count:seen.count+1,window:seen.window}:{count:1,window:now};
+  statusRequests.set(key,next);
+  if(statusRequests.size>6000) statusRequests.clear();
+  if(next.count>12){ error(res,429,"Too many status checks. Please try again later."); return; }
+  if(!/^AWS-[0-9A-F]{12}$/.test(ref)||!email||email.length>200){ error(res,400,"Enter your application reference and the original email address."); return; }
+  await ensureV4Tables();
+  const match=rows(await exec("SELECT application_reference,role_title,status,created_at FROM aws4_career_applications WHERE application_reference="+q(ref)+" AND email="+q(email)+" LIMIT 1"))[0];
+  if(!match){error(res,404,"No application matched those details.");return;}
+  res.setHeader("Cache-Control","private, no-store");
+  res.json({reference:match.application_reference,roleTitle:match.role_title,status:match.status,submittedAt:match.created_at});
 }));
 router.get("/careers/admin/openings", requireAuth, safe(async (req, res) => {
   if (!await readActor(req, res, true)) return;
@@ -114,7 +135,7 @@ router.get("/careers/admin/applications", requireAuth, safe(async (req, res) => 
   if (!await readActor(req, res, true)) return;
   await ensureV4Tables();
   res.setHeader("Cache-Control", "private, no-store");
-  res.json(rows(await exec('SELECT id,opening_id AS "openingId",role_title AS "roleTitle",first_name AS "firstName",last_name AS "lastName",phone,email,status,internal_notes AS "internalNotes",decision_by AS "decisionBy",decision_at AS "decisionAt",created_at AS "createdAt",updated_at AS "updatedAt" FROM aws4_career_applications ORDER BY created_at DESC LIMIT 500')));
+  res.json(rows(await exec('SELECT id,application_reference AS "reference",opening_id AS "openingId",role_title AS "roleTitle",first_name AS "firstName",last_name AS "lastName",phone,email,status,internal_notes AS "internalNotes",decision_by AS "decisionBy",decision_at AS "decisionAt",created_at AS "createdAt",updated_at AS "updatedAt" FROM aws4_career_applications ORDER BY created_at DESC LIMIT 500')));
 }));
 router.patch("/careers/admin/applications/:id", requireAuth, safe(async (req, res) => {
   const actor = await readActor(req, res, true); if (!actor) return;
