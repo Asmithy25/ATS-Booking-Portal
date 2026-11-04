@@ -116,11 +116,20 @@ router.get("/careers/admin/applications", requireAuth, safe(async (req, res) => 
 router.patch("/careers/admin/applications/:id", requireAuth, safe(async (req, res) => {
   const actor = await readActor(req, res, true); if (!actor) return;
   const id = idFrom(req, res); if (!id) return;
-  const status = txt(req.body?.status, 40), notes = txt(req.body?.internalNotes, 3500);
-  if (!statuses.has(status)) { error(res, 400, "Choose a valid application status."); return; }
   await ensureV4Tables();
-  const data = rows(await exec("UPDATE aws4_career_applications SET status=" + q(status) + ",internal_notes=" + q(notes) + ",decision_by=" + (status === "approved" || status === "denied" ? q(actor.email) : "NULL") + ",decision_at=" + (status === "approved" || status === "denied" ? "now()" : "NULL") + ",updated_at=now() WHERE id=" + id + ' RETURNING id,status,internal_notes AS "internalNotes"'))[0];
-  if (!data) { error(res, 404, "Application not found."); return; }
+  const previous = rows(await exec("SELECT * FROM aws4_career_applications WHERE id=" + id + " LIMIT 1"))[0];
+  if (!previous) { error(res, 404, "Application not found."); return; }
+  const status = req.body?.status === undefined ? previous.status : txt(req.body.status, 40);
+  const notes = req.body?.internalNotes === undefined ? previous.internal_notes : txt(req.body.internalNotes, 3500);
+  const first = req.body?.firstName === undefined ? previous.first_name : txt(req.body.firstName, 80);
+  const last = req.body?.lastName === undefined ? previous.last_name : txt(req.body.lastName, 80);
+  const phone = req.body?.phone === undefined ? previous.phone : txt(req.body.phone, 45);
+  const email = req.body?.email === undefined ? previous.email : txt(req.body.email, 200).toLowerCase();
+  if (!statuses.has(status) || !first || !last || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || phone.replace(/\D/g, "").length < 7) { error(res, 400, "The application must contain a valid status, name, phone and email."); return; }
+  const changedDecision = status !== previous.status && (status === "approved" || status === "denied");
+  const decisionBy = changedDecision ? q(actor.email) : (status === "approved" || status === "denied") ? q(previous.decision_by) : "NULL";
+  const decisionAt = changedDecision ? "now()" : (status === "approved" || status === "denied") && previous.decision_at ? q(previous.decision_at) + "::timestamptz" : "NULL";
+  const data = rows(await exec("UPDATE aws4_career_applications SET first_name=" + q(first) + ",last_name=" + q(last) + ",phone=" + q(phone) + ",email=" + q(email) + ",status=" + q(status) + ",internal_notes=" + q(notes) + ",decision_by=" + decisionBy + ",decision_at=" + decisionAt + ",updated_at=now() WHERE id=" + id + ' RETURNING id,status,internal_notes AS "internalNotes"'))[0];
   await recordAudit(req, "reviewed_career_application", "aws4_career_applications", String(id), "status=" + status);
   res.json(data);
 }));
