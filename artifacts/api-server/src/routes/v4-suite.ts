@@ -84,6 +84,23 @@ const visibleScope=(a:Actor,scope:string,target:string)=>{
  return false;
 };
 
+// My Workday: personal operational briefing with minimum-necessary information.
+router.get("/my-workday",requireAuth,safe(async(req,res)=>{
+ const a=await actor(req,res);if(!a)return;await init();
+ const today=rows(await exec("SELECT to_char(now() AT TIME ZONE 'America/New_York','YYYY-MM-DD') AS local_day"))[0]?.local_day;
+ const [sessions]=rows(await exec("SELECT count(*)::int AS count FROM bookings WHERE claimed_by="+q(a.name)+" AND preferred_date="+q(today)+" AND status NOT IN ('completed','cancelled','no_show','waitlisted')"));
+ const [tasks]=rows(await exec("SELECT count(*)::int AS count FROM aws4_workspace_records WHERE module IN ('tasks','my_workday') AND (assignee="+q(a.email)+" OR created_email="+q(a.email)+") AND status NOT IN ('closed','done')"));
+ const [pendingLogs]=rows(await exec("SELECT count(*)::int AS count FROM aws4_pending_manual_logs WHERE actor_email="+q(a.email)+" AND resolved_log_id IS NULL"));
+ const [training]=rows(await exec("SELECT count(*)::int AS count FROM aws4_training_courses c WHERE c.active=true AND (c.role_scope='all' OR c.role_scope="+q(a.role)+") AND NOT EXISTS (SELECT 1 FROM aws4_training_progress p WHERE p.course_id=c.id AND p.actor_email="+q(a.email)+")"));
+ const [policies]=rows(await exec("SELECT count(*)::int AS count FROM aws4_policies p WHERE p.active=true AND NOT EXISTS (SELECT 1 FROM aws4_policy_acks k WHERE k.policy_id=p.id AND k.version=p.version AND k.actor_email="+q(a.email)+")"));
+ const [requests]=rows(await exec("SELECT count(*)::int AS count FROM aws4_staff_requests_v4 WHERE actor_email="+q(a.email)+" AND status='pending'"));
+ const work=rows(await exec('SELECT id,title,status,assignee,created_at AS "createdAt" FROM aws4_workspace_records WHERE module IN (\'tasks\',\'my_workday\') AND (assignee='+q(a.email)+' OR created_email='+q(a.email)+") AND status NOT IN ('done','closed') ORDER BY created_at DESC LIMIT 15"));
+ res.setHeader("Cache-Control","private, no-store");
+ res.json({staffName:a.name,staffRole:a.role==="therapist"?"Wellness Staff":a.role,localDay:today,asOf:new Date().toISOString(),
+ appointmentsToday:Number(sessions?.count||0),openTasks:Number(tasks?.count||0),pendingManualLogs:Number(pendingLogs?.count||0),
+ trainingToComplete:Number(training?.count||0),policiesToAcknowledge:Number(policies?.count||0),requestsAwaitingReview:Number(requests?.count||0),work});
+}));
+
 router.get("/organization",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;await init();
  const staff=rows(await exec('SELECT s.name,s.email,s.role,s.bio,s.photo_url AS "photoUrl",m.department_id AS "departmentId",m.reports_to_email AS "reportsToEmail",d.name AS "department" FROM staff_accounts s LEFT JOIN aws4_org_memberships m ON m.staff_email=s.email LEFT JOIN aws4_org_departments d ON d.id=m.department_id WHERE s.is_visible=true ORDER BY s.name'));
