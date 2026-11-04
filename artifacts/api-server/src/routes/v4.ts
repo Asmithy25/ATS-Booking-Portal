@@ -274,7 +274,8 @@ export function trackStaffMutations(req: Request, res: Response, next: NextFunct
     if (res.statusCode < 200 || res.statusCode >= 300) return;
     const actor = (req as RequestWithSession).staffSession;
     if (!actor) return;
-    const sanitizedPath = req.path.split("/").map(part => /^[0-9]+$/.test(part) || part.length > 50 ? ":id" : part).join("/").slice(0, 170);
+    const routePath = typeof req.route?.path === "string" ? req.route.path : "/staff-action";
+    const sanitizedPath = ((req.baseUrl || "/api") + (routePath.startsWith("/") ? routePath : "/" + routePath)).slice(0, 170);
     void ensureV4Tables().then(async () => {
       await exec("INSERT INTO aws4_pending_manual_logs(actor_email,actor_name,method,endpoint) VALUES (" + q(actor.email) + "," + q(actor.name) + "," + q(req.method) + "," + q(sanitizedPath) + ")");
       await exec("INSERT INTO audit_logs(actor_email,actor_name,action,entity_type,details) VALUES (" + q(actor.email) + "," + q(actor.name) + ",'aws4_staff_mutation'," + q(sanitizedPath) + "," + q(req.method) + ")");
