@@ -292,6 +292,8 @@ router.put("/client/preferences", requireClientAuth, safe(async (req, res) => {
  * trail remains independent. Browser shows unresolved entries prominently.
  * Does not inspect/store request bodies or client health information.
  */
+const pendingMutationWrites = new Set<string>();
+
 /** Enforce the pending log requirement on the server, not just in the UI.
  * Read-only requests, sign-in/out, client calls and log submissions remain usable.
  */
@@ -302,6 +304,7 @@ export async function enforceStaffManualLogging(req: Request, res: Response, nex
     req.path.startsWith("/api/v4/careers/apply")) { next(); return; }
   const actor = extractStaffSession(req);
   if (!actor) { next(); return; }
+  if(pendingMutationWrites.has(actor.email)){res.status(409).json({error:"The previous operation is still being recorded. Refresh Staff Logging when it appears.",code:"AWS4_MANUAL_LOG_PENDING"});return;}
   try {
     await ensureV4Tables();
     const pending = rows(await exec("SELECT id FROM aws4_pending_manual_logs WHERE actor_email=" + q(actor.email) + " AND resolved_log_id IS NULL LIMIT 1"));
@@ -322,10 +325,12 @@ export function trackStaffMutations(req: Request, res: Response, next: NextFunct
     if (res.statusCode < 200 || res.statusCode >= 300) return;
     const actor = (req as RequestWithSession).staffSession;
     if (!actor) return;
+    pendingMutationWrites.add(actor.email);
     const routePath = typeof req.route?.path === "string" ? req.route.path : "/staff-action";
     const sanitizedPath = ((req.baseUrl || "/api") + (routePath.startsWith("/") ? routePath : "/" + routePath)).slice(0, 170);
     void ensureV4Tables().then(async () => {
       await exec("INSERT INTO aws4_pending_manual_logs(actor_email,actor_name,method,endpoint) VALUES (" + q(actor.email) + "," + q(actor.name) + "," + q(req.method) + "," + q(sanitizedPath) + ")");
+      pendingMutationWrites.delete(actor.email);
       await exec("INSERT INTO audit_logs(actor_email,actor_name,action,entity_type,details) VALUES (" + q(actor.email) + "," + q(actor.name) + ",'aws4_staff_mutation'," + q(sanitizedPath) + "," + q(req.method) + ")");
     }).catch(err => req.log.error({ err }, "AWS 4.0 mutation logging failed"));
   });
