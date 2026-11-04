@@ -35,6 +35,9 @@ const init=async()=>{
   await exec("CREATE TABLE IF NOT EXISTS aws4_broadcast_acks(broadcast_id bigint REFERENCES aws4_broadcasts(id) ON DELETE CASCADE,actor_email text NOT NULL,acknowledged_at timestamptz DEFAULT now(),PRIMARY KEY(broadcast_id,actor_email))");
   await exec("CREATE TABLE IF NOT EXISTS aws4_training_courses(id bigserial PRIMARY KEY,title text NOT NULL,description text NOT NULL DEFAULT '',content text NOT NULL DEFAULT '',role_scope text NOT NULL DEFAULT 'all',active boolean NOT NULL DEFAULT true,created_by text NOT NULL,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_training_progress(course_id bigint REFERENCES aws4_training_courses(id) ON DELETE CASCADE,actor_email text NOT NULL,completed_at timestamptz DEFAULT now(),PRIMARY KEY(course_id,actor_email))");
+  await exec("ALTER TABLE aws4_training_courses ADD COLUMN IF NOT EXISTS quiz_question text NOT NULL DEFAULT ''");
+  await exec("ALTER TABLE aws4_training_courses ADD COLUMN IF NOT EXISTS quiz_choices jsonb NOT NULL DEFAULT '[]'::jsonb");
+  await exec("ALTER TABLE aws4_training_courses ADD COLUMN IF NOT EXISTS correct_choice integer");
   await exec("CREATE TABLE IF NOT EXISTS aws4_staff_requests_v4(id bigserial PRIMARY KEY,kind text NOT NULL,actor_email text NOT NULL,actor_name text NOT NULL,title text NOT NULL,details text NOT NULL DEFAULT '',start_date text NOT NULL DEFAULT '',end_date text NOT NULL DEFAULT '',status text NOT NULL DEFAULT 'pending',reviewed_by text,reviewed_at timestamptz,created_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_recognition(id bigserial PRIMARY KEY,actor_email text NOT NULL,awarded_by text NOT NULL,title text NOT NULL,description text NOT NULL DEFAULT '',created_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_executive_delegations(id bigserial PRIMARY KEY,delegate_email text NOT NULL,scope text NOT NULL,reason text NOT NULL DEFAULT '',granted_by text NOT NULL,expires_at timestamptz NOT NULL,revoked_at timestamptz,created_at timestamptz NOT NULL DEFAULT now())");
@@ -198,19 +201,24 @@ router.patch("/staff-requests/:id/decision",requireAuth,safe(async(req,res)=>{
 router.get("/training",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;await init();
  const viewDrafts=isCorporateExecutiveAccess(a)||hasPermission(a,"manageTasks");
- const items=rows(await exec('SELECT c.id,c.title,c.description,c.content,c.role_scope AS "roleScope",c.active,EXISTS(SELECT 1 FROM aws4_training_progress p WHERE p.course_id=c.id AND p.actor_email='+q(a.email)+') AS completed FROM aws4_training_courses c '+(viewDrafts?"":"WHERE c.active=true")+" ORDER BY c.created_at DESC"));
+ const items=rows(await exec('SELECT c.id,c.title,c.description,c.content,c.role_scope AS "roleScope",c.quiz_question AS "quizQuestion",c.quiz_choices AS "quizChoices",c.active,EXISTS(SELECT 1 FROM aws4_training_progress p WHERE p.course_id=c.id AND p.actor_email='+q(a.email)+') AS completed FROM aws4_training_courses c '+(viewDrafts?"":"WHERE c.active=true")+" ORDER BY c.created_at DESC"));
  res.json(items.filter(x=>viewDrafts||x.roleScope==="all"||x.roleScope===a.role));
 }));
 router.post("/training",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return; if(!isCorporateExecutiveAccess(a)&&!hasPermission(a,"manageTasks")&&!(await hasDelegation(a.email,"manage_training"))){fail(res,403,"Training authoring access is required.");return;}
  const title=clean(req.body?.title,160),description=clean(req.body?.description,1200),content=clean(req.body?.content,8500),roleScope=clean(req.body?.roleScope,80)||"all";
  if(!title||!content){fail(res,400,"Training title and lesson content required.");return;}await init();
- const row=rows(await exec("INSERT INTO aws4_training_courses(title,description,content,role_scope,created_by) VALUES ("+q(title)+","+q(description)+","+q(content)+","+q(roleScope)+","+q(a.email)+") RETURNING id,title"))[0];
+  const quizQuestion=clean(req.body?.quizQuestion,550);
+  const choices=quizQuestion && Array.isArray(req.body?.quizChoices) ? req.body.quizChoices.map((x:unknown)=>clean(x,160)).filter(Boolean).slice(0,6) : [];
+  const correctChoice=Number(req.body?.correctChoice);
+  if(quizQuestion && (choices.length<2||!Number.isInteger(correctChoice)||correctChoice<0||correctChoice>=choices.length)){fail(res,400,"Quiz needs two or more choices and a valid correct answer.");return;}
+  const row=rows(await exec("INSERT INTO aws4_training_courses(title,description,content,role_scope,quiz_question,quiz_choices,correct_choice,created_by) VALUES ("+q(title)+","+q(description)+","+q(content)+","+q(roleScope)+","+q(quizQuestion)+","+q(JSON.stringify(choices))+"::jsonb,"+(quizQuestion?correctChoice:"NULL")+","+q(a.email)+") RETURNING id,title"))[0];
  await recordAudit(req,"created_training_course","aws4_training_courses",String(row.id));res.status(201).json(row);
 }));
 router.post("/training/:id/complete",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;const n=id(req.params.id);if(!n){fail(res,400,"Invalid course.");return;}await init();
- const c=rows(await exec("SELECT active,role_scope FROM aws4_training_courses WHERE id="+n))[0];if(!c||!c.active||(c.role_scope!=="all"&&c.role_scope!==a.role&&!isCorporateExecutiveAccess(a))){fail(res,404,"Available training not found.");return;}
+ const c=rows(await exec("SELECT active,role_scope,quiz_question,correct_choice FROM aws4_training_courses WHERE id="+n))[0];if(!c||!c.active||(c.role_scope!=="all"&&c.role_scope!==a.role&&!isCorporateExecutiveAccess(a))){fail(res,404,"Available training not found.");return;}
+  if(c.quiz_question&&(!Number.isInteger(Number(req.body?.answerIndex))||Number(req.body?.answerIndex)!==Number(c.correct_choice))){fail(res,400,"Answer the course quiz correctly before completing training.");return;}
  await exec("INSERT INTO aws4_training_progress(course_id,actor_email) VALUES ("+n+","+q(a.email)+") ON CONFLICT DO NOTHING");
  res.json({completed:true,certificateLabel:"AWS Internal Training Completion",courseId:n,completedBy:a.name});
 }));
