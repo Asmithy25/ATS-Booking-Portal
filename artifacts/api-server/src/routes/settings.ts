@@ -41,7 +41,7 @@ const DEFAULT_HOMEPAGE_CONTENT = {
   bookingEmailLabel: "Email",
   bookingEmail: "aydenswellnessservices@gmail.com",
   bookingHoursTitle: "Main Office Hours:",
-  bookingTherapistHoursTitle: "Therapist Hours:",
+  bookingTherapistHoursTitle: "Wellness Staff Hours:",
   bookingHolidaysTitle: "Upcoming Holidays",
   bookingFormTitle: "Request a consultation",
   bookingManageLink: "Already booked? Manage with your code →",
@@ -285,7 +285,7 @@ router.put("/my-hours", requireAuth, async (req, res) => {
       return;
     }
     if (!isOfficeHours(officeHours)) {
-      res.status(400).json({ error: "A complete weekly therapist schedule is required." });
+      res.status(400).json({ error: "A complete weekly Wellness Staff schedule is required." });
       return;
     }
 
