@@ -79,7 +79,7 @@ export default function AWS4Workspaces(){
    if(expandedComments===recordId){setExpandedComments(null);return;}
    setExpandedComments(recordId);setCommentDraft("");
    if(!current)return;
-   try{setComments(old=>({...old,[recordId]:await api("/api/v4/workspaces/"+current.id+"/"+recordId+"/comments")}));}
+   try{const loaded=await api<Array<{id:number;authorName:string;body:string;createdAt:string}>>("/api/v4/workspaces/"+current.id+"/"+recordId+"/comments");setComments(old=>({...old,[recordId]:loaded}));}
    catch(e){setError(e instanceof Error?e.message:"Cannot load item discussion.");}
  };
  const addComment=async(recordId:number)=>{
