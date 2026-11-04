@@ -49,6 +49,7 @@ const CareersManagement = lazy(() => import('@/pages/staff/dashboard/careers'));
 const StaffLogging = lazy(() => import('@/pages/staff/dashboard/staff-logging'));
 const AWS4Workspaces = lazy(() => import('@/pages/staff/dashboard/aws4-workspaces'));
 const AWS4Suite = lazy(() => import('@/pages/staff/dashboard/v4-suite'));
+const MyWorkday = lazy(() => import('@/pages/staff/dashboard/my-workday'));
 const PublicAssistant = lazy(() => import('@/pages/public/assistant'));
 const PublicSupport = lazy(() => import('@/pages/public/support'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
@@ -111,6 +112,7 @@ function StaffRouter() {
         <Route path="/staff/v4" component={AWS4Workspaces} />
         <Route path="/staff/v4-suite/:section" component={AWS4Suite} />
         <Route path="/staff/v4-suite" component={AWS4Suite} />
+        <Route path="/staff/my-workday" component={MyWorkday} />
         <Route path="/staff/founder-dashboard" component={FounderDashboard} />
         <Route path="/staff/corporate" component={CorporateCommand} />
         <Route path="/staff/command-center" component={CommandCenter} />
