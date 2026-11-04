@@ -40,7 +40,9 @@ export default function AWS4Workspaces(){
  const session=useGetAuthMe();
  const role=String((session.data as any)?.role||"");
  const corporate=role==="founder"||role==="ash_executive";
- const available=modules.filter(m=>!m.corporate||corporate);
+ const [labFlags,setLabFlags]=useState<Array<{key:string;enabled:boolean}>>([]);
+ useEffect(()=>{customFetch<{items:Array<{key:string;enabled:boolean}>}>("/api/v4/suite/feature-lab",{responseType:"json"}).then(x=>setLabFlags(x.items||[])).catch(()=>undefined);},[]);
+ const available=modules.filter(m=>(!m.corporate||corporate)&&(corporate||labFlags.find(f=>f.key==="v4-"+m.id)?.enabled!==false));
  const [records,setRecords]=useState<RecordItem[]>([]);
  const [loading,setLoading]=useState(false);
  const [error,setError]=useState("");
