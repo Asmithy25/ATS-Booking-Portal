@@ -30,6 +30,7 @@ const init=async()=>{
   await exec("CREATE TABLE IF NOT EXISTS aws4_org_departments(id bigserial PRIMARY KEY,name text NOT NULL UNIQUE,description text NOT NULL DEFAULT '',leader_email text NOT NULL DEFAULT '',created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_org_memberships(staff_email text PRIMARY KEY,department_id bigint REFERENCES aws4_org_departments(id) ON DELETE SET NULL,reports_to_email text NOT NULL DEFAULT '',updated_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_policies(id bigserial PRIMARY KEY,title text NOT NULL,body text NOT NULL,version integer NOT NULL DEFAULT 1,active boolean NOT NULL DEFAULT false,effective_at timestamptz,updated_by text NOT NULL,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now())");
+  await exec("CREATE TABLE IF NOT EXISTS aws4_policy_versions(policy_id bigint NOT NULL REFERENCES aws4_policies(id) ON DELETE CASCADE,version integer NOT NULL,title text NOT NULL,body text NOT NULL,recorded_by text NOT NULL,recorded_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(policy_id,version))");
   await exec("CREATE TABLE IF NOT EXISTS aws4_policy_acks(policy_id bigint NOT NULL REFERENCES aws4_policies(id) ON DELETE CASCADE,version integer NOT NULL,actor_email text NOT NULL,acknowledged_at timestamptz DEFAULT now(),PRIMARY KEY(policy_id,version,actor_email))");
   await exec("CREATE TABLE IF NOT EXISTS aws4_broadcasts(id bigserial PRIMARY KEY,title text NOT NULL,body text NOT NULL,scope text NOT NULL DEFAULT 'all',target text NOT NULL DEFAULT '',requires_ack boolean NOT NULL DEFAULT false,created_by text NOT NULL,created_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_broadcast_acks(broadcast_id bigint REFERENCES aws4_broadcasts(id) ON DELETE CASCADE,actor_email text NOT NULL,acknowledged_at timestamptz DEFAULT now(),PRIMARY KEY(broadcast_id,actor_email))");
@@ -126,7 +127,7 @@ router.get("/operations/reports",requireAuth,safe(async(req,res)=>{
 router.get("/broadcasts",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;await init();
  const member=rows(await exec("SELECT d.name FROM aws4_org_memberships m JOIN aws4_org_departments d ON d.id=m.department_id WHERE m.staff_email="+q(a.email)))[0];
- const all=rows(await exec('SELECT b.id,b.title,b.body,b.scope,b.target,b.requires_ack AS "requiresAck",b.created_by AS "createdBy",b.created_at AS "createdAt",EXISTS(SELECT 1 FROM aws4_broadcast_acks x WHERE x.broadcast_id=b.id AND x.actor_email='+q(a.email)+') AS acknowledged FROM aws4_broadcasts b ORDER BY b.created_at DESC LIMIT 150'));
+ const all=rows(await exec('SELECT b.id,b.title,b.body,b.scope,b.target,b.requires_ack AS "requiresAck",b.created_by AS "createdBy",b.created_at AS "createdAt",(SELECT count(*)::int FROM aws4_broadcast_acks r WHERE r.broadcast_id=b.id) AS "ackCount",EXISTS(SELECT 1 FROM aws4_broadcast_acks x WHERE x.broadcast_id=b.id AND x.actor_email='+q(a.email)+') AS acknowledged FROM aws4_broadcasts b ORDER BY b.created_at DESC LIMIT 150'));
  res.json(all.filter(v=>isCorporateExecutiveAccess(a)||visibleScope(a,v.scope,v.target)||(v.scope==="department"&&v.target===member?.name)));
 }));
 router.post("/broadcasts",requireAuth,safe(async(req,res)=>{
@@ -151,6 +152,7 @@ router.post("/policies",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res,"executive");if(!a)return;const title=clean(req.body?.title,180),body=clean(req.body?.body,10000);
  if(!title||!body){fail(res,400,"A title and policy document are required.");return;}await init();
  const item=rows(await exec("INSERT INTO aws4_policies(title,body,updated_by) VALUES ("+q(title)+","+q(body)+","+q(a.email)+") RETURNING id,title"))[0];
+ await exec("INSERT INTO aws4_policy_versions(policy_id,version,title,body,recorded_by) VALUES ("+Number(item.id)+",1,"+q(title)+","+q(body)+","+q(a.email)+") ON CONFLICT DO NOTHING");
  await recordAudit(req,"created_policy_draft","aws4_policies",String(item.id));res.status(201).json(item);
 }));
 router.patch("/policies/:id",requireAuth,safe(async(req,res)=>{
@@ -162,13 +164,19 @@ router.patch("/policies/:id",requireAuth,safe(async(req,res)=>{
  if(!title||!body){fail(res,400,"Title and body required.");return;}
  const change=title!==prior.title||body!==prior.body;
  const version=Number(prior.version)+(change?1:0);
+ await exec("INSERT INTO aws4_policy_versions(policy_id,version,title,body,recorded_by) VALUES ("+n+","+Number(prior.version)+","+q(prior.title)+","+q(prior.body)+","+q(a.email)+") ON CONFLICT DO NOTHING");
  await exec("UPDATE aws4_policies SET title="+q(title)+",body="+q(body)+",version="+version+",active="+(active?"true":"false")+",effective_at="+(active?"COALESCE(effective_at,now())":"NULL")+",updated_by="+q(a.email)+",updated_at=now() WHERE id="+n);
+ if(change)await exec("INSERT INTO aws4_policy_versions(policy_id,version,title,body,recorded_by) VALUES ("+n+","+version+","+q(title)+","+q(body)+","+q(a.email)+") ON CONFLICT DO NOTHING");
  await recordAudit(req,"updated_policy","aws4_policies",String(n),"version="+version+";published="+active);res.json({id:n,version,active});
 }));
 router.post("/policies/:id/ack",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;const n=id(req.params.id);if(!n){fail(res,400,"Invalid ID.");return;}await init();
  const policy=rows(await exec("SELECT version FROM aws4_policies WHERE id="+n+" AND active=true"))[0];if(!policy){fail(res,404,"Published policy not found.");return;}
  await exec("INSERT INTO aws4_policy_acks(policy_id,version,actor_email) VALUES ("+n+","+Number(policy.version)+","+q(a.email)+") ON CONFLICT DO NOTHING");res.json({acknowledged:true});
+}));
+router.get("/policies/:id/history",requireAuth,safe(async(req,res)=>{
+ if(!await actor(req,res,"executive"))return;const n=id(req.params.id);if(!n){fail(res,400,"Invalid policy.");return;}await init();
+ res.json(rows(await exec('SELECT version,title,body,recorded_by AS "recordedBy",recorded_at AS "recordedAt" FROM aws4_policy_versions WHERE policy_id='+n+" ORDER BY version DESC")));
 }));
 router.get("/policies/:id/acknowledgments",requireAuth,safe(async(req,res)=>{
  if(!await actor(req,res,"executive"))return;const n=id(req.params.id);if(!n){fail(res,400,"Invalid ID.");return;}await init();
