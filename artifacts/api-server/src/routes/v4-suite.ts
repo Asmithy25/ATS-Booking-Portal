@@ -247,7 +247,7 @@ router.post("/recognition",requireAuth,safe(async(req,res)=>{
 router.get("/feature-lab",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;await init();
  const all=rows(await exec('SELECT key,label,enabled,target_roles AS "targetRoles",updated_at AS "updatedAt" FROM aws4_feature_flags ORDER BY label'));
- res.json({canManage:isCorporateExecutiveAccess(a),items:all.filter(x=>isCorporateExecutiveAccess(a)||(x.enabled&&(x.targetRoles.length===0||x.targetRoles.includes(a.role))))});
+ res.json({canManage:isCorporateExecutiveAccess(a),items:isCorporateExecutiveAccess(a)?all:all.map(x=>({key:x.key,label:x.label,enabled:x.enabled&&(x.targetRoles.length===0||x.targetRoles.includes(a.role)),targetRoles:[],updatedAt:x.updatedAt}))});
 }));
 router.put("/feature-lab/:key",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res,"executive");if(!a)return;const key=clean(req.params.key,80);
