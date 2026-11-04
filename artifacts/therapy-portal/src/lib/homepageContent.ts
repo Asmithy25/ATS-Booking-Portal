@@ -118,12 +118,21 @@ export function getHomepageContent(settings: unknown) {
   // Legacy customizations remain hidden until someone explicitly saves a website edit.
   const activeValue = value?.websiteCustomizationEnabled === true ? value : undefined;
   const savedVisibility = activeValue?.sectionVisibility;
-  return {
+  const merged = {
     ...DEFAULT_HOMEPAGE_CONTENT,
     ...(activeValue ?? {}),
     sectionVisibility: {
       ...DEFAULT_HOMEPAGE_CONTENT.sectionVisibility,
       ...(savedVisibility && typeof savedVisibility === 'object' ? savedVisibility as Record<string, boolean> : {}),
     },
+  } as HomepageContent;
+  // Legacy saved website strings may still contain the former public title.
+  // Normalize display labels without touching internal therapistHours keys.
+  const replaceTitle = (value: unknown) => typeof value === 'string' ? value.replaceAll('Therapist', 'Wellness Staff') : value;
+  return {
+    ...merged,
+    bookingTherapistHoursTitle: replaceTitle(merged.bookingTherapistHoursTitle),
+    bookingTherapistLabel: replaceTitle(merged.bookingTherapistLabel),
+    wellnessTherapistLabel: replaceTitle(merged.wellnessTherapistLabel),
   } as HomepageContent;
 }
