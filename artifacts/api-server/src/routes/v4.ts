@@ -21,6 +21,22 @@ const staffModules = new Set(["my_workday", "knowledge", "shift_exchange", "help
 const allModules = new Set([...corporateModules, ...staffModules]);
 const managementModules = new Set(["knowledge","training","recognition"]);
 const sharedModules = new Set(["knowledge","discussions"]);
+// Feature Lab gates opt-in experimental workspace modules server-side.
+// Founders and ASH executives always retain recovery access.
+async function workspaceExperimentEnabled(module:string,access:{role:string}):Promise<boolean> {
+ if(isCorporateExecutiveAccess(access))return true;
+ const key="v4-"+module;
+ try {
+  const flag=rows(await exec("SELECT enabled,target_roles FROM aws4_feature_flags WHERE key="+q(key)+" LIMIT 1"))[0];
+  if(!flag)return true;
+  return flag.enabled===true && (Array.isArray(flag.target_roles) && (flag.target_roles.length===0 || flag.target_roles.includes(access.role)));
+ } catch(e:any) {
+  // Feature Lab tables are installed independently of base v4 workspaces.
+  if(e?.code==="42P01"||e?.cause?.code==="42P01")return true;
+  throw e;
+ }
+}
+
 let initializing: Promise<void> | null = null;
 
 export async function ensureV4Tables() {
@@ -196,6 +212,7 @@ router.get("/workspaces/:module", requireAuth, safe(async (req, res) => {
   const module = txt(req.params.module, 60);
   if (!allModules.has(module)) { error(res, 404, "Workspace not found."); return; }
   if (corporateModules.has(module) && !isCorporateExecutiveAccess(actor)) { error(res, 403, "Corporate access required."); return; }
+  if (!(await workspaceExperimentEnabled(module,actor))) {error(res,404,"This experimental workspace is not enabled for your role.");return;}
   await ensureV4Tables();
   const scope = corporateModules.has(module) || sharedModules.has(module) || isCorporateExecutiveAccess(actor) || hasPermission(actor, "manageTasks") ? "" : " AND (created_email=" + q(actor.email) + " OR assignee=" + q(actor.email) + ")";
   res.json(rows(await exec('SELECT id,module,title,body,status,assignee,created_by AS "createdBy",created_email AS "createdEmail",created_at AS "createdAt",updated_at AS "updatedAt" FROM aws4_workspace_records WHERE module=' + q(module) + scope + " ORDER BY created_at DESC LIMIT 300")));
@@ -205,6 +222,7 @@ router.post("/workspaces/:module", requireAuth, safe(async (req, res) => {
   const module = txt(req.params.module, 60);
   if (!allModules.has(module)) { error(res, 404, "Workspace not found."); return; }
   if (corporateModules.has(module) && !isCorporateExecutiveAccess(actor)) { error(res, 403, "Corporate access required."); return; }
+  if (!(await workspaceExperimentEnabled(module,actor))) {error(res,404,"This experimental workspace is not enabled for your role.");return;}
   const title = txt(req.body?.title, 180), body = txt(req.body?.body, 5000), assignee = txt(req.body?.assignee, 180).toLowerCase();
   const canManage = isCorporateExecutiveAccess(actor) || hasPermission(actor, "manageTasks");
   if(managementModules.has(module)&&!canManage){ error(res,403,"Manager authorization is required to publish these records."); return; }
@@ -220,6 +238,7 @@ router.patch("/workspaces/:module/:id", requireAuth, safe(async (req, res) => {
   const module = txt(req.params.module, 60), id = idFrom(req, res);
   if (!id || !allModules.has(module)) { if (id) error(res, 404, "Workspace not found."); return; }
   if (corporateModules.has(module) && !isCorporateExecutiveAccess(actor)) { error(res, 403, "Corporate access required."); return; }
+  if (!(await workspaceExperimentEnabled(module,actor))) {error(res,404,"This experimental workspace is not enabled for your role.");return;}
   await ensureV4Tables();
   const previous = rows(await exec("SELECT * FROM aws4_workspace_records WHERE module=" + q(module) + " AND id=" + id + " LIMIT 1"))[0];
   if (!previous) { error(res, 404, "Record not found."); return; }
