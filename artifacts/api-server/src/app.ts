@@ -5,7 +5,7 @@ import pinoHttp from "pino-http";
 import { eq } from "drizzle-orm";
 import { db, clientAccountsTable } from "@workspace/db";
 import router from "./routes";
-import { trackStaffMutations } from "./routes/v4";
+import { trackStaffMutations, enforceStaffManualLogging } from "./routes/v4";
 import { logger } from "./lib/logger";
 import { extractClientSession } from "./middleware/auth";
 import { repairClientData } from "./lib/client-data-repair";
@@ -44,6 +44,7 @@ app.use(
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(enforceStaffManualLogging);
 app.use(trackStaffMutations);
 
 // Repair legacy/imported client relationships before client-facing booking,
