@@ -40,7 +40,7 @@ const specializedPaths:Record<string,string>={
  change_control:"/staff/corporate",
  broadcasts:"/staff/v4-suite/broadcasts",
  recruitment:"/staff/careers",
- my_workday:"/staff/welcome",
+ my_workday:"/staff/my-workday",
  shift_exchange:"/staff/v4-suite/staff-requests",
  training:"/staff/v4-suite/training",
  availability:"/staff/v4-suite/staff-requests",
