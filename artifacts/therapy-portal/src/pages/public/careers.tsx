@@ -24,6 +24,19 @@ export default function Careers() {
   const [phone,setPhone] = useState("");
   const [email,setEmail] = useState("");
   const [consent,setConsent] = useState(false);
+  const [statusEmail,setStatusEmail] = useState("");
+  const [statusRef,setStatusRef] = useState("");
+  const [statusResult,setStatusResult] = useState<{status:string;roleTitle:string;submittedAt:string}|null>(null);
+  const [statusBusy,setStatusBusy] = useState(false);
+  const checkStatus = async (event:FormEvent) => {
+    event.preventDefault();setStatusBusy(true);setError("");setStatusResult(null);
+    try{
+      const result = await api<{status:string;roleTitle:string;submittedAt:string}>("/api/v4/careers/status",{method:"POST",body:JSON.stringify({reference:statusRef,email:statusEmail})});
+      setStatusResult(result);
+    } catch(e) {setError(e instanceof Error?e.message:"Application status unavailable.");}
+    finally{setStatusBusy(false);}
+  };
+
   useEffect(() => {
     api<Opening[]>("/api/v4/careers/openings").then(setOpenings).catch(() => setError("Career opportunities are temporarily unavailable.")).finally(() => setLoading(false));
   }, []);
@@ -63,6 +76,7 @@ export default function Careers() {
       loading ? <p className="text-muted-foreground">Loading opportunities...</p> :
       openings.length === 0 ? <Card className="rounded-2xl"><CardContent className="py-12 text-center"><BriefcaseBusiness className="mx-auto mb-4 h-10 w-10 text-primary"/><h2 className="text-xl font-semibold">No openings currently accepting applications</h2><p className="mt-2 text-sm text-muted-foreground">Check back for future opportunities with AWS.</p></CardContent></Card> :
       <div className="grid gap-4 md:grid-cols-2">{openings.map(opening=><Card key={opening.id} className="rounded-2xl"><CardHeader><Badge className="w-fit" variant="secondary">{opening.department || "AWS"}</Badge><CardTitle>{opening.title}</CardTitle><CardDescription className="line-clamp-3 whitespace-pre-wrap">{opening.description}</CardDescription></CardHeader><CardContent><Button onClick={() => {setSelected(opening);setError("");window.scrollTo({top:0,behavior:"smooth"});}}>View role & apply<ArrowRight className="ml-2 h-4 w-4"/></Button></CardContent></Card>)}</div>}
+      <Card className="mt-14 max-w-2xl rounded-2xl"><CardHeader><CardTitle>Already applied? Check your status.</CardTitle><CardDescription>Use the reference number you received and your original application email address. For privacy, we don't show reviewer notes or other applicants' information.</CardDescription></CardHeader><CardContent><form className="space-y-3" onSubmit={checkStatus}><label className="block space-y-2 text-sm font-medium">Application reference<Input required value={statusRef} onChange={e=>setStatusRef(e.target.value)} placeholder="AWS-XXXXXXXXXXXX" maxLength={70}/></label><label className="block space-y-2 text-sm font-medium">Email address<Input required type="email" value={statusEmail} onChange={e=>setStatusEmail(e.target.value)} maxLength={200} placeholder="Same email used in your application"/></label><Button type="submit" disabled={statusBusy}>{statusBusy?"Checking...":"Check my application"}</Button></form>{statusResult&&<div role="status" className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4"><p className="font-semibold">Your application is {statusResult.status.replaceAll("_"," ")}.</p><p className="mt-1 text-xs text-muted-foreground">{statusResult.roleTitle} · Submitted {new Date(statusResult.submittedAt).toLocaleDateString()}</p></div>}</CardContent></Card>
       <p className="mt-14 flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4"/>Applicant data is restricted to recruitment reviewers. Please do not submit medical or confidential information.</p>
     </main>
   </div>;
