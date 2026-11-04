@@ -64,7 +64,7 @@ router.post("/careers/apply", safe(async (req, res) => {
   const phone = txt(req.body?.phone, 45), email = txt(req.body?.email, 200).toLowerCase();
   const openingId = integer(req.body?.openingId);
   const consent = req.body?.consent === true;
-  if (!first || !last || !openingId || !consent || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || phone.replace(/\\D/g, "").length < 7) { error(res, 400, "Complete all fields, choose an open role, and acknowledge the privacy notice."); return; }
+  if (!first || !last || !openingId || !consent || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || phone.replace(/\D/g, "").length < 7) { error(res, 400, "Complete all fields, choose an open role, and acknowledge the privacy notice."); return; }
   const key = email + ":" + openingId;
   const lastSubmission = submissionTimes.get(key);
   if (lastSubmission && Date.now() - lastSubmission < 60000) { error(res, 429, "Please wait before submitting another application."); return; }
