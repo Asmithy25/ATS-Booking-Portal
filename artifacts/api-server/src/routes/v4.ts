@@ -18,6 +18,8 @@ const workStatuses = new Set(["open", "in_progress", "pending_review", "approved
 const corporateModules = new Set(["decisions", "departments", "policies", "delegations", "performance", "change_control", "broadcasts", "recruitment"]);
 const staffModules = new Set(["my_workday", "knowledge", "shift_exchange", "help_desk", "training", "tasks", "profiles", "availability", "recognition", "discussions", "incidents"]);
 const allModules = new Set([...corporateModules, ...staffModules]);
+const managementModules = new Set(["knowledge","training","recognition"]);
+const sharedModules = new Set(["knowledge","discussions"]);
 let initializing: Promise<void> | null = null;
 
 export async function ensureV4Tables() {
@@ -174,7 +176,7 @@ router.get("/workspaces/:module", requireAuth, safe(async (req, res) => {
   if (!allModules.has(module)) { error(res, 404, "Workspace not found."); return; }
   if (corporateModules.has(module) && !isCorporateExecutiveAccess(actor)) { error(res, 403, "Corporate access required."); return; }
   await ensureV4Tables();
-  const scope = corporateModules.has(module) || isCorporateExecutiveAccess(actor) || hasPermission(actor, "manageTasks") ? "" : " AND created_email=" + q(actor.email);
+  const scope = corporateModules.has(module) || sharedModules.has(module) || isCorporateExecutiveAccess(actor) || hasPermission(actor, "manageTasks") ? "" : " AND (created_email=" + q(actor.email) + " OR assignee=" + q(actor.email) + ")";
   res.json(rows(await exec('SELECT id,module,title,body,status,assignee,created_by AS "createdBy",created_email AS "createdEmail",created_at AS "createdAt",updated_at AS "updatedAt" FROM aws4_workspace_records WHERE module=' + q(module) + scope + " ORDER BY created_at DESC LIMIT 300")));
 }));
 router.post("/workspaces/:module", requireAuth, safe(async (req, res) => {
@@ -182,7 +184,10 @@ router.post("/workspaces/:module", requireAuth, safe(async (req, res) => {
   const module = txt(req.params.module, 60);
   if (!allModules.has(module)) { error(res, 404, "Workspace not found."); return; }
   if (corporateModules.has(module) && !isCorporateExecutiveAccess(actor)) { error(res, 403, "Corporate access required."); return; }
-  const title = txt(req.body?.title, 180), body = txt(req.body?.body, 5000), assignee = txt(req.body?.assignee, 180);
+  const title = txt(req.body?.title, 180), body = txt(req.body?.body, 5000), assignee = txt(req.body?.assignee, 180).toLowerCase();
+  const canManage = isCorporateExecutiveAccess(actor) || hasPermission(actor, "manageTasks");
+  if(managementModules.has(module)&&!canManage){ error(res,403,"Manager authorization is required to publish these records."); return; }
+  if(assignee && assignee!==actor.email && !canManage){ error(res,403,"Only an authorized manager may assign another staff member."); return; }
   if (!title) { error(res, 400, "A title is required."); return; }
   await ensureV4Tables();
   const item = rows(await exec("INSERT INTO aws4_workspace_records(module,title,body,assignee,created_by,created_email) VALUES (" + q(module) + "," + q(title) + "," + q(body) + "," + q(assignee) + "," + q(actor.name) + "," + q(actor.email) + ') RETURNING id,module,title,body,status,assignee'))[0];
@@ -197,7 +202,10 @@ router.patch("/workspaces/:module/:id", requireAuth, safe(async (req, res) => {
   await ensureV4Tables();
   const previous = rows(await exec("SELECT * FROM aws4_workspace_records WHERE module=" + q(module) + " AND id=" + id + " LIMIT 1"))[0];
   if (!previous) { error(res, 404, "Record not found."); return; }
-  if (!isCorporateExecutiveAccess(actor) && !hasPermission(actor, "manageTasks") && previous.created_email !== actor.email) { error(res, 403, "Only the creator or an authorized manager can update this record."); return; }
+  const canManage = isCorporateExecutiveAccess(actor) || hasPermission(actor, "manageTasks");
+  if(managementModules.has(module)&&!canManage){error(res,403,"Manager authorization required.");return;}
+  if (!canManage && previous.created_email !== actor.email && previous.assignee !== actor.email) { error(res, 403, "Only the creator, assignee or an authorized manager can update this record."); return; }
+  if(!canManage && previous.created_email !== actor.email && (req.body?.title!==undefined||req.body?.body!==undefined||req.body?.assignee!==undefined)){error(res,403,"Assigned staff may update status only.");return;}
   const title = req.body?.title === undefined ? previous.title : txt(req.body.title, 180);
   const body = req.body?.body === undefined ? previous.body : txt(req.body.body, 5000);
   const assignee = req.body?.assignee === undefined ? previous.assignee : txt(req.body.assignee, 180);
