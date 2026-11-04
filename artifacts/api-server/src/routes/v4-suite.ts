@@ -40,6 +40,8 @@ const init=async()=>{
   await exec("ALTER TABLE aws4_training_courses ADD COLUMN IF NOT EXISTS quiz_choices jsonb NOT NULL DEFAULT '[]'::jsonb");
   await exec("ALTER TABLE aws4_training_courses ADD COLUMN IF NOT EXISTS correct_choice integer");
   await exec("CREATE TABLE IF NOT EXISTS aws4_staff_requests_v4(id bigserial PRIMARY KEY,kind text NOT NULL,actor_email text NOT NULL,actor_name text NOT NULL,title text NOT NULL,details text NOT NULL DEFAULT '',start_date text NOT NULL DEFAULT '',end_date text NOT NULL DEFAULT '',status text NOT NULL DEFAULT 'pending',reviewed_by text,reviewed_at timestamptz,created_at timestamptz DEFAULT now())");
+  await exec("ALTER TABLE aws4_staff_requests_v4 ADD COLUMN IF NOT EXISTS covering_email text NOT NULL DEFAULT ''");
+  await exec("ALTER TABLE aws4_staff_requests_v4 ADD COLUMN IF NOT EXISTS covering_acceptance text NOT NULL DEFAULT 'pending'");
   await exec("CREATE TABLE IF NOT EXISTS aws4_recognition(id bigserial PRIMARY KEY,actor_email text NOT NULL,awarded_by text NOT NULL,title text NOT NULL,description text NOT NULL DEFAULT '',created_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_executive_delegations(id bigserial PRIMARY KEY,delegate_email text NOT NULL,scope text NOT NULL,reason text NOT NULL DEFAULT '',granted_by text NOT NULL,expires_at timestamptz NOT NULL,revoked_at timestamptz,created_at timestamptz NOT NULL DEFAULT now())");
   await exec("CREATE INDEX IF NOT EXISTS idx_aws4_delegation_active ON aws4_executive_delegations(delegate_email,scope,expires_at) WHERE revoked_at IS NULL");
@@ -205,20 +207,35 @@ const kinds=new Set(["leave","shift_swap","coverage","availability"]);
 router.get("/staff-requests",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;await init();
  const allowed=isCorporateExecutiveAccess(a)||hasPermission(a,"manageTasks");
- res.json(rows(await exec('SELECT id,kind,actor_email AS "actorEmail",actor_name AS "actorName",title,details,start_date AS "startDate",end_date AS "endDate",status,reviewed_by AS "reviewedBy",created_at AS "createdAt" FROM aws4_staff_requests_v4'+(allowed?"":" WHERE actor_email="+q(a.email))+" ORDER BY created_at DESC LIMIT 250")));
+ res.json(rows(await exec('SELECT id,kind,actor_email AS "actorEmail",actor_name AS "actorName",title,details,covering_email AS "coveringEmail",covering_acceptance AS "coveringAcceptance",start_date AS "startDate",end_date AS "endDate",status,reviewed_by AS "reviewedBy",created_at AS "createdAt" FROM aws4_staff_requests_v4'+(allowed?"":" WHERE (actor_email="+q(a.email)+" OR covering_email="+q(a.email)+"))+" ORDER BY created_at DESC LIMIT 250")));
 }));
 router.post("/staff-requests",requireAuth,safe(async(req,res)=>{
- const a=await actor(req,res);if(!a)return;const kind=clean(req.body?.kind,30),title=clean(req.body?.title,160),details=clean(req.body?.details,1700),start=clean(req.body?.startDate,10),end=clean(req.body?.endDate,10);
+ const a=await actor(req,res);if(!a)return;const kind=clean(req.body?.kind,30),title=clean(req.body?.title,160),details=clean(req.body?.details,1700),cover=clean(req.body?.coveringEmail,200).toLowerCase(),start=clean(req.body?.startDate,10),end=clean(req.body?.endDate,10);
  if(!kinds.has(kind)||!title||(start&&!/^\d{4}-\d{2}-\d{2}$/.test(start))||(end&&!/^\d{4}-\d{2}-\d{2}$/.test(end))||(start&&end&&end<start)){fail(res,400,"Invalid request or dates.");return;}await init();
- const row=rows(await exec("INSERT INTO aws4_staff_requests_v4(kind,actor_email,actor_name,title,details,start_date,end_date) VALUES ("+q(kind)+","+q(a.email)+","+q(a.name)+","+q(title)+","+q(details)+","+q(start)+","+q(end)+") RETURNING id,title,status"))[0];
+ if(cover&&cover===a.email){fail(res,400,"Covering staff must be someone other than yourself.");return;}
+ if(cover&&!rows(await exec("SELECT email FROM staff_accounts WHERE email="+q(cover)+" LIMIT 1"))[0]){fail(res,404,"Covering staff account not found.");return;}
+ const row=rows(await exec("INSERT INTO aws4_staff_requests_v4(kind,actor_email,actor_name,title,details,covering_email,start_date,end_date) VALUES ("+q(kind)+","+q(a.email)+","+q(a.name)+","+q(title)+","+q(details)+","+q(cover)+","+q(start)+","+q(end)+") RETURNING id,title,status"))[0];
  await recordAudit(req,"requested_"+kind,"aws4_staff_requests_v4",String(row.id));res.status(201).json(row);
 }));
+router.post("/staff-requests/:id/cover",requireAuth,safe(async(req,res)=>{
+ const a=await actor(req,res);if(!a)return;const n=id(req.params.id),response=clean(req.body?.response,15);
+ if(!n||!["accepted","declined"].includes(response)){fail(res,400,"Choose accept or decline.");return;}await init();
+ const item=rows(await exec("SELECT actor_email,covering_email,status FROM aws4_staff_requests_v4 WHERE id="+n+" LIMIT 1"))[0];
+ if(!item){fail(res,404,"Request not found.");return;}
+ if(item.covering_email!==a.email||item.actor_email===a.email){fail(res,403,"Only the requested covering staff member may respond.");return;}
+ if(item.status!=="pending"){fail(res,409,"This request has already been reviewed.");return;}
+ await exec("UPDATE aws4_staff_requests_v4 SET covering_acceptance="+q(response)+" WHERE id="+n);
+ await recordAudit(req,"responded_to_shift_cover","aws4_staff_requests_v4",String(n),response);
+ res.json({coveringAcceptance:response});
+}));
+
 router.patch("/staff-requests/:id/decision",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return; if(!isCorporateExecutiveAccess(a)&&!hasPermission(a,"manageTasks")&&!(await hasDelegation(a.email,"review_staff_requests"))){fail(res,403,"An authorized supervisor must review this request.");return;} const n=id(req.params.id),status=clean(req.body?.status,30);
  if(!n||!["approved","denied"].includes(status)){fail(res,400,"Choose approve or deny.");return;}await init();
- const record=rows(await exec("SELECT status,actor_email FROM aws4_staff_requests_v4 WHERE id="+n))[0];
+ const record=rows(await exec("SELECT status,actor_email,kind,covering_email,covering_acceptance FROM aws4_staff_requests_v4 WHERE id="+n))[0];
  if(!record){fail(res,404,"Request not found.");return;}if(record.status!=="pending"){fail(res,409,"The request was already reviewed.");return;}
  if(record.actor_email===a.email){fail(res,403,"A request cannot be approved by its own author.");return;}
+ if(status==="approved"&&record.kind==="shift_swap"&&record.covering_email&&record.covering_acceptance!=="accepted"){fail(res,409,"The requested covering staff member must accept before a shift exchange can be approved.");return;}
  await exec("UPDATE aws4_staff_requests_v4 SET status="+q(status)+",reviewed_by="+q(a.email)+",reviewed_at=now() WHERE id="+n);
  await recordAudit(req,"reviewed_staff_request","aws4_staff_requests_v4",String(n),status);res.json({id:n,status});
 }));
