@@ -44,6 +44,10 @@ const BackupCenter = lazy(() => import('@/pages/staff/dashboard/backup-center'))
 const CommandCenter = lazy(() => import('@/pages/staff/dashboard/command-center'));
 const HomepagePreview = lazy(() => import('@/pages/staff/dashboard/homepage-preview'));
 const PublicUpdates = lazy(() => import('@/pages/public/updates'));
+const Careers = lazy(() => import('@/pages/public/careers'));
+const CareersManagement = lazy(() => import('@/pages/staff/dashboard/careers'));
+const StaffLogging = lazy(() => import('@/pages/staff/dashboard/staff-logging'));
+const AWS4Workspaces = lazy(() => import('@/pages/staff/dashboard/aws4-workspaces'));
 const PublicAssistant = lazy(() => import('@/pages/public/assistant'));
 const PublicSupport = lazy(() => import('@/pages/public/support'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
@@ -97,6 +101,10 @@ function StaffRouter() {
         <Route path="/staff/homepage-controls" component={HomepageControls} />
         <Route path="/staff/staff-directory" component={StaffDirectory} />
         <Route path="/staff/phone" component={PhoneCenter} />
+        <Route path="/staff/careers" component={CareersManagement} />
+        <Route path="/staff/staff-logs" component={StaffLogging} />
+        <Route path="/staff/v4/:module" component={AWS4Workspaces} />
+        <Route path="/staff/v4" component={AWS4Workspaces} />
         <Route path="/staff/founder-dashboard" component={FounderDashboard} />
         <Route path="/staff/corporate" component={CorporateCommand} />
         <Route path="/staff/command-center" component={CommandCenter} />
@@ -125,6 +133,7 @@ function Router() {
       <Route path="/booking/:code" component={BookingManage} />
       <Route path="/booking" component={BookingManage} />
       <Route path="/updates" component={PublicUpdates} />
+      <Route path="/careers" component={Careers} />
       <Route path="/assistant" component={PublicAssistant} />
       <Route path="/support/:token" component={PublicSupport} />
       <Route path="/support" component={PublicSupport} />
