@@ -301,6 +301,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           <p className="px-3 pb-3 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-sidebar-foreground/40">Workspace</p>
           {navItem('/staff/welcome', <Leaf className="h-4 w-4" />, 'Welcome Screen')}
+          {navItem('/staff/my-workday', <CalendarDays className="h-4 w-4" />, 'My Workday')}
           {navItem('/staff/v4', <Sparkles className="h-4 w-4" />, 'AWS 4.0 Workspace')}
           {navItem('/staff/v4-suite', <Building2 className="h-4 w-4" />, 'AWS 4.0 Enterprise Services')}
           {navItem('/staff/staff-logs', <ClipboardList className="h-4 w-4" />, 'Staff Logging')}
