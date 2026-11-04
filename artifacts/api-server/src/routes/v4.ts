@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getStaffAccess, hasPermission, isCorporateExecutiveAccess, requireAuth, requireClientAuth, type RequestWithClientSession, type RequestWithSession } from "../middleware/auth";
+import { getStaffAccess, hasPermission, isCorporateExecutiveAccess, requireAuth, requireClientAuth, extractStaffSession, type RequestWithClientSession, type RequestWithSession } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 
 /** AWS 4.0: recruitment, staff accountability, and organization-wide workspaces.
@@ -244,6 +244,30 @@ router.put("/client/preferences", requireClientAuth, safe(async (req, res) => {
  * trail remains independent. Browser shows unresolved entries prominently.
  * Does not inspect/store request bodies or client health information.
  */
+/** Enforce the pending log requirement on the server, not just in the UI.
+ * Read-only requests, sign-in/out, client calls and log submissions remain usable.
+ */
+export async function enforceStaffManualLogging(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!["POST","PUT","PATCH","DELETE"].includes(req.method) ||
+    req.path.startsWith("/api/auth/") || req.path.startsWith("/api/v4/staff-logs") ||
+    req.path.startsWith("/api/portal/") || req.path.startsWith("/api/v4/client/") ||
+    req.path.startsWith("/api/v4/careers/apply")) { next(); return; }
+  const actor = extractStaffSession(req);
+  if (!actor) { next(); return; }
+  try {
+    await ensureV4Tables();
+    const pending = rows(await exec("SELECT id FROM aws4_pending_manual_logs WHERE actor_email=" + q(actor.email) + " AND resolved_log_id IS NULL LIMIT 1"));
+    if (pending.length) {
+      res.status(409).json({ error: "A Staff Logging entry is required before another change. Open Staff Logging, document the pending action, then try again.", code: "AWS4_MANUAL_LOG_REQUIRED", pendingId: Number(pending[0].id) });
+      return;
+    }
+    next();
+  } catch(err) {
+    req.log.error({ err }, "Staff logging enforcement unavailable");
+    res.status(503).json({ error: "Staff logging is temporarily unavailable. Changes are paused to preserve accountability." });
+  }
+}
+
 export function trackStaffMutations(req: Request, res: Response, next: NextFunction): void {
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method) || req.path.startsWith("/api/v4/staff-logs") || req.path.startsWith("/api/auth/") || req.path.startsWith("/api/portal/") || req.path.startsWith("/api/v4/careers/apply")) { next(); return; }
   res.once("finish", () => {
