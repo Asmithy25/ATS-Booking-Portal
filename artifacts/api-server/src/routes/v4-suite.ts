@@ -207,7 +207,7 @@ const kinds=new Set(["leave","shift_swap","coverage","availability"]);
 router.get("/staff-requests",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;await init();
  const allowed=isCorporateExecutiveAccess(a)||hasPermission(a,"manageTasks");
- res.json(rows(await exec('SELECT id,kind,actor_email AS "actorEmail",actor_name AS "actorName",title,details,covering_email AS "coveringEmail",covering_acceptance AS "coveringAcceptance",start_date AS "startDate",end_date AS "endDate",status,reviewed_by AS "reviewedBy",created_at AS "createdAt" FROM aws4_staff_requests_v4'+(allowed?"":" WHERE (actor_email="+q(a.email)+" OR covering_email="+q(a.email)+"))+" ORDER BY created_at DESC LIMIT 250")));
+ res.json(rows(await exec('SELECT id,kind,actor_email AS "actorEmail",actor_name AS "actorName",title,details,covering_email AS "coveringEmail",covering_acceptance AS "coveringAcceptance",start_date AS "startDate",end_date AS "endDate",status,reviewed_by AS "reviewedBy",created_at AS "createdAt" FROM aws4_staff_requests_v4'+(allowed?"":" WHERE (actor_email="+q(a.email)+" OR covering_email="+q(a.email)+")")+" ORDER BY created_at DESC LIMIT 250")));
 }));
 router.post("/staff-requests",requireAuth,safe(async(req,res)=>{
  const a=await actor(req,res);if(!a)return;const kind=clean(req.body?.kind,30),title=clean(req.body?.title,160),details=clean(req.body?.details,1700),cover=clean(req.body?.coveringEmail,200).toLowerCase(),start=clean(req.body?.startDate,10),end=clean(req.body?.endDate,10);
