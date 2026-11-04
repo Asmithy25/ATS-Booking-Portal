@@ -50,6 +50,8 @@ export async function ensureV4Tables() {
     await exec("CREATE TABLE IF NOT EXISTS aws4_staff_manual_logs (id bigserial PRIMARY KEY, actor_email text NOT NULL, actor_name text NOT NULL, category text NOT NULL, action_taken text NOT NULL, summary text NOT NULL DEFAULT '', reference text NOT NULL DEFAULT '', pending_action_id bigint UNIQUE, created_at timestamptz NOT NULL DEFAULT now())");
     await exec("CREATE INDEX IF NOT EXISTS idx_aws4_manual_logs_created ON aws4_staff_manual_logs(created_at DESC)");
     await exec("CREATE TABLE IF NOT EXISTS aws4_workspace_records (id bigserial PRIMARY KEY, module text NOT NULL, title text NOT NULL, body text NOT NULL DEFAULT '', status text NOT NULL DEFAULT 'open', assignee text NOT NULL DEFAULT '', created_by text NOT NULL, created_email text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())");
+    await exec("CREATE TABLE IF NOT EXISTS aws4_workspace_comments(id bigserial PRIMARY KEY,record_id bigint NOT NULL REFERENCES aws4_workspace_records(id) ON DELETE CASCADE,author_email text NOT NULL,author_name text NOT NULL,body text NOT NULL,created_at timestamptz NOT NULL DEFAULT now())");
+    await exec("CREATE INDEX IF NOT EXISTS idx_aws4_workspace_comments_record ON aws4_workspace_comments(record_id,created_at)");
     await exec("CREATE INDEX IF NOT EXISTS idx_aws4_workspace_module ON aws4_workspace_records(module, created_at DESC)");
     await exec("CREATE TABLE IF NOT EXISTS aws4_client_preferences (client_id bigint PRIMARY KEY REFERENCES client_accounts(id) ON DELETE CASCADE, preferences jsonb NOT NULL DEFAULT '{}'::jsonb, updated_at timestamptz NOT NULL DEFAULT now())");
   })().catch(err => { initializing = null; throw err; });
@@ -215,8 +217,37 @@ router.get("/workspaces/:module", requireAuth, safe(async (req, res) => {
   if (!(await workspaceExperimentEnabled(module,actor))) {error(res,404,"This experimental workspace is not enabled for your role.");return;}
   await ensureV4Tables();
   const scope = corporateModules.has(module) || sharedModules.has(module) || isCorporateExecutiveAccess(actor) || hasPermission(actor, "manageTasks") ? "" : " AND (created_email=" + q(actor.email) + " OR assignee=" + q(actor.email) + ")";
-  res.json(rows(await exec('SELECT id,module,title,body,status,assignee,created_by AS "createdBy",created_email AS "createdEmail",created_at AS "createdAt",updated_at AS "updatedAt" FROM aws4_workspace_records WHERE module=' + q(module) + scope + " ORDER BY created_at DESC LIMIT 300")));
+  const query=txt(req.query.search,120).toLowerCase();
+  const filter=query?" AND (lower(title) LIKE "+q("%"+query+"%")+" OR lower(body) LIKE "+q("%"+query+"%")+")":"";
+  res.json(rows(await exec('SELECT id,module,title,body,status,assignee,created_by AS "createdBy",created_email AS "createdEmail",created_at AS "createdAt",updated_at AS "updatedAt" FROM aws4_workspace_records WHERE module=' + q(module) + scope + filter + " ORDER BY created_at DESC LIMIT 300")));
 }));
+// Threaded operational comments are scoped by exactly the same visibility
+// predicate as their parent record. No client-provided author identities.
+async function workspaceCommentRecord(req:Request,res:Response,actor:{role:string;email:string;permissions:Record<string,boolean>}) {
+ const module=txt(req.params.module,60),recordId=idFrom(req,res);
+ if(!recordId)return null;
+ if(!allModules.has(module)){error(res,404,"Workspace not found.");return null;}
+ if(corporateModules.has(module)&&!isCorporateExecutiveAccess(actor)){error(res,403,"Corporate access required.");return null;}
+ if(!(await workspaceExperimentEnabled(module,actor))){error(res,404,"Workspace not available.");return null;}
+ await ensureV4Tables();
+ const entry=rows(await exec("SELECT id,module,assignee,created_email FROM aws4_workspace_records WHERE id="+recordId+" AND module="+q(module)+" LIMIT 1"))[0];
+ if(!entry){error(res,404,"Record not found.");return null;}
+ if(!corporateModules.has(module)&&!sharedModules.has(module)&&!isCorporateExecutiveAccess(actor)&&!hasPermission(actor,"manageTasks")&&entry.created_email!==actor.email&&entry.assignee!==actor.email){error(res,403,"You cannot access this record.");return null;}
+ return entry;
+}
+router.get("/workspaces/:module/:id/comments", requireAuth, safe(async(req,res)=>{
+ const a=await readActor(req,res);if(!a)return;const entry=await workspaceCommentRecord(req,res,a);if(!entry)return;
+ res.json(rows(await exec('SELECT id,record_id AS "recordId",author_name AS "authorName",author_email AS "authorEmail",body,created_at AS "createdAt" FROM aws4_workspace_comments WHERE record_id='+Number(entry.id)+" ORDER BY created_at ASC LIMIT 300")));
+}));
+router.post("/workspaces/:module/:id/comments", requireAuth, safe(async(req,res)=>{
+ const a=await readActor(req,res);if(!a)return;const entry=await workspaceCommentRecord(req,res,a);if(!entry)return;
+ const body=txt(req.body?.body,3000);if(!body){error(res,400,"A comment is required.");return;}
+ const row=rows(await exec("INSERT INTO aws4_workspace_comments(record_id,author_email,author_name,body) VALUES ("+Number(entry.id)+","+q(a.email)+","+q(a.name)+","+q(body)+") RETURNING id"))[0];
+ await recordAudit(req,"commented_on_work_item","aws4_workspace_records",String(entry.id),entry.module);
+ res.status(201).json({id:row.id,body,authorName:a.name});
+}));
+
+
 router.post("/workspaces/:module", requireAuth, safe(async (req, res) => {
   const actor = await readActor(req, res); if (!actor) return;
   const module = txt(req.params.module, 60);
