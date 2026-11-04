@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { customFetch, useGetAuthMe } from "@workspace/api-client-react";
+import { customFetch, useGetAuthMe, getGetAuthMeQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +28,7 @@ const labelRole=(role:string)=>role==="therapist"?"Wellness Staff":readable(role
 export default function AWS4Suite() {
  const [location,navigate]=useLocation();const section=location.split("/")[3]||"";
  const active=sections.find(s=>s.slug===section);
- const {data:session}=useGetAuthMe({query:{retry:false}});
+ const {data:session}=useGetAuthMe({query:{queryKey:getGetAuthMeQueryKey(),retry:false}});
  const role=String((session as any)?.role||"");
  const corporate=role==="founder"||role==="ash_executive";
  const manager=corporate||(session as any)?.permissions?.manageTasks===true;
