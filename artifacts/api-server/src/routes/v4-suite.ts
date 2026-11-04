@@ -37,6 +37,8 @@ const init=async()=>{
   await exec("CREATE TABLE IF NOT EXISTS aws4_training_progress(course_id bigint REFERENCES aws4_training_courses(id) ON DELETE CASCADE,actor_email text NOT NULL,completed_at timestamptz DEFAULT now(),PRIMARY KEY(course_id,actor_email))");
   await exec("CREATE TABLE IF NOT EXISTS aws4_staff_requests_v4(id bigserial PRIMARY KEY,kind text NOT NULL,actor_email text NOT NULL,actor_name text NOT NULL,title text NOT NULL,details text NOT NULL DEFAULT '',start_date text NOT NULL DEFAULT '',end_date text NOT NULL DEFAULT '',status text NOT NULL DEFAULT 'pending',reviewed_by text,reviewed_at timestamptz,created_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_recognition(id bigserial PRIMARY KEY,actor_email text NOT NULL,awarded_by text NOT NULL,title text NOT NULL,description text NOT NULL DEFAULT '',created_at timestamptz DEFAULT now())");
+  await exec("CREATE TABLE IF NOT EXISTS aws4_executive_delegations(id bigserial PRIMARY KEY,delegate_email text NOT NULL,scope text NOT NULL,reason text NOT NULL DEFAULT '',granted_by text NOT NULL,expires_at timestamptz NOT NULL,revoked_at timestamptz,created_at timestamptz NOT NULL DEFAULT now())");
+  await exec("CREATE INDEX IF NOT EXISTS idx_aws4_delegation_active ON aws4_executive_delegations(delegate_email,scope,expires_at) WHERE revoked_at IS NULL");
   await exec("CREATE TABLE IF NOT EXISTS aws4_feature_flags(key text PRIMARY KEY,label text NOT NULL,enabled boolean NOT NULL DEFAULT false,target_roles jsonb NOT NULL DEFAULT '[]'::jsonb,updated_by text NOT NULL,updated_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_release_guides(id bigserial PRIMARY KEY,title text NOT NULL,description text NOT NULL DEFAULT '',body text NOT NULL DEFAULT '',scope text NOT NULL DEFAULT 'all',published boolean NOT NULL DEFAULT false,created_by text NOT NULL,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now())");
   await exec("CREATE TABLE IF NOT EXISTS aws4_release_acks(guide_id bigint REFERENCES aws4_release_guides(id) ON DELETE CASCADE,actor_email text NOT NULL,acknowledged_at timestamptz DEFAULT now(),PRIMARY KEY(guide_id,actor_email))");
@@ -44,6 +46,34 @@ const init=async()=>{
  })().catch(e=>{ready=null;throw e;});
  await ready;
 };
+const validDelegationScopes = ["review_staff_requests","manage_training"] as const;
+async function hasDelegation(email:string,scope:string) {
+ await init();
+ return Boolean(rows(await exec("SELECT id FROM aws4_executive_delegations WHERE delegate_email="+q(email)+" AND scope="+q(scope)+" AND revoked_at IS NULL AND expires_at>now() LIMIT 1"))[0]);
+}
+router.get("/delegations",requireAuth,safe(async(req,res)=>{
+ const a=await actor(req,res);if(!a)return;await init();
+ const filter=isCorporateExecutiveAccess(a)?"":" WHERE delegate_email="+q(a.email);
+ res.json(rows(await exec('SELECT id,delegate_email AS "delegateEmail",scope,reason,granted_by AS "grantedBy",expires_at AS "expiresAt",revoked_at AS "revokedAt",created_at AS "createdAt" FROM aws4_executive_delegations'+filter+" ORDER BY created_at DESC LIMIT 250")));
+}));
+router.post("/delegations",requireAuth,safe(async(req,res)=>{
+ const a=await actor(req,res,"executive");if(!a)return;
+ const email=clean(req.body?.delegateEmail,200).toLowerCase(),scope=clean(req.body?.scope,100),reason=clean(req.body?.reason,750);
+ const expiresAt=new Date(String(req.body?.expiresAt||""));
+ if(!validDelegationScopes.includes(scope as any)||!email||email===a.email||!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()||expiresAt.getTime()-Date.now()>30*24*3600000){fail(res,400,"Choose an authorized scope, another staff member and an expiry within 30 days.");return;}
+ await init();
+ const target=rows(await exec("SELECT email,role FROM staff_accounts WHERE email="+q(email)+" LIMIT 1"))[0];
+ if(!target||target.role==="ash_executive"){fail(res,400,"Choose a non-executive staff member.");return;}
+ const item=rows(await exec("INSERT INTO aws4_executive_delegations(delegate_email,scope,reason,granted_by,expires_at) VALUES ("+q(email)+","+q(scope)+","+q(reason)+","+q(a.email)+","+q(expiresAt.toISOString())+"::timestamptz) RETURNING id"))[0];
+ await recordAudit(req,"granted_time_limited_delegation","aws4_executive_delegations",String(item.id),scope);
+ res.status(201).json({id:Number(item.id),delegateEmail:email,scope,expiresAt:expiresAt.toISOString()});
+}));
+router.post("/delegations/:id/revoke",requireAuth,safe(async(req,res)=>{
+ const a=await actor(req,res,"executive");if(!a)return;const n=id(req.params.id);if(!n){fail(res,400,"Invalid delegation.");return;}await init();
+ const result=rows(await exec("UPDATE aws4_executive_delegations SET revoked_at=now() WHERE id="+n+" AND revoked_at IS NULL RETURNING id"))[0];
+ if(!result){fail(res,404,"Active delegation not found.");return;}
+ await recordAudit(req,"revoked_delegation","aws4_executive_delegations",String(n));res.json({revoked:true});
+}));
 const visibleScope=(a:Actor,scope:string,target:string)=>{
  if(scope==="all")return true;
  if(scope==="role")return target===a.role;
@@ -156,7 +186,7 @@ router.post("/staff-requests",requireAuth,safe(async(req,res)=>{
  await recordAudit(req,"requested_"+kind,"aws4_staff_requests_v4",String(row.id));res.status(201).json(row);
 }));
 router.patch("/staff-requests/:id/decision",requireAuth,safe(async(req,res)=>{
- const a=await actor(req,res,"manage");if(!a)return;const n=id(req.params.id),status=clean(req.body?.status,30);
+ const a=await actor(req,res);if(!a)return; if(!isCorporateExecutiveAccess(a)&&!hasPermission(a,"manageTasks")&&!(await hasDelegation(a.email,"review_staff_requests"))){fail(res,403,"An authorized supervisor must review this request.");return;} const n=id(req.params.id),status=clean(req.body?.status,30);
  if(!n||!["approved","denied"].includes(status)){fail(res,400,"Choose approve or deny.");return;}await init();
  const record=rows(await exec("SELECT status,actor_email FROM aws4_staff_requests_v4 WHERE id="+n))[0];
  if(!record){fail(res,404,"Request not found.");return;}if(record.status!=="pending"){fail(res,409,"The request was already reviewed.");return;}
@@ -172,7 +202,7 @@ router.get("/training",requireAuth,safe(async(req,res)=>{
  res.json(items.filter(x=>viewDrafts||x.roleScope==="all"||x.roleScope===a.role));
 }));
 router.post("/training",requireAuth,safe(async(req,res)=>{
- const a=await actor(req,res,"manage");if(!a)return;
+ const a=await actor(req,res);if(!a)return; if(!isCorporateExecutiveAccess(a)&&!hasPermission(a,"manageTasks")&&!(await hasDelegation(a.email,"manage_training"))){fail(res,403,"Training authoring access is required.");return;}
  const title=clean(req.body?.title,160),description=clean(req.body?.description,1200),content=clean(req.body?.content,8500),roleScope=clean(req.body?.roleScope,80)||"all";
  if(!title||!content){fail(res,400,"Training title and lesson content required.");return;}await init();
  const row=rows(await exec("INSERT INTO aws4_training_courses(title,description,content,role_scope,created_by) VALUES ("+q(title)+","+q(description)+","+q(content)+","+q(roleScope)+","+q(a.email)+") RETURNING id,title"))[0];
