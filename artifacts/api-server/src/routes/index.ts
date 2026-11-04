@@ -20,6 +20,7 @@ import automationStudioRouter from "./automationStudio";
 import notificationMissionControlRouter from "./notificationMissionControl";
 import corporateRouter from "./corporate";
 import phoneRouter from "./phone";
+import v4Router from "./v4";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use("/automation-studio", automationStudioRouter);
 router.use("/notification-mission-control", notificationMissionControlRouter);
 router.use("/corporate", corporateRouter);
 router.use("/phone", phoneRouter);
+router.use("/v4", v4Router);
 
 export default router;
