@@ -25,6 +25,7 @@ import { recordAudit } from "../lib/audit";
 import { generateConfirmationCode } from "../lib/booking-utils";
 import { validateBookingSlot } from "../lib/scheduling";
 import { notifyBooking } from "../lib/notification-service";
+import { promoteWaitlistForSlot } from "./bookings";
 
 const router = Router();
 
@@ -995,6 +996,10 @@ router.patch("/client/bookings/:id", requireClientAuth, async (req, res): Promis
   }
   if (status === "cancelled") await notifyBooking(updated, "cancellation");
   else if (preferredDate || preferredTime) await notifyBooking(updated, "reschedule");
+  if ((status === "cancelled" || clientChangesSlot) && existing.status !== "waitlisted") {
+    await promoteWaitlistForSlot(existing.preferredDate, existing.preferredTime, existing.id)
+      .catch((waitlistError) => req.log.error({ err: waitlistError }, "Waitlist promotion after authenticated client booking change failed"));
+  }
   res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
 });
 
