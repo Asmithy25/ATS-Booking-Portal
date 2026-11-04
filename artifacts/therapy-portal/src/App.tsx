@@ -55,6 +55,7 @@ const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const ClientPreferences = lazy(() => import('@/pages/client/preferences'));
 const ResourceLibrary = lazy(() => import('@/pages/client/resource-library'));
+const ClientWhatsNew = lazy(() => import('@/pages/client/whats-new'));
 const ClientTools = lazy(() => import('@/pages/client/tools'));
 const ClientWelcomePackage = lazy(() => import('@/pages/client/welcome-package'));
 const UploadPage = lazy(() => import('@/pages/public/upload'));
@@ -147,6 +148,7 @@ function Router() {
       <Route path="/portal/login" component={ClientAuth} />
       <Route path="/portal/preferences" component={ClientPreferences} />
       <Route path="/portal/library" component={ResourceLibrary} />
+      <Route path="/portal/whats-new" component={ClientWhatsNew} />
       <Route path="/portal/tools" component={ClientTools} />
       <Route path="/portal/welcome-package" component={ClientWelcomePackage} />
       <Route path="/portal" component={ClientPortal} />
