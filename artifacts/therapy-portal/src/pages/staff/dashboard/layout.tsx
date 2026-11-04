@@ -28,6 +28,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#F47A18', sidebarColor: '#120A05', darkBackgroundColor: '#100904', appearance: 'light', reducedMotion: false, sidebarLabels: true, sidebarWidth: 'standard' });
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [outstandingLogs, setOutstandingLogs] = useState(0);
   const { data: settings } = useGetSettings();
   const [corporateBranding, setCorporateBranding] = useState<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>({ founderDeckLogoUrl: "/ash-aws-crossover.webp", executiveDeckLogoUrl: "/ash-corporate.webp" });
   const isStaffDarkMode = portalPrefs.appearance === 'dark';
@@ -86,6 +87,22 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
     customFetch<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>("/api/corporate/branding/public", { responseType: "json" })
       .then((value) => value && setCorporateBranding((current) => ({ ...current, ...value })))
       .catch(() => undefined);
+  }, [session?.authenticated]);
+
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    const refreshLogs = () => {
+      customFetch<Array<{ id: number }>>("/api/v4/staff-logs/pending", { responseType: "json" })
+        .then((list) => setOutstandingLogs(Array.isArray(list) ? list.length : 0))
+        .catch(() => undefined);
+    };
+    refreshLogs();
+    const timer = window.setInterval(refreshLogs, 4000);
+    window.addEventListener("aws4-log-updated", refreshLogs);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("aws4-log-updated", refreshLogs);
+    };
   }, [session?.authenticated]);
 
   const sessionRole = String((session as any)?.role || "");
@@ -417,6 +434,18 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
               </Button>
             </div>
           </div>
+          {outstandingLogs > 0 && location !== '/staff/staff-logs' && (
+            <div role="alertdialog" aria-modal="true" aria-labelledby="aws-log-gate-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4">
+              <div className="w-full max-w-md space-y-4 rounded-2xl border bg-card p-6 text-card-foreground shadow-2xl">
+                <div className="flex items-center gap-3"><ClipboardList className="h-8 w-8 text-primary" /><span className="font-mono text-xs font-semibold uppercase tracking-widest text-primary">AWS 4.0 accountability</span></div>
+                <h2 id="aws-log-gate-title" className="font-serif text-2xl font-semibold">Staff Logging is required</h2>
+                <p className="text-sm text-muted-foreground">You have {outstandingLogs} completed {outstandingLogs === 1 ? 'action' : 'actions'} awaiting a manual log. Document every outstanding action before making further changes.</p>
+                <p className="text-xs text-muted-foreground">Your automatic audit log has already captured the system operation. The manual explanation is a separate record.</p>
+                <Button className="w-full" onClick={() => {setMobileOpen(false);setLocation('/staff/staff-logs');}}>Open Staff Logging</Button>
+                <Button variant="outline" className="w-full" onClick={() => logout.mutate()}>Sign out instead</Button>
+              </div>
+            </div>
+          )}
           {children}
         </div>
       </main>
