@@ -172,7 +172,7 @@ router.patch("/careers/admin/applications/:id", requireAuth, safe(async (req, re
   const decisionBy = changedDecision ? q(actor.email) : (status === "approved" || status === "denied") ? q(previous.decision_by) : "NULL";
   const decisionAt = changedDecision ? "now()" : (status === "approved" || status === "denied") && previous.decision_at ? q(previous.decision_at) + "::timestamptz" : "NULL";
   const data = rows(await exec("UPDATE aws4_career_applications SET first_name=" + q(first) + ",last_name=" + q(last) + ",phone=" + q(phone) + ",email=" + q(email) + ",status=" + q(status) + ",internal_notes=" + q(notes) + ",decision_by=" + decisionBy + ",decision_at=" + decisionAt + ",updated_at=now() WHERE id=" + id + ' RETURNING id,status,internal_notes AS "internalNotes"'))[0];
-  await recordAudit(req, "reviewed_career_application", "aws4_career_applications", String(id), "status=" + status);
+  await recordAudit(req, "reviewed_career_application", "aws4_career_applications", String(id), JSON.stringify({before:{status:previous.status},after:{status},contactCorrected:first!==previous.first_name||last!==previous.last_name||phone!==previous.phone||email!==previous.email,notesChanged:notes!==previous.internal_notes}));
   res.json(data);
 }));
 
@@ -283,7 +283,7 @@ router.patch("/workspaces/:module/:id", requireAuth, safe(async (req, res) => {
   const status = req.body?.status === undefined ? previous.status : txt(req.body.status, 40);
   if (!title || !workStatuses.has(status)) { error(res, 400, "Invalid title or status."); return; }
   const item = rows(await exec("UPDATE aws4_workspace_records SET title=" + q(title) + ",body=" + q(body) + ",assignee=" + q(assignee) + ",status=" + q(status) + ",updated_at=now() WHERE id=" + id + ' RETURNING id,module,title,body,status,assignee'))[0];
-  await recordAudit(req, "updated_v4_workspace_record", "aws4_workspace_records", String(id), module + ":" + status);
+  await recordAudit(req, "updated_v4_workspace_record", "aws4_workspace_records", String(id), JSON.stringify({module,before:{status:previous.status,assignee:previous.assignee},after:{status,assignee}}));
   res.json(item);
 }));
 
