@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getStaffAccess, hasPermission, isCorporateExecutiveAccess, requireAuth, type RequestWithSession } from "../middleware/auth";
+import { getStaffAccess, hasPermission, isCorporateExecutiveAccess, requireAuth, requireClientAuth, type RequestWithClientSession, type RequestWithSession } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 
 /** AWS 4.0: recruitment, staff accountability, and organization-wide workspaces.
@@ -31,6 +31,7 @@ export async function ensureV4Tables() {
     await exec("CREATE INDEX IF NOT EXISTS idx_aws4_manual_logs_created ON aws4_staff_manual_logs(created_at DESC)");
     await exec("CREATE TABLE IF NOT EXISTS aws4_workspace_records (id bigserial PRIMARY KEY, module text NOT NULL, title text NOT NULL, body text NOT NULL DEFAULT '', status text NOT NULL DEFAULT 'open', assignee text NOT NULL DEFAULT '', created_by text NOT NULL, created_email text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())");
     await exec("CREATE INDEX IF NOT EXISTS idx_aws4_workspace_module ON aws4_workspace_records(module, created_at DESC)");
+    await exec("CREATE TABLE IF NOT EXISTS aws4_client_preferences (client_id bigint PRIMARY KEY REFERENCES client_accounts(id) ON DELETE CASCADE, preferences jsonb NOT NULL DEFAULT '{}'::jsonb, updated_at timestamptz NOT NULL DEFAULT now())");
   })().catch(err => { initializing = null; throw err; });
   await initializing;
 }
@@ -205,6 +206,38 @@ router.patch("/workspaces/:module/:id", requireAuth, safe(async (req, res) => {
   const item = rows(await exec("UPDATE aws4_workspace_records SET title=" + q(title) + ",body=" + q(body) + ",assignee=" + q(assignee) + ",status=" + q(status) + ",updated_at=now() WHERE id=" + id + ' RETURNING id,module,title,body,status,assignee'))[0];
   await recordAudit(req, "updated_v4_workspace_record", "aws4_workspace_records", String(id), module + ":" + status);
   res.json(item);
+}));
+
+// Private client experience: non-clinical appointment preferences and accessibility.
+// Never use a caller-provided client ID; identity comes from the signed session.
+const defaultClientPreferences = {
+  preferredStaff: "", preferredTimeWindow: "any", remindersEnabled: true,
+  onboardingCompleted: false, largeText: false, reducedMotion: false,
+  highContrast: false, simplifiedNavigation: false,
+};
+router.get("/client/preferences", requireClientAuth, safe(async (req, res) => {
+  const clientId = integer((req as RequestWithClientSession).clientSession?.id);
+  if (!clientId) { error(res, 401, "Client authentication required."); return; }
+  await ensureV4Tables();
+  const previous = rows(await exec("SELECT preferences FROM aws4_client_preferences WHERE client_id=" + clientId + " LIMIT 1"))[0]?.preferences || {};
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json({ ...defaultClientPreferences, ...previous });
+}));
+router.put("/client/preferences", requireClientAuth, safe(async (req, res) => {
+  const clientId = integer((req as RequestWithClientSession).clientSession?.id);
+  if (!clientId) { error(res, 401, "Client authentication required."); return; }
+  const body = req.body || {};
+  const time = txt(body.preferredTimeWindow, 25);
+  if (!["any", "morning", "afternoon", "evening"].includes(time)) { error(res, 400, "Choose a valid preferred appointment window."); return; }
+  const preferences = {
+    preferredStaff: txt(body.preferredStaff, 100), preferredTimeWindow: time,
+    remindersEnabled: body.remindersEnabled === true, onboardingCompleted: body.onboardingCompleted === true,
+    largeText: body.largeText === true, reducedMotion: body.reducedMotion === true,
+    highContrast: body.highContrast === true, simplifiedNavigation: body.simplifiedNavigation === true,
+  };
+  await ensureV4Tables();
+  await exec("INSERT INTO aws4_client_preferences(client_id,preferences) VALUES (" + clientId + "," + q(JSON.stringify(preferences)) + "::jsonb) ON CONFLICT(client_id) DO UPDATE SET preferences=EXCLUDED.preferences,updated_at=now()");
+  res.json(preferences);
 }));
 
 /** Successful staff mutations create a required manual follow-up; the audit
