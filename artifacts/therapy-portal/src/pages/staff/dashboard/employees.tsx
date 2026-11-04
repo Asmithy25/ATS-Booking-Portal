@@ -64,7 +64,7 @@ export default function Employees() {
       .then((result) => setRoles((result.roles || []).map((role) => ({ slug: role.slug, name: role.name }))))
       .catch(() => setRoles([
         { slug: 'manager', name: 'Manager' },
-        { slug: 'therapist', name: 'Therapist' },
+        { slug: 'therapist', name: 'Wellness Staff' },
         { slug: 'customer_service_representative', name: 'Customer Service Representative' },
         { slug: 'receptionist', name: 'Receptionist' },
       ]));
@@ -220,7 +220,7 @@ export default function Employees() {
           <DialogHeader>
             <DialogTitle>Manage {selectedEmployee?.name}</DialogTitle>
             <DialogDescription>
-              Update this therapist&apos;s account, public hours, or password. These controls are admin-only.
+              Update this Wellness Staff member&apos;s account, public hours, or password. These controls are admin-only.
             </DialogDescription>
           </DialogHeader>
           {staffDraft && (
@@ -260,7 +260,7 @@ export default function Employees() {
                   >
                     {(roles.length ? roles : [
                       { slug: 'manager', name: 'Manager' },
-                      { slug: 'therapist', name: 'Therapist' },
+                      { slug: 'therapist', name: 'Wellness Staff' },
                       { slug: 'customer_service_representative', name: 'Customer Service Representative' },
                       { slug: 'receptionist', name: 'Receptionist' },
                     ]).map((role) => <option key={role.slug} value={role.slug}>{role.name}</option>)}
@@ -292,8 +292,8 @@ export default function Employees() {
 
               <div className="rounded-xl border p-4">
                 <div className="mb-4">
-                  <h3 className="font-semibold">Public Therapist Hours</h3>
-                  <p className="text-sm text-muted-foreground">These appear under this therapist&apos;s name on the public booking page.</p>
+                  <h3 className="font-semibold">Public Wellness Staff Hours</h3>
+                  <p className="text-sm text-muted-foreground">These appear under this Wellness Staff member&apos;s name on the public booking page.</p>
                 </div>
                 <div className="space-y-3">
                   {DAYS.map((day) => {
@@ -340,7 +340,7 @@ export default function Employees() {
                   <KeyRound className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                   <h3 className="font-semibold">Reset Password</h3>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">This immediately replaces the therapist&apos;s current password.</p>
+                <p className="text-sm text-muted-foreground mb-3">This immediately replaces the Wellness Staff member&apos;s current password.</p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     type="password"
@@ -426,7 +426,7 @@ export default function Employees() {
               <select id="emp-role" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                 {(roles.length ? roles : [
                   { slug: 'manager', name: 'Manager' },
-                  { slug: 'therapist', name: 'Therapist' },
+                  { slug: 'therapist', name: 'Wellness Staff' },
                   { slug: 'customer_service_representative', name: 'Customer Service Representative' },
                   { slug: 'receptionist', name: 'Receptionist' },
                 ]).map((role) => <option key={role.slug} value={role.slug}>{role.name}</option>)}
