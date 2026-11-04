@@ -94,6 +94,7 @@ router.put("/", requireAuth, async (req, res) => {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       res.status(400).json({ error: "Invalid phone directory payload." }); return;
     }
+    const previous = await readPhoneBook();
     const next = {
       divisions: entries(payload.divisions, 100, "division"),
       staff: entries(payload.staff, 250, "staff"),
@@ -105,7 +106,7 @@ router.put("/", requireAuth, async (req, res) => {
     await db.execute(sql`INSERT INTO ash_corporate_config (key, value, updated_by, updated_at)
       VALUES ('staff_phone_directory', ${JSON.stringify(next)}::jsonb, ${access.email}, now())
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`);
-    await recordAudit(req, "updated_staff_phone_directory", "ash_corporate_config", "staff_phone_directory");
+    await recordAudit(req, "updated_staff_phone_directory", "ash_corporate_config", "staff_phone_directory", JSON.stringify({ before:{divisions:previous.divisions.length,staff:previous.staff.length,scripts:previous.scripts.length},after:{divisions:next.divisions.length,staff:next.staff.length,scripts:next.scripts.length},changedSections:["divisions","staff","scripts"].filter(key=>JSON.stringify((previous as any)[key])!==JSON.stringify((next as any)[key])) }));
     res.json({ ...next, canManage: true });
   } catch (error) {
     if (error instanceof Error && /Invalid|Duplicate|needs a/.test(error.message)) {
