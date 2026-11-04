@@ -21,6 +21,7 @@ import notificationMissionControlRouter from "./notificationMissionControl";
 import corporateRouter from "./corporate";
 import phoneRouter from "./phone";
 import v4Router from "./v4";
+import v4SuiteRouter from "./v4-suite";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use("/notification-mission-control", notificationMissionControlRouter);
 router.use("/corporate", corporateRouter);
 router.use("/phone", phoneRouter);
 router.use("/v4", v4Router);
+router.use("/v4/suite", v4SuiteRouter);
 
 export default router;
