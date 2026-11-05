@@ -45,7 +45,7 @@ const specializedPaths:Record<string,string>={
  training:"/staff/v4-suite/training",
  availability:"/staff/v4-suite/staff-requests",
  recognition:"/staff/v4-suite/recognition",
- discussions:"/staff/team-chat",
+ discussions:"/staff/department-discussions",
  incidents:"/staff/incidents",
 };
 
