@@ -332,7 +332,7 @@ export async function enforceStaffManualLogging(req: Request, res: Response, nex
   if (!["POST","PUT","PATCH","DELETE"].includes(req.method) ||
     req.path.startsWith("/api/auth/") || req.path.startsWith("/api/v4/staff-logs") ||
     req.path.startsWith("/api/portal/") || req.path.startsWith("/api/v4/client/") ||
-    req.path.startsWith("/api/v4/careers/apply")) { next(); return; }
+    req.path.startsWith("/api/v4/careers/apply") || req.path.startsWith("/api/v4/careers/status") || req.path === "/api/final/aurora/plan") { next(); return; }
   const actor = extractStaffSession(req);
   if (!actor) { next(); return; }
   if(pendingMutationWrites.has(actor.email)){res.status(409).json({error:"The previous operation is still being recorded. Refresh Staff Logging when it appears.",code:"AWS4_MANUAL_LOG_PENDING"});return;}
@@ -351,7 +351,7 @@ export async function enforceStaffManualLogging(req: Request, res: Response, nex
 }
 
 export function trackStaffMutations(req: Request, res: Response, next: NextFunction): void {
-  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method) || req.path.startsWith("/api/v4/staff-logs") || req.path.startsWith("/api/auth/") || req.path.startsWith("/api/portal/") || req.path.startsWith("/api/v4/careers/apply")) { next(); return; }
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method) || req.path.startsWith("/api/v4/staff-logs") || req.path.startsWith("/api/auth/") || req.path.startsWith("/api/portal/") || req.path.startsWith("/api/v4/careers/apply") || req.path.startsWith("/api/v4/careers/status") || req.path === "/api/final/aurora/plan") { next(); return; }
   res.once("finish", () => {
     if (res.statusCode < 200 || res.statusCode >= 300) return;
     const actor = (req as RequestWithSession).staffSession;
