@@ -47,6 +47,7 @@ const specializedPaths:Record<string,string>={
  recognition:"/staff/v4-suite/recognition",
  discussions:"/staff/department-discussions",
  incidents:"/staff/incidents",
+ profiles:"/staff/profile-studio",
 };
 
 const statuses=["open","in_progress","pending_review","approved","done","closed"];
