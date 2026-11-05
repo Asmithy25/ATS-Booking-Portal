@@ -51,7 +51,7 @@ await expect("/api/final/aurora/execute","POST",{previewId:token},409,"already-u
 assert.equal(Number(sql("SELECT count(*) FROM announcements WHERE title='AWS4 Aurora replay security test'")),1,"exactly one announcement created");
 const invalidDate=preview({type:"reschedule_booking",args:{id:999999,preferredDate:"2099-13-03",preferredTime:"12:00"}});
 await expect("/api/final/aurora/execute","POST",{previewId:invalidDate},404,"missing appointment rejected");
-const bookingId=Number(sql("INSERT INTO bookings(confirmation_code,client_name,phone,reason,preferred_date,preferred_time,status) VALUES ('AURORA-CI-"+Date.now()+"','Aurora Integration','9545550199','Scheduling safety','2099-08-05','15:00','claimed') RETURNING id"));
+const bookingId=Number(sql("INSERT INTO bookings(confirmation_code,client_name,phone,reason,preferred_date,preferred_time,status) VALUES ('AURORA-CI-"+Date.now()+"','Aurora Integration','9545550199','Scheduling safety','2099-08-05','15:00','claimed') RETURNING id").split(/\s+/)[0]);
 sql("INSERT INTO booking_sessions(booking_id,staff_email,staff_name,client_name,confirmation_code,started_at,ended_at,auto_started) SELECT id,'wellness.staff@aws-smoke.example','Test Wellness Staff',client_name,confirmation_code,now(),NULL,false FROM bookings WHERE id="+bookingId);
 const active=preview({type:"reschedule_booking",args:{id:bookingId,preferredDate:"2099-08-06",preferredTime:"15:00"}});
 await expect("/api/final/aurora/execute","POST",{previewId:active},409,"active session cannot be rescheduled");
