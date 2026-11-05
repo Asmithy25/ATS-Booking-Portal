@@ -306,6 +306,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/v4-suite', <Building2 className="h-4 w-4" />, 'AWS 4.0 Enterprise Services')}
           {navItem('/staff/staff-logs', <ClipboardList className="h-4 w-4" />, 'Staff Logging')}
           {navItem('/staff/incidents', <ShieldAlert className="h-4 w-4" />, 'Incident Management')}
+          {navItem('/staff/department-discussions', <MessageCircle className="h-4 w-4" />, 'Department Discussions')}
           {(canManageRecruitment || sessionRole === 'manager' || (session as any)?.permissions?.viewClientMessages === true) && navItem('/staff/client-feedback', <MessageSquare className="h-4 w-4" />, 'Client Feedback Review')}
           {canManageRecruitment && navItem('/staff/careers', <BriefcaseBusiness className="h-4 w-4" />, 'Careers Management')}
           {navItem('/staff/bookings', <Calendar className="h-4 w-4" />, 'Bookings')}
