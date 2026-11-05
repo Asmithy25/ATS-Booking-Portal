@@ -343,8 +343,15 @@ export async function enforceStaffManualLogging(req: Request, res: Response, nex
       res.status(409).json({ error: "A Staff Logging entry is required before another change. Open Staff Logging, document the pending action, then try again.", code: "AWS4_MANUAL_LOG_REQUIRED", pendingId: Number(pending[0].id) });
       return;
     }
+    // Reserve this staff member's next mutation before the route runs, so
+    // simultaneous requests cannot slip past an empty pending-log query.
+    pendingMutationWrites.add(actor.email);
+    res.once("finish", () => {
+      if (res.statusCode < 200 || res.statusCode >= 300) pendingMutationWrites.delete(actor.email);
+    });
     next();
   } catch(err) {
+    pendingMutationWrites.delete(actor.email);
     req.log.error({ err }, "Staff logging enforcement unavailable");
     res.status(503).json({ error: "Staff logging is temporarily unavailable. Changes are paused to preserve accountability." });
   }
