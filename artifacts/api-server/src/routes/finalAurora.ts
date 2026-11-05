@@ -48,12 +48,12 @@ async function contextFor(access:any){
   await ensureAdvancedStorage();
   const isFounder=access.role==="founder";const effectivePermissions=isFounder?["*"]:Object.entries(access.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);const context:any={staff:{name:access.name,email:access.email,role:access.role,isFounder,accessLevel:isFounder?"unrestricted":"permission_scoped",permissions:effectivePermissions},today:new Date().toISOString().slice(0,10)};
   if(hasPermission(access,"viewClients")){
-    context.clients=rows(await exec("SELECT id,name,email,phone FROM client_accounts ORDER BY updated_at DESC LIMIT 200"));
-    context.bookings=rows(await exec("SELECT id,client_name AS \"clientName\",phone,preferred_date AS \"preferredDate\",preferred_time AS \"preferredTime\",status,priority,claimed_by AS \"claimedBy\" FROM bookings ORDER BY preferred_date DESC,preferred_time DESC LIMIT 250"));
+    context.clients=rows(await exec("SELECT id,name FROM client_accounts ORDER BY updated_at DESC LIMIT 100"));
+    context.bookings=rows(await exec("SELECT id,client_name AS \"clientName\",preferred_date AS \"preferredDate\",preferred_time AS \"preferredTime\",status,priority,claimed_by AS \"claimedBy\" FROM bookings ORDER BY preferred_date DESC,preferred_time DESC LIMIT 250"));
   }
   if(hasPermission(access,"viewClientMessages")){
     context.clientThreads=rows(await exec("SELECT id,client_account_id AS \"clientAccountId\",subject,status,updated_at AS \"updatedAt\" FROM support_threads ORDER BY updated_at DESC LIMIT 150"));
-    context.publicSupport=rows(await exec("SELECT id,name,email,phone,subject,status,client_account_id AS \"clientAccountId\",updated_at AS \"updatedAt\" FROM public_support_threads ORDER BY updated_at DESC LIMIT 150"));
+    context.publicSupport=rows(await exec("SELECT id,subject,status,client_account_id AS \"clientAccountId\",updated_at AS \"updatedAt\" FROM public_support_threads ORDER BY updated_at DESC LIMIT 150"));
   }
   if(hasPermission(access,"manageUploads")) context.uploads=rows(await exec("SELECT id,client_account_id AS \"clientAccountId\",file_name AS \"fileName\",mime_type AS \"mimeType\",size_bytes AS \"sizeBytes\",created_at AS \"createdAt\" FROM client_uploads ORDER BY created_at DESC LIMIT 150"));
   if(hasPermission(access,"manageAssignments")) context.assignments=rows(await exec("SELECT id,client_account_id AS \"clientAccountId\",title,type,status,due_date AS \"dueDate\",frequency,progress,updated_at AS \"updatedAt\" FROM wellness_assignments ORDER BY updated_at DESC LIMIT 150"));
