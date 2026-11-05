@@ -1,10 +1,13 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "node:crypto";
-import { db, auditLogsTable, clientAccountsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, auditLogsTable, clientAccountsTable, bookingsTable, bookingSessionsTable } from "@workspace/db";
+import { eq, sql, and, isNull } from "drizzle-orm";
 import { getStaffAccess, hasPermission, requireAuth } from "../middleware/auth";
 import { ensureAdvancedStorage } from "../lib/advanced-storage";
 import { validateBookingSlot } from "../lib/scheduling";
+import { notifyBooking } from "../lib/notification-service";
+import { runBookingAutomations } from "./automationStudio";
+import { promoteWaitlistForSlot } from "./bookings";
 
 const router=Router();
 const exec=(query:string)=>db.execute(sql.raw(query));
@@ -18,6 +21,24 @@ async function capability(req:Request,res:Response){
   if(!access){res.status(401).json({error:"Unauthorized."});return null;}
   if(!hasPermission(access,"useAuroraAI")){res.status(403).json({error:"You do not have permission to use Aydens Wellness Staff Assistant."});return null;}
   return access;
+}
+// A preview is bound to the actual server-side action and a single staff identity.
+let previewReady:Promise<void>|null=null;
+async function ensureAuroraPreviewStorage(){
+  if(!previewReady)previewReady=exec("CREATE TABLE IF NOT EXISTS aws4_aurora_previews(id uuid PRIMARY KEY,actor_email text NOT NULL,action jsonb NOT NULL,expires_at timestamptz NOT NULL,consumed_at timestamptz,created_at timestamptz NOT NULL DEFAULT now())").then(()=>undefined).catch(err=>{previewReady=null;throw err;});
+  await previewReady;
+}
+async function savePreview(actorEmail:string,action:unknown){
+  await ensureAuroraPreviewStorage();
+  const key=crypto.randomUUID();
+  await exec("INSERT INTO aws4_aurora_previews(id,actor_email,action,expires_at) VALUES ("+q(key)+"::uuid,"+q(actorEmail)+","+q(JSON.stringify(action))+"::jsonb,now()+interval '5 minutes')");
+  return key;
+}
+async function usePreview(actorEmail:string,previewId:string):Promise<any|null>{
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(previewId))return null;
+  await ensureAuroraPreviewStorage();
+  const consumed=rows(await exec("UPDATE aws4_aurora_previews SET consumed_at=now() WHERE id="+q(previewId)+"::uuid AND actor_email="+q(actorEmail)+" AND consumed_at IS NULL AND expires_at>now() RETURNING action"))[0];
+  return consumed?.action||null;
 }
 function permissionFor(type:string){
   const map:Record<string,string>={update_booking_status:"editAppointments",reschedule_booking:"editAppointments",send_client_message:"viewClientMessages",create_upload_request:"manageUploads",create_staff_request:"manageStaffRequests",update_staff_task:"manageTasks",update_wellness_assignment:"manageAssignments",update_practice_settings:"manageSettings",create_announcement:"postAnnouncements",update_staff_member:"manageSettings"};
@@ -121,10 +142,13 @@ router.post("/plan",requireAuth,async(req,res)=>{
         draft.response="That request is outside your current staff permissions, so I can’t perform it. Please contact a manager or founder if access is needed.";
       }
     }
+    const previewId=action?await savePreview(access.email,action):null;
+    res.setHeader("Cache-Control","private, no-store");
     res.json({
       response:String(draft?.response||"I reviewed the workspace."),
       action,
-      canExecute:Boolean(action)
+      previewId,
+      canExecute:Boolean(action && previewId)
     });
   }catch(error:any){
     res.status(error?.statusCode===503?503:502).json({
@@ -134,23 +158,67 @@ router.post("/plan",requireAuth,async(req,res)=>{
 });
 router.post("/execute",requireAuth,async(req,res)=>{
   const access=await capability(req,res);if(!access)return;
-  const action=req.body?.action,requestText=text(req.body?.request,2000);
-  if(!action||typeof action!=="object"){res.status(400).json({error:"A valid Aurora action is required."});return;}
+  const previewId=text(req.body?.previewId,80);
+  let action:any;
+  try { action=await usePreview(access.email,previewId); }
+  catch(err){req.log.error({err},"Aurora preview validation failed");res.status(503).json({error:"Aurora confirmation is temporarily unavailable."});return;}
+  if(!action||typeof action!=="object"){res.status(409).json({error:"The proposed action has expired, been used, or was not reviewed by your account. Ask Aurora for a new preview."});return;}
   const type=text(action.type,80),perm=permissionFor(type);if(!perm){res.status(400).json({error:"Aurora cannot execute that action."});return;}
   if(!hasPermission(access,perm)){res.status(403).json({error:"This action is outside your current staff permissions."});return;}
   const a=action.args&&typeof action.args==="object"?action.args:{};let result:any=null;
-  if(type==="update_booking_status"){const id=Number(a.id),status=text(a.status,20);if(!Number.isInteger(id)||!["pending","claimed","completed","cancelled","no_show","waitlisted"].includes(status)){res.status(400).json({error:"Invalid booking action."});return;}result=rows(await exec("UPDATE bookings SET status="+q(status)+" WHERE id="+id+" RETURNING id,client_name AS \"clientName\",status"))[0];}
-  else if(type==="reschedule_booking"){const id=Number(a.id),date=text(a.preferredDate,10),time=text(a.preferredTime,5);if(!Number.isInteger(id)||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time)){res.status(400).json({error:"Exact booking id, date, and time are required."});return;}result=rows(await exec("UPDATE bookings SET preferred_date="+q(date)+",preferred_time="+q(time)+" WHERE id="+id+" RETURNING id,client_name AS \"clientName\",preferred_date AS \"preferredDate\",preferred_time AS \"preferredTime\""))[0];}
+  if(type==="update_booking_status"){
+    const bookingId=Number(a.id),status=text(a.status,20);
+    if(!Number.isSafeInteger(bookingId)||bookingId<1||!["pending","claimed","completed","cancelled","no_show","waitlisted"].includes(status)){res.status(400).json({error:"Invalid booking action."});return;}
+    const [current]=await db.select().from(bookingsTable).where(eq(bookingsTable.id,bookingId)).limit(1);
+    if(!current){res.status(404).json({error:"Appointment not found."});return;}
+    if(["completed","cancelled"].includes(current.status)){res.status(409).json({error:"Completed or cancelled appointments cannot be changed by Aurora."});return;}
+    const [live]=await db.select({id:bookingSessionsTable.id}).from(bookingSessionsTable)
+      .where(and(eq(bookingSessionsTable.bookingId,bookingId),isNull(bookingSessionsTable.endedAt))).limit(1);
+    if(live && status!=="claimed"){res.status(409).json({error:"End the active session manually before changing this booking."});return;}
+    if(["pending","claimed"].includes(status) && current.status==="waitlisted"){
+      const slot=await validateBookingSlot(current.preferredDate,current.preferredTime,{excludeBookingId:bookingId});
+      if(!slot.ok){res.status(409).json({error:slot.error});return;}
+    }
+    if(status===current.status){res.status(409).json({error:"This booking already has that status."});return;}
+    const [updated]=await db.update(bookingsTable).set({status}).where(and(eq(bookingsTable.id,bookingId),eq(bookingsTable.status,current.status))).returning();
+    if(!updated){res.status(409).json({error:"The booking changed during confirmation. Please review it again."});return;}
+    if(status==="cancelled")await notifyBooking(updated,"cancellation").catch(err=>req.log.warn({err},"Aurora booking notification failed"));
+    const ev=status==="cancelled"?"booking_cancelled":status==="completed"?"booking_completed":status==="no_show"?"booking_no_show":null;
+    if(ev)await runBookingAutomations(ev,updated).catch(err=>req.log.warn({err},"Aurora automation failed"));
+    if(["cancelled","waitlisted"].includes(status)&&current.status!=="waitlisted")
+      await promoteWaitlistForSlot(current.preferredDate,current.preferredTime,current.id).catch(err=>req.log.warn({err},"Aurora waitlist promotion failed"));
+    result={id:updated.id,status:updated.status};
+  }
+  else if(type==="reschedule_booking"){
+    const bookingId=Number(a.id),date=text(a.preferredDate,10),time=text(a.preferredTime,5);
+    if(!Number.isSafeInteger(bookingId)||bookingId<1||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time)){res.status(400).json({error:"Exact booking ID, date, and time are required."});return;}
+    const [current]=await db.select().from(bookingsTable).where(eq(bookingsTable.id,bookingId)).limit(1);
+    if(!current){res.status(404).json({error:"Appointment not found."});return;}
+    if(["completed","cancelled"].includes(current.status)){res.status(409).json({error:"This appointment cannot be rescheduled."});return;}
+    const [live]=await db.select({id:bookingSessionsTable.id}).from(bookingSessionsTable)
+      .where(and(eq(bookingSessionsTable.bookingId,bookingId),isNull(bookingSessionsTable.endedAt))).limit(1);
+    if(live){res.status(409).json({error:"The session is active. End it before rescheduling."});return;}
+    const slot=await validateBookingSlot(date,time,{excludeBookingId:bookingId,skipAvailability:current.status==="waitlisted"});
+    if(!slot.ok){res.status(409).json({error:slot.error});return;}
+    if(date===current.preferredDate&&time===current.preferredTime){res.status(409).json({error:"There is no change to the appointment time."});return;}
+    const [updated]=await db.update(bookingsTable).set({preferredDate:date,preferredTime:time})
+      .where(and(eq(bookingsTable.id,bookingId),eq(bookingsTable.preferredDate,current.preferredDate),eq(bookingsTable.preferredTime,current.preferredTime),eq(bookingsTable.status,current.status))).returning();
+    if(!updated){res.status(409).json({error:"The appointment changed. Ask Aurora for a new preview."});return;}
+    await notifyBooking(updated,"reschedule").catch(err=>req.log.warn({err},"Aurora booking notification failed"));
+    await runBookingAutomations("booking_rescheduled",updated).catch(err=>req.log.warn({err},"Aurora automation failed"));
+    if(current.status!=="waitlisted")await promoteWaitlistForSlot(current.preferredDate,current.preferredTime,current.id).catch(err=>req.log.warn({err},"Aurora waitlist promotion failed"));
+    result={id:updated.id,preferredDate:updated.preferredDate,preferredTime:updated.preferredTime};
+  }
   else if(type==="send_client_message"){const clientId=Number(a.clientId),message=text(a.message,4000);if(!Number.isInteger(clientId)||!message){res.status(400).json({error:"Client and message are required."});return;}const client=await db.select({id:clientAccountsTable.id}).from(clientAccountsTable).where(eq(clientAccountsTable.id,clientId)).limit(1);if(!client.length){res.status(404).json({error:"Client not found."});return;}const thread=rows<{id:number}>(await exec("INSERT INTO support_threads(client_account_id,subject,status,created_at,updated_at) VALUES ("+clientId+","+q(text(a.subject||"Message from Aydens Wellness Services",160))+",'open',now(),now()) RETURNING id"))[0];await exec("INSERT INTO support_messages(thread_id,sender_type,sender_name,body,created_at) VALUES ("+Number(thread?.id)+",'staff',"+q(access.name)+","+q(message)+",now())");result={id:thread?.id};}
-  else if(type==="create_upload_request"){const clientId=Number(a.clientId),label=text(a.label||"Documents",160),days=Math.min(90,Math.max(1,Number(a.expiresInDays||7)));if(!Number.isInteger(clientId)||!label){res.status(400).json({error:"Client and label are required."});return;}const token=crypto.randomBytes(32).toString("base64url");const created=rows<{id:number}>(await exec("INSERT INTO upload_requests(token,client_account_id,label,created_by,expires_at,created_at) VALUES ("+q(token)+","+clientId+","+q(label)+","+q(access.name)+",now()+("+days+"||' days')::interval,now()) RETURNING id"))[0];result={id:created?.id,url:String(req.headers.origin||"https://atsbookingportal.up.railway.app")+"/upload/"+token};}
+  else if(type==="create_upload_request"){const clientId=Number(a.clientId),label=text(a.label||"Documents",160),days=Math.min(90,Math.max(1,Number(a.expiresInDays||7)));if(!Number.isInteger(clientId)||!label){res.status(400).json({error:"Client and label are required."});return;}const token=crypto.randomBytes(32).toString("base64url");const created=rows<{id:number}>(await exec("INSERT INTO upload_requests(token,client_account_id,label,created_by,expires_at,created_at) VALUES ("+q(token)+","+clientId+","+q(label)+","+q(access.name)+",now()+("+days+"||' days')::interval,now()) RETURNING id"))[0];result={id:created?.id,url:String(process.env.AWS_PUBLIC_URL||"https://awsbookingportal.onrender.com")+"/upload/"+token};}
   else if(type==="create_staff_request"){const assignee=text(a.assigneeEmail,320).toLowerCase(),title=text(a.title,200);if(!assignee||!title){res.status(400).json({error:"Assignee and title are required."});return;}const target=rows<{email:string}>(await exec("SELECT email FROM staff_accounts WHERE lower(email)="+q(assignee)+" LIMIT 1"))[0];if(!target){res.status(404).json({error:"Staff member not found."});return;}result=rows<{id:number}>(await exec("INSERT INTO staff_requests(requester_email,assignee_email,title,description,priority,status,due_date,created_at,updated_at) VALUES ("+q(access.email)+","+q(assignee)+","+q(title)+","+q(text(a.description,4000))+","+q(["low","normal","high","urgent"].includes(a.priority)?a.priority:"normal")+",'open',"+q(a.dueDate?text(a.dueDate,10):null)+",now(),now()) RETURNING id"))[0];}
   else if(type==="update_staff_task"){const id=Number(a.id),status=text(a.status,20);if(!Number.isInteger(id)||!["open","in_progress","done"].includes(status)){res.status(400).json({error:"Invalid task update."});return;}result=rows(await exec("UPDATE staff_tasks SET status="+q(status)+",updated_at=now() WHERE id="+id+" RETURNING id,title,status"))[0];}
   else if(type==="update_wellness_assignment"){const id=Number(a.id),status=text(a.status,20);if(!Number.isInteger(id)||!["assigned","in_progress","completed"].includes(status)){res.status(400).json({error:"Invalid assignment status."});return;}result=rows(await exec("UPDATE wellness_assignments SET status="+q(status)+",updated_at=now() WHERE id="+id+" RETURNING id,title,status"))[0];}
   else if(type==="update_practice_settings"){const accepting=a.acceptingClients===undefined?null:Boolean(a.acceptingClients),sessionOpen=a.sessionRequestsOpen===undefined?null:Boolean(a.sessionRequestsOpen);if(accepting===null&&sessionOpen===null){res.status(400).json({error:"Provide at least one practice setting."});return;}result=rows(await exec("UPDATE settings SET accepting_clients=COALESCE("+q(accepting)+",accepting_clients),session_requests_open=COALESCE("+q(sessionOpen)+",session_requests_open) RETURNING accepting_clients AS \"acceptingClients\",session_requests_open AS \"sessionRequestsOpen\""))[0];}
   else if(type==="create_announcement"){const title=text(a.title,180),body=text(a.body,4000),audience=["staff","client"].includes(String(a.audience))?String(a.audience):"staff",metadata={...(a.metadata&&typeof a.metadata==="object"?a.metadata:{}),category:text(a.category||"General",60),status:["draft","published","archived"].includes(String(a.status))?String(a.status):"published"};if(!title||!body){res.status(400).json({error:"Announcement title and body are required."});return;}result=rows(await exec("INSERT INTO announcements(title,body,audience,published_by,active,metadata,created_at) VALUES ("+q(title)+","+q(body)+","+q(audience)+","+q(access.name)+","+q(metadata.status!=="archived")+","+q(JSON.stringify(metadata))+",now()) RETURNING id,title,body,audience,published_by AS \"publishedBy\",active,metadata,created_at AS \"createdAt\""))[0];}
-  else if(type==="update_staff_member"){if(access.role!=="founder"){res.status(403).json({error:"Only the founder can use Aurora to change employee roles."});return;}const id=Number(a.id),role=text(a.role,80);if(!Number.isInteger(id)||!role){res.status(400).json({error:"Staff member id and role are required."});return;}result=rows(await exec("UPDATE staff_accounts SET role="+q(role)+" WHERE id="+id+" RETURNING id,name,email,role"))[0];}
+  else if(type==="update_staff_member"){if(access.role!=="founder"){res.status(403).json({error:"Only the founder can use Aurora to change employee roles."});return;}const id=Number(a.id),role=text(a.role,80);if(!Number.isInteger(id)||id<1||!["manager","therapist","customer_service_representative","receptionist","ash_executive"].includes(role)){res.status(400).json({error:"Choose an existing staff member and supported staff role."});return;}result=rows(await exec("UPDATE staff_accounts SET role="+q(role)+" WHERE id="+id+" RETURNING id,name,email,role"))[0];}
   if(!result){res.status(404).json({error:"Aurora could not find the requested record."});return;}
-  await db.insert(auditLogsTable).values({actorEmail:access.email,actorName:access.name,action:"aurora_"+type,entityType:"aurora",entityId:String(result.id??""),details:text(JSON.stringify({request:requestText,result}),4000)});
+  await db.insert(auditLogsTable).values({actorEmail:access.email,actorName:access.name,action:"aurora_"+type,entityType:"aurora",entityId:String(result.id??""),details:JSON.stringify({type,confirmation:"staff_confirmed",resultId:String(result.id??""),resultStatus:result.status||null})});
   res.status(201).json({success:true,result});
 });
 export default router;
