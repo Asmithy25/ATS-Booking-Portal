@@ -167,6 +167,7 @@ export default function ClientPortal() {
   const [defaultShareSessionPrep, setDefaultShareSessionPrep] = useState(false);
   const [clientUpdatesOptIn, setClientUpdatesOptIn] = useState(false);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [aws4Comfort,setAws4Comfort] = useState({largeText:false,reducedMotion:false,highContrast:false,simplifiedNavigation:false});
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [dataExporting, setDataExporting] = useState(false);
   const copy = CLIENT_PORTAL_COPY[language];
@@ -401,6 +402,17 @@ export default function ClientPortal() {
   }, [session?.client]);
   useEffect(() => { if (!loadingSession && (sessionError || !session?.authenticated)) setLocation('/portal/login'); }, [loadingSession, session, sessionError, setLocation]);
   useEffect(() => {
+    if (!session?.authenticated) return;
+    customFetch<typeof aws4Comfort>("/api/v4/client/preferences",{responseType:"json"})
+      .then(p => setAws4Comfort({
+        largeText:p.largeText===true,
+        reducedMotion:p.reducedMotion===true,
+        highContrast:p.highContrast===true,
+        simplifiedNavigation:p.simplifiedNavigation===true,
+      }))
+      .catch(()=>undefined);
+  },[session?.authenticated]);
+  useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(timer);
   }, []);
@@ -409,10 +421,10 @@ export default function ClientPortal() {
   const past = bookings.filter((b) => !upcoming.includes(b));
   if (loadingSession || !session?.client) return <div className="flex min-h-screen items-center justify-center bg-background"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" /></div>;
 
-  return <main className="ats-client-portal min-h-screen bg-[#f7f2e9] text-foreground dark:bg-background">
+  return <main className={"ats-client-portal min-h-screen bg-[#f7f2e9] text-foreground dark:bg-background " +(aws4Comfort.largeText?"aws4-large-text ":"")+(aws4Comfort.reducedMotion?"ats-reduced-motion ":"")+(aws4Comfort.highContrast?"contrast-125 ":"")}>
      <WelcomeSplash name={session.client.name.split(' ')[0]} storageKey="ats-client-welcome-seen" />
-     <header className="border-b border-border bg-background/90 backdrop-blur"><div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center bg-secondary p-1"><img src={settings?.logoUrl || logoUrl} alt="Ayden's Therapy Services" className="h-full w-full object-cover mix-blend-multiply" /></span><div><p className="font-mono text-[9px] font-bold uppercase tracking-[.2em] text-destructive">{copy.privateSpace}</p><p className="font-serif text-2xl font-normal">{copy.welcomeBack}, {session.client.name.split(' ')[0]}</p></div></div><div className="flex items-center gap-2"><ThemeToggle compact /><Link href="/portal/tools" className="hidden rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 sm:block">My AWS</Link><Link href="/" className="hidden text-xs font-semibold text-muted-foreground hover:text-destructive sm:block">Practice home</Link><Link href="/portal/tools" className="hidden text-xs font-semibold text-primary hover:underline sm:block">My AWS</Link><Button variant="ghost" size="sm" onClick={() => logout.mutate()}><LogOut className="h-4 w-4" /> Sign out</Button></div></div></header>
-     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-8 sm:py-14">
+     <header className="border-b border-border bg-background/90 backdrop-blur"><div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center bg-secondary p-1"><img src={settings?.logoUrl || logoUrl} alt="Aydens Wellness Services" className="h-full w-full object-cover mix-blend-multiply" /></span><div><p className="font-mono text-[9px] font-bold uppercase tracking-[.2em] text-destructive">{copy.privateSpace}</p><p className="font-serif text-2xl font-normal">{copy.welcomeBack}, {session.client.name.split(' ')[0]}</p></div></div><div className="flex items-center gap-2"><ThemeToggle compact /><Link href="/portal/feedback" className="rounded-lg border border-primary/20 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">Feedback</Link><Link href="/portal/whats-new" className="rounded-lg border border-primary/20 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">What’s New</Link><Link href="/portal/library" className="rounded-lg border border-primary/20 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">Wellness Library</Link><Link href="/portal/preferences" className="rounded-lg border border-primary/20 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5">Preferences</Link><Link href="/portal/tools" className="hidden rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 sm:block">My AWS</Link><Link href="/" className="hidden text-xs font-semibold text-muted-foreground hover:text-destructive sm:block">Practice home</Link><Link href="/portal/tools" className="hidden text-xs font-semibold text-primary hover:underline sm:block">My AWS</Link><Button variant="ghost" size="sm" onClick={() => logout.mutate()}><LogOut className="h-4 w-4" /> Sign out</Button></div></div></header>
+     <div className={"mx-auto px-4 py-10 sm:px-8 sm:py-14 "+(aws4Comfort.simplifiedNavigation?"max-w-4xl":"max-w-7xl")}>
        {announcements[0] && <Alert className="mb-8 border-primary/20 bg-primary/5"><Sparkles className="h-4 w-4" /><AlertTitle>{announcements[0].title}</AlertTitle><AlertDescription>{announcements[0].body}</AlertDescription></Alert>}
        <div className="mb-9 flex flex-col justify-between gap-4 border-b border-border pb-7 sm:flex-row sm:items-end"><div><p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-destructive">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p><h1 className="font-serif text-5xl font-normal leading-[.9] sm:text-6xl">{copy.heroTitle}</h1></div><p className="max-w-xs text-sm leading-6 text-muted-foreground">{copy.heroIntro}</p></div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">

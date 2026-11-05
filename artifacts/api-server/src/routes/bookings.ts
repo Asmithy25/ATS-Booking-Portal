@@ -184,7 +184,7 @@ async function resolveClientAccountId(phone: string) {
  * Promote the first opted-in client when a time is released. The resulting
  * pending request holds the slot during staff review; it is not yet confirmed.
  */
-async function promoteWaitlistForSlot(preferredDate: string, preferredTime: string, freedBookingId: number) {
+export async function promoteWaitlistForSlot(preferredDate: string, preferredTime: string, freedBookingId: number) {
   const slot = await validateBookingSlot(preferredDate, preferredTime);
   if (!slot.ok) return null;
 

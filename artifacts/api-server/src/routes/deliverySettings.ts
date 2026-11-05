@@ -4,9 +4,10 @@ import { recordAudit } from "../lib/audit";
 import { getDeliveryStatus, sendEmail, sendSms } from "../lib/delivery-providers";
 
 const router = Router();
-router.use(requireAdminAuth);
+// Authorization is scoped to delivery endpoints. A global router.use here
+// would incorrectly block every later /api route, including public Careers.
 
-router.get("/delivery-settings/status", (_req, res) => {
+router.get("/delivery-settings/status", requireAdminAuth, (_req, res) => {
   const status = getDeliveryStatus();
   res.json({
     email: { ...status.email, missing: status.email.missing },
@@ -15,7 +16,7 @@ router.get("/delivery-settings/status", (_req, res) => {
   });
 });
 
-router.post("/delivery-settings/test-email", async (req, res): Promise<void> => {
+router.post("/delivery-settings/test-email", requireAdminAuth, async (req, res): Promise<void> => {
   const to = String(req.body?.to ?? "").trim().slice(0, 254);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
     res.status(400).json({ error: "Enter a valid test email address." });
@@ -35,7 +36,7 @@ router.post("/delivery-settings/test-email", async (req, res): Promise<void> => 
   }
 });
 
-router.post("/delivery-settings/test-sms", async (req, res): Promise<void> => {
+router.post("/delivery-settings/test-sms", requireAdminAuth, async (req, res): Promise<void> => {
   const to = String(req.body?.to ?? "").trim().slice(0, 40);
   if (!/^\+[1-9]\d{7,14}$/.test(to)) {
     res.status(400).json({ error: "Enter a valid phone number in international format, for example +15612918556." });

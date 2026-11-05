@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database, Keyboard, PhoneCall } from 'lucide-react';
+import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database, Keyboard, PhoneCall, Building2, ShieldAlert, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -28,6 +28,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
   const [portalPrefs, setPortalPrefs] = useState({ layout: 'composed', density: 'comfortable', navigation: 'classic', dashboard: 'balanced', accentColor: '#F47A18', sidebarColor: '#120A05', darkBackgroundColor: '#100904', appearance: 'light', reducedMotion: false, sidebarLabels: true, sidebarWidth: 'standard' });
   const [staffNotifications, setStaffNotifications] = useState<Array<{ id: number; title: string; body: string; read: boolean }>>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [outstandingLogs, setOutstandingLogs] = useState(0);
   const { data: settings } = useGetSettings();
   const [corporateBranding, setCorporateBranding] = useState<{ founderDeckLogoUrl?: string; executiveDeckLogoUrl?: string }>({ founderDeckLogoUrl: "/ash-aws-crossover.webp", executiveDeckLogoUrl: "/ash-corporate.webp" });
   const isStaffDarkMode = portalPrefs.appearance === 'dark';
@@ -88,7 +89,24 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
       .catch(() => undefined);
   }, [session?.authenticated]);
 
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    const refreshLogs = () => {
+      customFetch<Array<{ id: number }>>("/api/v4/staff-logs/pending", { responseType: "json" })
+        .then((list) => setOutstandingLogs(Array.isArray(list) ? list.length : 0))
+        .catch(() => undefined);
+    };
+    refreshLogs();
+    const timer = window.setInterval(refreshLogs, 4000);
+    window.addEventListener("aws4-log-updated", refreshLogs);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("aws4-log-updated", refreshLogs);
+    };
+  }, [session?.authenticated]);
+
   const sessionRole = String((session as any)?.role || "");
+  const canManageRecruitment = sessionRole === 'founder' || sessionRole === 'ash_executive';
   const activeStaffLogoUrl = sessionRole === "ash_executive"
     ? (corporateBranding.executiveDeckLogoUrl || "/ash-corporate.webp")
     : sessionRole === "founder"
@@ -283,6 +301,15 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
           <p className="px-3 pb-3 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-sidebar-foreground/40">Workspace</p>
           {navItem('/staff/welcome', <Leaf className="h-4 w-4" />, 'Welcome Screen')}
+          {navItem('/staff/my-workday', <CalendarDays className="h-4 w-4" />, 'My Workday')}
+          {navItem('/staff/v4', <Sparkles className="h-4 w-4" />, 'AWS 4.0 Workspace')}
+          {navItem('/staff/v4-suite', <Building2 className="h-4 w-4" />, 'AWS 4.0 Enterprise Services')}
+          {navItem('/staff/staff-logs', <ClipboardList className="h-4 w-4" />, 'Staff Logging')}
+          {navItem('/staff/incidents', <ShieldAlert className="h-4 w-4" />, 'Incident Management')}
+          {navItem('/staff/department-discussions', <MessageCircle className="h-4 w-4" />, 'Department Discussions')}
+          {navItem('/staff/profile-studio', <UserRound className="h-4 w-4" />, 'Profile Studio')}
+          {(canManageRecruitment || sessionRole === 'manager' || (session as any)?.permissions?.viewClientMessages === true) && navItem('/staff/client-feedback', <MessageSquare className="h-4 w-4" />, 'Client Feedback Review')}
+          {canManageRecruitment && navItem('/staff/careers', <BriefcaseBusiness className="h-4 w-4" />, 'Careers Management')}
           {navItem('/staff/bookings', <Calendar className="h-4 w-4" />, 'Bookings')}
           {navItem('/staff/calendar', <CalendarDays className="h-4 w-4" />, 'Command Calendar')}
           {navItem('/staff/clients', <Users className="h-4 w-4" />, 'Clients')}
@@ -302,7 +329,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
            {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/client-templates', <Copy className="h-4 w-4" />, 'Client Templates')}
            {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/rollout', <Megaphone className="h-4 w-4" />, 'Rollout')}
           {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/announcements', <Megaphone className="h-4 w-4" />, 'Announcements')}
-          {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager')) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Activity history')}
+          {((session.isAdmin || (session as typeof session & { role?: string }).role === 'manager' || canManageRecruitment)) && navItem('/staff/activity', <History className="h-4 w-4" />, 'Automatic Audit Log')}
           {navItem('/staff/my-settings', <SettingsIcon className="h-4 w-4" />, 'My Settings')}
           {(session.isAdmin || sessionRole === 'ash_executive') && navItem('/staff/website-settings', <Eye className="h-4 w-4" />, 'Website Settings')}
           {session.isAdmin && navItem('/staff/management-settings', <ShieldCheck className="h-4 w-4" />, 'Management Settings')}
@@ -353,7 +380,7 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
             <span className="flex h-8 w-8 items-center justify-center bg-secondary p-1">
               <img src={activeStaffLogoUrl} alt="" className="h-full w-full object-cover object-top mix-blend-multiply" />
             </span>
-            <span className="font-serif text-lg">{settings?.siteName ?? "Ayden's Therapy Services"}</span>
+            <span className="font-serif text-lg">{settings?.siteName ?? "Aydens Wellness Services"}</span>
           </div>
           <Button data-testid="button-open-sidebar" variant="outline" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -413,6 +440,18 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
               </Button>
             </div>
           </div>
+          {outstandingLogs > 0 && location !== '/staff/staff-logs' && (
+            <div role="alertdialog" aria-modal="true" aria-labelledby="aws-log-gate-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4">
+              <div className="w-full max-w-md space-y-4 rounded-2xl border bg-card p-6 text-card-foreground shadow-2xl">
+                <div className="flex items-center gap-3"><ClipboardList className="h-8 w-8 text-primary" /><span className="font-mono text-xs font-semibold uppercase tracking-widest text-primary">AWS 4.0 accountability</span></div>
+                <h2 id="aws-log-gate-title" className="font-serif text-2xl font-semibold">Staff Logging is required</h2>
+                <p className="text-sm text-muted-foreground">You have {outstandingLogs} completed {outstandingLogs === 1 ? 'action' : 'actions'} awaiting a manual log. Document every outstanding action before making further changes.</p>
+                <p className="text-xs text-muted-foreground">Your automatic audit log has already captured the system operation. The manual explanation is a separate record.</p>
+                <Button className="w-full" onClick={() => {setMobileOpen(false);setLocation('/staff/staff-logs');}}>Open Staff Logging</Button>
+                <Button variant="outline" className="w-full" onClick={() => logout.mutate()}>Sign out instead</Button>
+              </div>
+            </div>
+          )}
           {children}
         </div>
       </main>

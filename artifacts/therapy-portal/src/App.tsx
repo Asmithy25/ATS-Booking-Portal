@@ -44,10 +44,23 @@ const BackupCenter = lazy(() => import('@/pages/staff/dashboard/backup-center'))
 const CommandCenter = lazy(() => import('@/pages/staff/dashboard/command-center'));
 const HomepagePreview = lazy(() => import('@/pages/staff/dashboard/homepage-preview'));
 const PublicUpdates = lazy(() => import('@/pages/public/updates'));
+const Careers = lazy(() => import('@/pages/public/careers'));
+const CareersManagement = lazy(() => import('@/pages/staff/dashboard/careers'));
+const StaffLogging = lazy(() => import('@/pages/staff/dashboard/staff-logging'));
+const AWS4Workspaces = lazy(() => import('@/pages/staff/dashboard/aws4-workspaces'));
+const AWS4Suite = lazy(() => import('@/pages/staff/dashboard/v4-suite'));
+const MyWorkday = lazy(() => import('@/pages/staff/dashboard/my-workday'));
 const PublicAssistant = lazy(() => import('@/pages/public/assistant'));
 const PublicSupport = lazy(() => import('@/pages/public/support'));
 const ClientAuth = lazy(() => import('@/pages/client/auth'));
 const ClientPortal = lazy(() => import('@/pages/client/portal'));
+const ClientPreferences = lazy(() => import('@/pages/client/preferences'));
+const ResourceLibrary = lazy(() => import('@/pages/client/resource-library'));
+const ClientWhatsNew = lazy(() => import('@/pages/client/whats-new'));
+const ClientFeedback = lazy(() => import('@/pages/client/feedback'));
+const AWS4Casework = lazy(() => import('@/pages/staff/dashboard/casework'));
+const StaffProfileStudio = lazy(() => import('@/pages/staff/dashboard/profile-studio'));
+const DepartmentDiscussions = lazy(() => import('@/pages/staff/dashboard/department-discussions'))
 const ClientTools = lazy(() => import('@/pages/client/tools'));
 const ClientWelcomePackage = lazy(() => import('@/pages/client/welcome-package'));
 const UploadPage = lazy(() => import('@/pages/public/upload'));
@@ -97,6 +110,17 @@ function StaffRouter() {
         <Route path="/staff/homepage-controls" component={HomepageControls} />
         <Route path="/staff/staff-directory" component={StaffDirectory} />
         <Route path="/staff/phone" component={PhoneCenter} />
+        <Route path="/staff/careers" component={CareersManagement} />
+        <Route path="/staff/client-feedback" component={AWS4Casework} />
+        <Route path="/staff/incidents" component={AWS4Casework} />
+        <Route path="/staff/department-discussions" component={DepartmentDiscussions} />
+        <Route path="/staff/profile-studio" component={StaffProfileStudio} />
+        <Route path="/staff/staff-logs" component={StaffLogging} />
+        <Route path="/staff/v4/:module" component={AWS4Workspaces} />
+        <Route path="/staff/v4" component={AWS4Workspaces} />
+        <Route path="/staff/v4-suite/:section" component={AWS4Suite} />
+        <Route path="/staff/v4-suite" component={AWS4Suite} />
+        <Route path="/staff/my-workday" component={MyWorkday} />
         <Route path="/staff/founder-dashboard" component={FounderDashboard} />
         <Route path="/staff/corporate" component={CorporateCommand} />
         <Route path="/staff/command-center" component={CommandCenter} />
@@ -125,12 +149,17 @@ function Router() {
       <Route path="/booking/:code" component={BookingManage} />
       <Route path="/booking" component={BookingManage} />
       <Route path="/updates" component={PublicUpdates} />
+      <Route path="/careers" component={Careers} />
       <Route path="/assistant" component={PublicAssistant} />
       <Route path="/support/:token" component={PublicSupport} />
       <Route path="/support" component={PublicSupport} />
       <Route path="/staff" component={Login} />
       <Route path="/staff/login" component={Login} />
       <Route path="/portal/login" component={ClientAuth} />
+      <Route path="/portal/preferences" component={ClientPreferences} />
+      <Route path="/portal/library" component={ResourceLibrary} />
+      <Route path="/portal/whats-new" component={ClientWhatsNew} />
+      <Route path="/portal/feedback" component={ClientFeedback} />
       <Route path="/portal/tools" component={ClientTools} />
       <Route path="/portal/welcome-package" component={ClientWelcomePackage} />
       <Route path="/portal" component={ClientPortal} />

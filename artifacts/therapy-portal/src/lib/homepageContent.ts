@@ -35,7 +35,7 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
   bookingWeekdayLabel: "M-F",
   bookingSaturdayLabel: "Sat",
   bookingSundayLabel: "Sun",
-  bookingTherapistHoursTitle: "Therapist Hours:",
+  bookingTherapistHoursTitle: "Wellness Staff Hours:",
   bookingTherapistHoursSuffix: "’s Hours:",
   bookingHolidaysTitle: "Upcoming Holidays",
   bookingHolidayClosedText: "Closed",
@@ -64,7 +64,7 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
   bookingClosedDateText: "The practice is closed on this date.",
   bookingTimeHelpText: "Choose any start time from {open} to {close}, leaving one hour for your phone session.",
   bookingSelectDateHelpText: "Choose a date to see available business hours. Sessions are 60 minutes and must fit within the practice hours.",
-  bookingManageLinkUrl: "/booking", bookingErrorClosedDay: "We are closed on this day of the week.", bookingErrorHolidayClosed: "We are closed on {holiday}.", bookingErrorClosedDate: "We are closed on this date: {reason}", bookingErrorOutsideHours: "Selected time is outside of office hours for this date.", bookingWeekdayMonLabel: "Mon", bookingWeekdayTueLabel: "Tue", bookingWeekdayWedLabel: "Wed", bookingWeekdayThuLabel: "Thu", bookingWeekdayFriLabel: "Fri", bookingDaySaturdayShortLabel: "Sat", bookingDaySundayShortLabel: "Sun", bookingAppointmentLabel: "Appointment:", bookingTherapistLabel: "Therapist:",
+  bookingManageLinkUrl: "/booking", bookingErrorClosedDay: "We are closed on this day of the week.", bookingErrorHolidayClosed: "We are closed on {holiday}.", bookingErrorClosedDate: "We are closed on this date: {reason}", bookingErrorOutsideHours: "Selected time is outside of office hours for this date.", bookingWeekdayMonLabel: "Mon", bookingWeekdayTueLabel: "Tue", bookingWeekdayWedLabel: "Wed", bookingWeekdayThuLabel: "Thu", bookingWeekdayFriLabel: "Fri", bookingDaySaturdayShortLabel: "Sat", bookingDaySundayShortLabel: "Sun", bookingAppointmentLabel: "Appointment:", bookingTherapistLabel: "Wellness Staff:",
   navPrivateSupport: "Private, phone-based support",
   navRegion: "South Florida and beyond",
   navAbout: "Our approach",
@@ -110,7 +110,7 @@ export const DEFAULT_HOMEPAGE_CONTENT = {
   wellnessStartActivityText: "Start activity",
   wellnessMarkCompletedText: "Mark completed",
   wellnessCompletedText: "Completed",
-  wellnessDuePrefix: "Due", wellnessAppointmentLabel: "Appointment:", wellnessTherapistLabel: "Therapist:", wellnessStatusCompletedText: "Completed", wellnessTypeWellnessJourney: "Wellness Journey", wellnessTypeNotebook: "Notebook", wellnessTypeHomework: "Homework",
+  wellnessDuePrefix: "Due", wellnessAppointmentLabel: "Appointment:", wellnessTherapistLabel: "Wellness Staff:", wellnessStatusCompletedText: "Completed", wellnessTypeWellnessJourney: "Wellness Journey", wellnessTypeNotebook: "Notebook", wellnessTypeHomework: "Homework",
 } as const;
 
 export function getHomepageContent(settings: unknown) {
@@ -118,12 +118,21 @@ export function getHomepageContent(settings: unknown) {
   // Legacy customizations remain hidden until someone explicitly saves a website edit.
   const activeValue = value?.websiteCustomizationEnabled === true ? value : undefined;
   const savedVisibility = activeValue?.sectionVisibility;
-  return {
+  const merged = {
     ...DEFAULT_HOMEPAGE_CONTENT,
     ...(activeValue ?? {}),
     sectionVisibility: {
       ...DEFAULT_HOMEPAGE_CONTENT.sectionVisibility,
       ...(savedVisibility && typeof savedVisibility === 'object' ? savedVisibility as Record<string, boolean> : {}),
     },
+  } as HomepageContent;
+  // Legacy saved website strings may still contain the former public title.
+  // Normalize display labels without touching internal therapistHours keys.
+  const replaceTitle = (value: unknown) => typeof value === 'string' ? value.replaceAll('Therapist', 'Wellness Staff') : value;
+  return {
+    ...merged,
+    bookingTherapistHoursTitle: replaceTitle(merged.bookingTherapistHoursTitle),
+    bookingTherapistLabel: replaceTitle(merged.bookingTherapistLabel),
+    wellnessTherapistLabel: replaceTitle(merged.wellnessTherapistLabel),
   } as HomepageContent;
 }

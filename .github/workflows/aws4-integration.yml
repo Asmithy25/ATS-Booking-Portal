@@ -1,0 +1,70 @@
+name: AWS 4.0 API integration smoke
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws4-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: aws4_test
+          POSTGRES_USER: aws4
+          POSTGRES_PASSWORD: local_aws4_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aws4 -d aws4_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgresql://aws4:local_aws4_test_password@localhost:5432/aws4_test
+      SESSION_SECRET: aws4-ci-integration-only-secret
+      AYDEN_ADMIN_PASSWORD: aws4-ci-temporary-password
+      PORT: "3000"
+      NODE_ENV: test
+      BASE_PATH: "/"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install workspaces
+        run: pnpm install --frozen-lockfile
+      - name: Create fresh test schema
+        run: pnpm --filter @workspace/db run push
+      - name: Seed a normal Wellness Staff account for role checks
+        run: |
+          PGPASSWORD=local_aws4_test_password psql -h localhost -U aws4 -d aws4_test -v ON_ERROR_STOP=1 -c "INSERT INTO staff_accounts(email,name,password_hash,role,permissions) VALUES ('wellness.staff@aws-smoke.example','Test Wellness Staff','not-used-in-signed-token-test','therapist','{}'::jsonb)"
+      - name: Seed corporate leader and two isolated client accounts
+        run: |
+          PGPASSWORD=local_aws4_test_password psql -h localhost -U aws4 -d aws4_test -v ON_ERROR_STOP=1 -c "INSERT INTO staff_accounts(email,name,password_hash,role,permissions) VALUES ('executive.aws-smoke@example.com','Test Executive','not-used-in-signed-token-test','ash_executive','{}'::jsonb)"
+          PGPASSWORD=local_aws4_test_password psql -h localhost -U aws4 -d aws4_test -v ON_ERROR_STOP=1 -c "INSERT INTO client_accounts(email,name,phone,password_hash) VALUES ('client.one.aws-smoke@example.com','Client One','9545550101','not-used-in-signed-token-test'),('client.two.aws-smoke@example.com','Client Two','9545550102','not-used-in-signed-token-test')"
+          PGPASSWORD=local_aws4_test_password psql -h localhost -U aws4 -d aws4_test -v ON_ERROR_STOP=1 -c "INSERT INTO wellness_resources(category,title,description,content,published) VALUES ('Mindfulness','Breathing exercise','A general relaxation technique','Breathe slowly and comfortably.',true)"
+      - name: Build AWS API
+        run: pnpm --filter @workspace/api-server run build
+      - name: Start API and run real HTTP smoke tests
+        run: |
+          node artifacts/api-server/dist/index.mjs > /tmp/aws4-api.log 2>&1 &
+          API_PID=$!
+          trap 'cat /tmp/aws4-api.log; kill $API_PID 2>/dev/null || true' EXIT
+          node scripts/aws4-smoke.mjs
+          node scripts/aws4-extended-smoke.mjs
+          node scripts/aws4-aurora-security.mjs

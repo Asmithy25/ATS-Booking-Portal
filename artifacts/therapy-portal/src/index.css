@@ -442,3 +442,15 @@
   transition-duration: .01ms !important;
   scroll-behavior: auto !important;
 }
+
+/* AWS 4.0 client comfort settings: apply across primary portal views without
+   increasing heading sizes or altering the rest of the public website. */
+.aws4-large-text :is(p, label, button, input, textarea, select, a, li, td, th) {
+  font-size: max(1rem, 1em);
+  line-height: 1.6;
+}
+.ats-reduced-motion *, .ats-reduced-motion *::before, .ats-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
