@@ -117,4 +117,14 @@ await expect("/api/v4/suite/whats-new/client","GET",undefined,undefined,401,"cli
 const last=await expect("/api/v4/staff-logs","GET",undefined,wellness,200,"staff views own manual ledger");
 assert.ok(last.length>2);
 await expect("/api/v4/staff-logs","GET",undefined,undefined,401,"manual logs hidden from anonymous users");
+const profileBefore=await expect("/api/v4/profiles/me","GET",undefined,wellness,200,"wellness staff can view own profile");
+assert.equal(profileBefore.email,"wellness.staff@aws-smoke.example");
+await expect("/api/v4/profiles/admin/requests","GET",undefined,wellness,403,"only corporate can view pending profile changes");
+const profileRequest=await mutation("/api/v4/profiles/me/requests","POST",{publicTitle:"Client Wellness Support",bio:"Supporting wellness client requests.",availabilityNote:"Weekday afternoons"},wellness,201,"staff requests profile publication");
+assert.ok(profileRequest.id);
+const approvalQueue=await expect("/api/v4/profiles/admin/requests","GET",undefined,founder,200,"founder can review staff profiles");
+assert.ok(approvalQueue.some(r=>Number(r.id)===Number(profileRequest.id)));
+await mutation("/api/v4/profiles/admin/requests/"+profileRequest.id,"PATCH",{status:"approved",reviewNote:"Verified team role description."},founder,200,"founder approves staff profile change");
+const publishedProfile=await expect("/api/v4/profiles/me","GET",undefined,wellness,200,"staff receives approved profile");
+assert.equal(publishedProfile.publicTitle,"Client Wellness Support");
 console.log("AWS 4.0 extended integration passed: roles, org, broadcasts, policy, staff scheduling, training, recognition, experiments, workspaces, client preferences, bookmarks and release tours.");
