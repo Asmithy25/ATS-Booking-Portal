@@ -60,15 +60,16 @@ router.patch("/admin/requests/:id",requireAuth,safe(async(req,res)=>{
  if(!record){fail(res,404,"Request not found.");return;}
  if(record.status!=="pending"){fail(res,409,"This profile request has already been decided.");return;}
  if(record.actor_email===a.email){fail(res,403,"An executive cannot approve their own profile changes.");return;}
- await exec("BEGIN");
- try{
+ const applied=await db.transaction(async(tx)=>{
+  const reviewed=rows(await tx.execute(sql.raw("UPDATE aws4_profile_requests SET status="+q(status)+",review_note="+q(reviewNote)+",reviewed_by="+q(a.email)+",reviewed_at=now() WHERE id="+id+" AND status='pending' RETURNING id")))[0];
+  if(!reviewed)return false;
   if(status==="approved"){
-   await exec("INSERT INTO aws4_staff_profiles(staff_email,public_title,bio,availability_note,updated_by) VALUES ("+q(record.actor_email)+","+q(record.public_title)+","+q(record.bio)+","+q(record.availability_note)+","+q(a.email)+") ON CONFLICT(staff_email) DO UPDATE SET public_title=EXCLUDED.public_title,bio=EXCLUDED.bio,availability_note=EXCLUDED.availability_note,updated_by=EXCLUDED.updated_by,updated_at=now()");
-   await exec("UPDATE staff_accounts SET bio="+q(record.bio)+" WHERE email="+q(record.actor_email));
+   await tx.execute(sql.raw("INSERT INTO aws4_staff_profiles(staff_email,public_title,bio,availability_note,updated_by) VALUES ("+q(record.actor_email)+","+q(record.public_title)+","+q(record.bio)+","+q(record.availability_note)+","+q(a.email)+") ON CONFLICT(staff_email) DO UPDATE SET public_title=EXCLUDED.public_title,bio=EXCLUDED.bio,availability_note=EXCLUDED.availability_note,updated_by=EXCLUDED.updated_by,updated_at=now()"));
+   await tx.execute(sql.raw("UPDATE staff_accounts SET bio="+q(record.bio)+" WHERE email="+q(record.actor_email)));
   }
-  await exec("UPDATE aws4_profile_requests SET status="+q(status)+",review_note="+q(reviewNote)+",reviewed_by="+q(a.email)+",reviewed_at=now() WHERE id="+id);
-  await exec("COMMIT");
- }catch(err){await exec("ROLLBACK").catch(()=>undefined);throw err;}
+  return true;
+ });
+ if(!applied){fail(res,409,"This profile request was already reviewed.");return;}
  await recordAudit(req,"reviewed_staff_profile","aws4_profile_requests",String(id),status);
  res.json({id,status});
 }));
