@@ -46,6 +46,7 @@ const specializedPaths:Record<string,string>={
  availability:"/staff/v4-suite/staff-requests",
  recognition:"/staff/v4-suite/recognition",
  discussions:"/staff/team-chat",
+ incidents:"/staff/incidents",
 };
 
 const statuses=["open","in_progress","pending_review","approved","done","closed"];
