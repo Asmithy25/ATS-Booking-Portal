@@ -23,6 +23,7 @@ import phoneRouter from "./phone";
 import v4Router from "./v4";
 import v4SuiteRouter from "./v4-suite";
 import v4ExperienceRouter from "./v4-experience";
+import v4DiscussionRouter from "./v4-discussions";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use("/phone", phoneRouter);
 router.use("/v4", v4Router);
 router.use("/v4/suite", v4SuiteRouter);
 router.use("/v4/experience", v4ExperienceRouter);
+router.use("/v4/discussions", v4DiscussionRouter);
 
 export default router;
