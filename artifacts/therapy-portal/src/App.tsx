@@ -57,6 +57,8 @@ const ClientPortal = lazy(() => import('@/pages/client/portal'));
 const ClientPreferences = lazy(() => import('@/pages/client/preferences'));
 const ResourceLibrary = lazy(() => import('@/pages/client/resource-library'));
 const ClientWhatsNew = lazy(() => import('@/pages/client/whats-new'));
+const ClientFeedback = lazy(() => import('@/pages/client/feedback'));
+const AWS4Casework = lazy(() => import('@/pages/staff/dashboard/casework'))
 const ClientTools = lazy(() => import('@/pages/client/tools'));
 const ClientWelcomePackage = lazy(() => import('@/pages/client/welcome-package'));
 const UploadPage = lazy(() => import('@/pages/public/upload'));
@@ -107,6 +109,8 @@ function StaffRouter() {
         <Route path="/staff/staff-directory" component={StaffDirectory} />
         <Route path="/staff/phone" component={PhoneCenter} />
         <Route path="/staff/careers" component={CareersManagement} />
+        <Route path="/staff/client-feedback" component={AWS4Casework} />
+        <Route path="/staff/incidents" component={AWS4Casework} />
         <Route path="/staff/staff-logs" component={StaffLogging} />
         <Route path="/staff/v4/:module" component={AWS4Workspaces} />
         <Route path="/staff/v4" component={AWS4Workspaces} />
@@ -151,6 +155,7 @@ function Router() {
       <Route path="/portal/preferences" component={ClientPreferences} />
       <Route path="/portal/library" component={ResourceLibrary} />
       <Route path="/portal/whats-new" component={ClientWhatsNew} />
+      <Route path="/portal/feedback" component={ClientFeedback} />
       <Route path="/portal/tools" component={ClientTools} />
       <Route path="/portal/welcome-package" component={ClientWelcomePackage} />
       <Route path="/portal" component={ClientPortal} />
