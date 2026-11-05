@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { randomBytes } from "node:crypto";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getStaffAccess, hasPermission, isCorporateExecutiveAccess, requireAuth, requireClientAuth, extractStaffSession, type RequestWithClientSession, type RequestWithSession } from "../middleware/auth";
+import { getStaffAccess, hasPermission, isCorporateExecutiveAccess, requireAuth, requireClientAuth, extractClientSession, extractStaffSession, type RequestWithClientSession, type RequestWithSession } from "../middleware/auth";
 import { recordAudit } from "../lib/audit";
 
 /** AWS 4.0: recruitment, staff accountability, and organization-wide workspaces.
@@ -324,15 +324,28 @@ router.put("/client/preferences", requireClientAuth, safe(async (req, res) => {
  * Does not inspect/store request bodies or client health information.
  */
 const pendingMutationWrites = new Set<string>();
+// Client-only operations must not be misidentified as staff changes when a
+// founder also has a client account open in the same browser.
+function staffLoggingExcluded(req:Request){
+ const path=req.path;
+ return path.startsWith("/api/auth/") ||
+   path.startsWith("/api/v4/staff-logs") ||
+   path.startsWith("/api/portal/") ||
+   path.startsWith("/api/v4/client/") ||
+   path.startsWith("/api/v4/experience/client/") ||
+   path.startsWith("/api/v4/suite/client/") ||
+   path.startsWith("/api/v4/suite/whats-new/client") ||
+   path.startsWith("/api/v4/careers/apply") ||
+   path.startsWith("/api/v4/careers/status") ||
+   path==="/api/final/aurora/plan" ||
+   (Boolean(extractClientSession(req)) && (path==="/api/bookings" || path.startsWith("/api/bookings/confirm/") || path==="/api/bookings/client-waitlist"));
+}
 
 /** Enforce the pending log requirement on the server, not just in the UI.
  * Read-only requests, sign-in/out, client calls and log submissions remain usable.
  */
 export async function enforceStaffManualLogging(req: Request, res: Response, next: NextFunction): Promise<void> {
-  if (!["POST","PUT","PATCH","DELETE"].includes(req.method) ||
-    req.path.startsWith("/api/auth/") || req.path.startsWith("/api/v4/staff-logs") ||
-    req.path.startsWith("/api/portal/") || req.path.startsWith("/api/v4/client/") ||
-    req.path.startsWith("/api/v4/careers/apply") || req.path.startsWith("/api/v4/careers/status") || req.path === "/api/final/aurora/plan") { next(); return; }
+  if (!["POST","PUT","PATCH","DELETE"].includes(req.method) || staffLoggingExcluded(req)) { next(); return; }
   const actor = extractStaffSession(req);
   if (!actor) { next(); return; }
   if(pendingMutationWrites.has(actor.email)){res.status(409).json({error:"The previous operation is still being recorded. Refresh Staff Logging when it appears.",code:"AWS4_MANUAL_LOG_PENDING"});return;}
@@ -358,7 +371,7 @@ export async function enforceStaffManualLogging(req: Request, res: Response, nex
 }
 
 export function trackStaffMutations(req: Request, res: Response, next: NextFunction): void {
-  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method) || req.path.startsWith("/api/v4/staff-logs") || req.path.startsWith("/api/auth/") || req.path.startsWith("/api/portal/") || req.path.startsWith("/api/v4/careers/apply") || req.path.startsWith("/api/v4/careers/status") || req.path === "/api/final/aurora/plan") { next(); return; }
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method) || staffLoggingExcluded(req)) { next(); return; }
   res.once("finish", () => {
     if (res.statusCode < 200 || res.statusCode >= 300) return;
     const actor = (req as RequestWithSession).staffSession;
