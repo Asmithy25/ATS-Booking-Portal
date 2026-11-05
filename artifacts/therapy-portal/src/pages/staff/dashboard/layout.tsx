@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useGetAuthMe, useStaffLogout, getGetAuthMeQueryKey, customFetch } from '@workspace/api-client-react';
-import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database, Keyboard, PhoneCall, Building2 } from 'lucide-react';
+import { Calendar, CalendarDays, Users, Settings as SettingsIcon, LogOut, Loader2, UserCog, Menu, X, BarChart3, History, Megaphone, MessageCircle, Mail, Send, Clock3, UsersRound, Copy, ArrowUpRight, Bell, NotebookPen, Star, ShieldCheck, Eye, Leaf, Search as SearchIcon, Activity, UserRound, Crown, BriefcaseBusiness, ClipboardList, Sparkles, Workflow, ChartNoAxesCombined, GitBranch, Sun, Moon, Database, Keyboard, PhoneCall, Building2, ShieldAlert, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logoUrl from '@assets/ATS_FALL_1786003864019.png';
 import { useGetSettings } from '@workspace/api-client-react';
@@ -305,6 +305,8 @@ export default function StaffDashboardLayout({ children }: { children: React.Rea
           {navItem('/staff/v4', <Sparkles className="h-4 w-4" />, 'AWS 4.0 Workspace')}
           {navItem('/staff/v4-suite', <Building2 className="h-4 w-4" />, 'AWS 4.0 Enterprise Services')}
           {navItem('/staff/staff-logs', <ClipboardList className="h-4 w-4" />, 'Staff Logging')}
+          {navItem('/staff/incidents', <ShieldAlert className="h-4 w-4" />, 'Incident Management')}
+          {(canManageRecruitment || sessionRole === 'manager' || (session as any)?.permissions?.viewClientMessages === true) && navItem('/staff/client-feedback', <MessageSquare className="h-4 w-4" />, 'Client Feedback Review')}
           {canManageRecruitment && navItem('/staff/careers', <BriefcaseBusiness className="h-4 w-4" />, 'Careers Management')}
           {navItem('/staff/bookings', <Calendar className="h-4 w-4" />, 'Bookings')}
           {navItem('/staff/calendar', <CalendarDays className="h-4 w-4" />, 'Command Calendar')}
