@@ -59,6 +59,7 @@ const ResourceLibrary = lazy(() => import('@/pages/client/resource-library'));
 const ClientWhatsNew = lazy(() => import('@/pages/client/whats-new'));
 const ClientFeedback = lazy(() => import('@/pages/client/feedback'));
 const AWS4Casework = lazy(() => import('@/pages/staff/dashboard/casework'));
+const StaffProfileStudio = lazy(() => import('@/pages/staff/dashboard/profile-studio'));
 const DepartmentDiscussions = lazy(() => import('@/pages/staff/dashboard/department-discussions'))
 const ClientTools = lazy(() => import('@/pages/client/tools'));
 const ClientWelcomePackage = lazy(() => import('@/pages/client/welcome-package'));
@@ -113,6 +114,7 @@ function StaffRouter() {
         <Route path="/staff/client-feedback" component={AWS4Casework} />
         <Route path="/staff/incidents" component={AWS4Casework} />
         <Route path="/staff/department-discussions" component={DepartmentDiscussions} />
+        <Route path="/staff/profile-studio" component={StaffProfileStudio} />
         <Route path="/staff/staff-logs" component={StaffLogging} />
         <Route path="/staff/v4/:module" component={AWS4Workspaces} />
         <Route path="/staff/v4" component={AWS4Workspaces} />
