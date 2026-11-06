@@ -36,6 +36,11 @@ async function drain(token){
  assert.fail("Could not clear staff manual logging queue.");
 }
 async function mutation(path,method,body,token,code,label){
+ if(token===founder || token===executive){
+  const result=await expect(path,method,body,token,code,label);
+  assert.deepEqual(await expect("/api/v4/staff-logs/pending","GET",undefined,token,200,"executive queue"),[]);
+  return result;
+ }
  await drain(token);
  const result=await expect(path,method,body,token,code,label);
  if(code>=200&&code<300){
@@ -46,6 +51,9 @@ async function mutation(path,method,body,token,code,label){
    await pause(25);
   }
   assert.ok(seen,label+" must be automatically queued for staff manual logging");
+  const blocked=await request(path,method,body,token);
+  assert.equal(blocked.status,409);
+  assert.equal(blocked.data.code,"AWS4_MANUAL_LOG_REQUIRED");
   await drain(token);
  }
  return result;
