@@ -327,8 +327,17 @@ const pendingMutationWrites = new Set<string>();
 // Client-only operations must not be misidentified as staff changes when a
 // founder also has a client account open in the same browser.
 function staffLoggingExcluded(req:Request){
- const path=req.path;
+ const path=req.path.replace(/\/$/, "").toLowerCase();
  return path.startsWith("/api/auth/") ||
+   (req.method === "POST" && [
+     "/api/advanced/staff/passkey/options",
+     "/api/advanced/staff/passkey/verify",
+     "/api/advanced/staff/passkey/complete",
+     "/api/advanced/staff/passkey/register-options",
+   ].includes(path)) ||
+   path.startsWith("/api/advanced/client/") ||
+   path.startsWith("/api/advanced/public/") ||
+   path.startsWith("/api/advanced/uploads/public/") ||
    path.startsWith("/api/v4/staff-logs") ||
    path.startsWith("/api/portal/") ||
    path.startsWith("/api/v4/client/") ||
@@ -349,18 +358,24 @@ export async function enforceStaffManualLogging(req: Request, res: Response, nex
   const actor = extractStaffSession(req);
   if (!actor) { next(); return; }
   if(pendingMutationWrites.has(actor.email)){res.status(409).json({error:"The previous operation is still being recorded. Refresh Staff Logging when it appears.",code:"AWS4_MANUAL_LOG_PENDING"});return;}
+  // Reserve before the first await so concurrent requests cannot both enter.
+  pendingMutationWrites.add(actor.email);
   try {
     await ensureV4Tables();
     const pending = rows(await exec("SELECT id FROM aws4_pending_manual_logs WHERE actor_email=" + q(actor.email) + " AND resolved_log_id IS NULL LIMIT 1"));
-    if (pending.length) {
+    if (res.destroyed || pending.length) {
+      pendingMutationWrites.delete(actor.email);
+      if (res.destroyed) return;
       res.status(409).json({ error: "A Staff Logging entry is required before another change. Open Staff Logging, document the pending action, then try again.", code: "AWS4_MANUAL_LOG_REQUIRED", pendingId: Number(pending[0].id) });
       return;
     }
-    // Reserve this staff member's next mutation before the route runs, so
-    // simultaneous requests cannot slip past an empty pending-log query.
-    pendingMutationWrites.add(actor.email);
+    const release = () => { pendingMutationWrites.delete(actor.email); };
+    res.once("close", release);
     res.once("finish", () => {
-      if (res.statusCode < 200 || res.statusCode >= 300) pendingMutationWrites.delete(actor.email);
+      // A successful authenticated route hands its reservation to the writer.
+      res.off("close", release);
+      const authenticated = (req as RequestWithSession).staffSession;
+      if (res.statusCode < 200 || res.statusCode >= 300 || authenticated?.email !== actor.email) release();
     });
     next();
   } catch(err) {
@@ -381,9 +396,9 @@ export function trackStaffMutations(req: Request, res: Response, next: NextFunct
     const sanitizedPath = ((req.baseUrl || "/api") + (routePath.startsWith("/") ? routePath : "/" + routePath)).slice(0, 170);
     void ensureV4Tables().then(async () => {
       await exec("INSERT INTO aws4_pending_manual_logs(actor_email,actor_name,method,endpoint) VALUES (" + q(actor.email) + "," + q(actor.name) + "," + q(req.method) + "," + q(sanitizedPath) + ")");
-      pendingMutationWrites.delete(actor.email);
       await exec("INSERT INTO audit_logs(actor_email,actor_name,action,entity_type,details) VALUES (" + q(actor.email) + "," + q(actor.name) + ",'aws4_staff_mutation'," + q(sanitizedPath) + "," + q(req.method) + ")");
-    }).catch(err => req.log.error({ err }, "AWS 4.0 mutation logging failed"));
+    }).catch(err => req.log.error({ err }, "AWS 4.0 mutation logging failed"))
+      .finally(() => { pendingMutationWrites.delete(actor.email); });
   });
   next();
 }
