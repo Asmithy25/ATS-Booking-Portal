@@ -40,17 +40,10 @@ const allApps=await assertStatus("/api/v4/careers/admin/applications","GET",unde
 const applicant=allApps.find(x=>x.reference===application.reference);
 assert.ok(applicant,"application appears in management");
 
-let pending=[];
-for(let attempt=0;attempt<30;attempt++){
- pending=await assertStatus("/api/v4/staff-logs/pending","GET",undefined,founder,200,"founder sees manual log obligations");
- if(pending.length)break;
- await pause(100);
-}
-assert.ok(pending.length,"successful staff mutation produces manual-log obligation");
-await assertStatus("/api/v4/careers/admin/applications/"+applicant.id,"PATCH",{status:"approved",internalNotes:"smoke-approved"},founder,409,"unlogged staff operations are blocked");
-const entry=await assertStatus("/api/v4/staff-logs","POST",{pendingActionId:pending[0].id,category:"Recruitment",actionTaken:"Created a new career opening",summary:"Published a smoke test vacancy for automated authorization verification.",reference:"AWS4-SMOKE"},founder,201,"manual record created");
-assert.ok(entry.id,"manual log entry has id");
-await assertStatus("/api/v4/careers/admin/applications/"+applicant.id,"PATCH",{status:"approved",internalNotes:"smoke-approved"},founder,200,"corporate decision allowed after logging");
+assert.deepEqual(await assertStatus("/api/v4/staff-logs/pending","GET",undefined,founder,200,"founder queue"),[]);
+await assertStatus("/api/v4/careers/admin/applications/"+applicant.id,"PATCH",{status:"approved",internalNotes:"smoke-approved"},founder,200,"founder can continue without logging");
+const entry=await assertStatus("/api/v4/staff-logs","POST",{category:"Recruitment",actionTaken:"Created a new career opening",summary:"Published a smoke test vacancy.",reference:"AWS4-SMOKE"},founder,201,"founder may log voluntarily");
+assert.ok(entry.id,"voluntary log has id");
 const approved=await assertStatus("/api/v4/careers/status","POST",{reference:application.reference,email:"candidate.aws-smoke@example.com"},undefined,200,"status reflects approval");
 assert.equal(approved.status,"approved","application approved in public status checker");
 console.log("AWS 4.0 smoke passed: corporate roles, recruitment lifecycle, status privacy, manual action gating.");

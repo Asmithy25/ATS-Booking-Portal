@@ -187,8 +187,9 @@ router.get("/staff-logs", requireAuth, safe(async (req, res) => {
 }));
 router.get("/staff-logs/pending", requireAuth, safe(async (req, res) => {
   const actor = await readActor(req, res); if (!actor) return;
-  await ensureV4Tables();
   res.setHeader("Cache-Control", "private, no-store");
+  if (isCorporateExecutiveAccess(actor)) { res.json([]); return; }
+  await ensureV4Tables();
   res.json(rows(await exec('SELECT id,method,endpoint,occurred_at AS "occurredAt" FROM aws4_pending_manual_logs WHERE actor_email=' + q(actor.email) + " AND resolved_log_id IS NULL ORDER BY occurred_at ASC LIMIT 100")));
 }));
 router.post("/staff-logs", requireAuth, safe(async (req, res) => {
@@ -357,8 +358,20 @@ export async function enforceStaffManualLogging(req: Request, res: Response, nex
   if (!["POST","PUT","PATCH","DELETE"].includes(req.method) || staffLoggingExcluded(req)) { next(); return; }
   const actor = extractStaffSession(req);
   if (!actor) { next(); return; }
+  try {
+    const access = await getStaffAccess(req);
+    if (isCorporateExecutiveAccess(access)) {
+      res.locals.manualLogOptionalFor = actor.email;
+      next();
+      return;
+    }
+  } catch (err) {
+    req.log.error({ err }, "Could not check staff logging role");
+    res.status(503).json({ error: "Staff access is temporarily unavailable." });
+    return;
+  }
   if(pendingMutationWrites.has(actor.email)){res.status(409).json({error:"The previous operation is still being recorded. Refresh Staff Logging when it appears.",code:"AWS4_MANUAL_LOG_PENDING"});return;}
-  // Reserve before the first await so concurrent requests cannot both enter.
+  // Reserve before reading pending logs so concurrent requests cannot both enter.
   pendingMutationWrites.add(actor.email);
   try {
     await ensureV4Tables();
@@ -391,14 +404,15 @@ export function trackStaffMutations(req: Request, res: Response, next: NextFunct
     if (res.statusCode < 200 || res.statusCode >= 300) return;
     const actor = (req as RequestWithSession).staffSession;
     if (!actor) return;
-    pendingMutationWrites.add(actor.email);
+    const required = res.locals.manualLogOptionalFor !== actor.email;
+    if (required) pendingMutationWrites.add(actor.email);
     const routePath = typeof req.route?.path === "string" ? req.route.path : "/staff-action";
     const sanitizedPath = ((req.baseUrl || "/api") + (routePath.startsWith("/") ? routePath : "/" + routePath)).slice(0, 170);
     void ensureV4Tables().then(async () => {
-      await exec("INSERT INTO aws4_pending_manual_logs(actor_email,actor_name,method,endpoint) VALUES (" + q(actor.email) + "," + q(actor.name) + "," + q(req.method) + "," + q(sanitizedPath) + ")");
+      if (required) await exec("INSERT INTO aws4_pending_manual_logs(actor_email,actor_name,method,endpoint) VALUES (" + q(actor.email) + "," + q(actor.name) + "," + q(req.method) + "," + q(sanitizedPath) + ")");
       await exec("INSERT INTO audit_logs(actor_email,actor_name,action,entity_type,details) VALUES (" + q(actor.email) + "," + q(actor.name) + ",'aws4_staff_mutation'," + q(sanitizedPath) + "," + q(req.method) + ")");
     }).catch(err => req.log.error({ err }, "AWS 4.0 mutation logging failed"))
-      .finally(() => { pendingMutationWrites.delete(actor.email); });
+      .finally(() => { if (required) pendingMutationWrites.delete(actor.email); });
   });
   next();
 }
